@@ -4,6 +4,7 @@ import time
 import cv2
 import numpy as np
 from core import score_point, near_wire
+import vision_pose
 
 SIZE = 700
 SCALE = 1.7
@@ -19,6 +20,11 @@ class Vision:
         self.verified_version = None
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.orb = cv2.ORB_create(nfeatures=2500)
+        # Camera pose from calibration (M1-04). pose is the effective pose (manual override applied).
+        self.camera_hfov = vision_pose.DEFAULT_CAMERA_HFOV
+        self.mount_side = None
+        self.solved_pose = None
+        self.pose = None
     def decode(self, data):
         arr = np.frombuffer(data, dtype=np.uint8)
         frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -67,6 +73,7 @@ class Vision:
         if min(lengths) < 40 or max(lengths) / min(lengths) > 4:
             raise ValueError('Board is too small or camera angle too steep')
         self.H = cv2.getPerspectiveTransform(p, TARGETS)
+        self.update_pose()
         self.reference = source.copy(); self.reference_H = self.H.copy()
         self.reference_mask = np.zeros((h,w), np.uint8)
         cv2.fillConvexPoly(self.reference_mask, p.astype(np.int32), 255)
@@ -117,6 +124,7 @@ class Vision:
             if not np.isfinite(current_targets).all() or (current_targets < 0).any() or (current_targets[:,0]>=width).any() or (current_targets[:,1]>=height).any():
                 raise ValueError('Board is outside camera frame')
             self.H = H; self.aligned = True; self.reset_base()
+            self.update_pose()
             unchanged = old_overlay is not None and np.max(np.linalg.norm(current_targets-old_overlay,axis=1)) <= 2
             if preserve_verification and old_verified and unchanged:
                 self.verified_version = self.version
@@ -125,6 +133,34 @@ class Vision:
         except (ValueError, np.linalg.LinAlgError, cv2.error) as error:
             self.message = str(error)
             raise ValueError('Alignment failed: '+str(error)) from error
+    def update_pose(self):
+        """Recompute the camera pose and foot point from the current H. Never raises."""
+        if self.H is None or self.frame is None:
+            self.solved_pose = None
+        else:
+            height, width = self.frame.shape[:2]
+            self.solved_pose = vision_pose.estimate_pose(self.H, width, height, SCALE, CENTER, self.camera_hfov)
+        self.apply_mount_side()
+
+    def apply_mount_side(self):
+        if self.mount_side is not None:
+            self.pose = vision_pose.manual_pose(self.mount_side, self.solved_pose)
+        else:
+            self.pose = self.solved_pose
+
+    def set_mount_side(self, mount_side):
+        """Manual foot-point override: 'top', 'bottom', 'left', 'right', or None to use the solved pose."""
+        if mount_side is not None and mount_side not in vision_pose.MOUNT_SIDES:
+            raise ValueError('mount_side must be top, bottom, left, right or none')
+        self.mount_side = mount_side
+        self.apply_mount_side()
+
+    def foot_point(self):
+        """Foot point in board mm, or None when no pose is available."""
+        if self.pose is None or self.pose.get('foot') is None:
+            return None
+        return self.pose['foot']
+
     def verify(self, version):
         if not self.fresh() or not self.aligned or self.calibration_id:
             raise ValueError('Connect the camera and complete calibration/alignment first')
@@ -201,4 +237,6 @@ class Vision:
                 'calibration_elapsed':int(time.time()-self.calibration_started) if active else None,
                 'proposal':self.proposal if fresh else None, 'overlay':overlay.tolist() if overlay is not None else None,
                 'version':self.version, 'width':int(self.frame.shape[1]) if self.frame is not None else 0,
-                'height':int(self.frame.shape[0]) if self.frame is not None else 0}
+                'height':int(self.frame.shape[0]) if self.frame is not None else 0,
+                'pose':dict(self.pose) if self.pose is not None else None,
+                'foot':self.foot_point(), 'mount_side':self.mount_side}

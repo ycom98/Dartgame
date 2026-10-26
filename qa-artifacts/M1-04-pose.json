@@ -1,0 +1,175 @@
+{
+ "tool": "tools/eval_pose.py",
+ "disclaimer": "Synthetic camera geometry only; not evidence of real-phone pose accuracy.",
+ "mounts": {
+  "top": {
+   "true_foot_mm": [
+    0.0,
+    -450.0
+   ],
+   "true_f_px": 1371.02,
+   "exact": {
+    "source": "solved",
+    "reason": null,
+    "f_px": 1371.02,
+    "foot_mm": [
+     -0.0,
+     -450.0
+    ],
+    "direction_error_deg": 0.0,
+    "distance_error_ratio": 0.0
+   },
+   "click_noise": {
+    "sigma_px": 2.0,
+    "seeds": 50,
+    "direction_error_deg_median": 1.124,
+    "direction_error_deg_p95": 2.634,
+    "distance_error_ratio_median": 0.0299,
+    "sources": {
+     "solved": 50
+    }
+   }
+  },
+  "bottom": {
+   "true_foot_mm": [
+    0.0,
+    450.0
+   ],
+   "true_f_px": 1371.02,
+   "exact": {
+    "source": "solved",
+    "reason": null,
+    "f_px": 1371.02,
+    "foot_mm": [
+     0.0,
+     450.0
+    ],
+    "direction_error_deg": 0.0,
+    "distance_error_ratio": 0.0
+   },
+   "click_noise": {
+    "sigma_px": 2.0,
+    "seeds": 50,
+    "direction_error_deg_median": 1.218,
+    "direction_error_deg_p95": 2.88,
+    "distance_error_ratio_median": 0.023,
+    "sources": {
+     "solved": 50
+    }
+   }
+  },
+  "left": {
+   "true_foot_mm": [
+    -450.0,
+    0.0
+   ],
+   "true_f_px": 1371.02,
+   "exact": {
+    "source": "solved",
+    "reason": null,
+    "f_px": 1371.02,
+    "foot_mm": [
+     -450.0,
+     0.0
+    ],
+    "direction_error_deg": 0.0,
+    "distance_error_ratio": 0.0
+   },
+   "click_noise": {
+    "sigma_px": 2.0,
+    "seeds": 50,
+    "direction_error_deg_median": 0.934,
+    "direction_error_deg_p95": 2.868,
+    "distance_error_ratio_median": 0.0251,
+    "sources": {
+     "solved": 50
+    }
+   }
+  },
+  "right": {
+   "true_foot_mm": [
+    450.0,
+    0.0
+   ],
+   "true_f_px": 1371.02,
+   "exact": {
+    "source": "solved",
+    "reason": null,
+    "f_px": 1371.02,
+    "foot_mm": [
+     450.0,
+     0.0
+    ],
+    "direction_error_deg": 0.0,
+    "distance_error_ratio": 0.0
+   },
+   "click_noise": {
+    "sigma_px": 2.0,
+    "seeds": 50,
+    "direction_error_deg_median": 1.154,
+    "direction_error_deg_p95": 2.823,
+    "distance_error_ratio_median": 0.0276,
+    "sources": {
+     "solved": 50
+    }
+   }
+  },
+  "steep-topleft": {
+   "true_foot_mm": [
+    -300.0,
+    -500.0
+   ],
+   "true_f_px": 1371.02,
+   "exact": {
+    "source": "solved",
+    "reason": null,
+    "f_px": 1371.02,
+    "foot_mm": [
+     -300.0,
+     -500.0
+    ],
+    "direction_error_deg": 0.0,
+    "distance_error_ratio": 0.0
+   },
+   "click_noise": {
+    "sigma_px": 2.0,
+    "seeds": 50,
+    "direction_error_deg_median": 1.281,
+    "direction_error_deg_p95": 3.687,
+    "distance_error_ratio_median": 0.0258,
+    "sources": {
+     "solved": 50
+    }
+   }
+  },
+  "near-frontal": {
+   "true_foot_mm": [
+    150.0,
+    -200.0
+   ],
+   "true_f_px": 1371.02,
+   "exact": {
+    "source": "fallback",
+    "reason": "view too frontal to solve focal length (perspective 0.028)",
+    "f_px": 1371.02,
+    "foot_mm": [
+     150.0,
+     -200.0
+    ],
+    "direction_error_deg": 0.0,
+    "distance_error_ratio": 0.0
+   },
+   "click_noise": {
+    "sigma_px": 2.0,
+    "seeds": 50,
+    "direction_error_deg_median": 17.064,
+    "direction_error_deg_p95": 52.64,
+    "distance_error_ratio_median": 0.1711,
+    "sources": {
+     "fallback": 49,
+     "solved": 1
+    }
+   }
+  }
+ }
+}

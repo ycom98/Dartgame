@@ -176,8 +176,12 @@ def main():
     parser.add_argument('--host',default='0.0.0.0'); parser.add_argument('--port',type=int,default=8443)
     parser.add_argument('--http',action='store_true',help='localhost/manual testing only; phone camera requires HTTPS')
     parser.add_argument('--lan-ip',help='Override LAN IP printed and included in local certificate')
+    parser.add_argument('--camera-hfov',type=float,default=70.0,
+                        help='assumed horizontal FOV (degrees) when the camera focal length cannot be solved from calibration')
     args=parser.parse_args(); ip=args.lan_ip or local_ip()
     if not 1 <= args.port <= 65535: parser.error('--port must be between 1 and 65535')
+    if not 20 <= args.camera_hfov <= 150: parser.error('--camera-hfov must be between 20 and 150 degrees')
+    if vision is not None: vision.camera_hfov = args.camera_hfov
     try: ipaddress.IPv4Address(ip)
     except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
     if args.http and args.host not in ('127.0.0.1','localhost','::1'):
