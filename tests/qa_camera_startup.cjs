@@ -2,7 +2,7 @@
 const fs=require('fs'),path=require('path'),net=require('net');
 const {spawn}=require('child_process');
 const {chromium}=require('playwright');
-const root=path.resolve(__dirname,'..'),artifacts=path.join(root,'qa-artifacts');
+const root=path.resolve(__dirname,'..'),artifacts=require('./qa_output.cjs').dir;
 const results=[],errors=[];let browser,server;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const token='independent-camera-startup-qa';

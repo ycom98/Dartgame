@@ -3,10 +3,17 @@
 #
 #   scripts/test.sh py       Python unittest suite (tests/test_*.py)
 #   scripts/test.sh browser  Every runnable Playwright suite (tests/*.cjs)
+#   scripts/test.sh browser --record
+#                            Same, but write screenshots/JSON into the committed qa-artifacts/
+#
+# Browser suites write their screenshots and result JSON to $DART_QA_ARTIFACTS. Without --record
+# this defaults to test-output/browser-<timestamp>/ (gitignored), so a test run never overwrites
+# committed evidence.
 #
 # Environment overrides:
 #   DART_PYTHON  Python interpreter (default: <root>/.venv/bin/python)
 #   DART_CHROME  Chrome/Chromium executable for Playwright (default: Playwright's bundled Chromium)
+#   DART_QA_ARTIFACTS  Browser evidence directory (overrides the default; --record wins)
 #
 # Both entry points exit non-zero if any test or suite fails.
 set -u
@@ -28,8 +35,14 @@ run_python() {
 }
 
 run_browser() {
+  if [ "${1:-}" = "--record" ]; then
+    export DART_QA_ARTIFACTS="$ROOT/qa-artifacts"
+  elif [ -z "${DART_QA_ARTIFACTS:-}" ]; then
+    export DART_QA_ARTIFACTS="$ROOT/test-output/browser-$(date +%Y%m%d-%H%M%S)"
+  fi
+  echo "Browser evidence: $DART_QA_ARTIFACTS"
   # Helper modules (not runnable suites) are skipped here.
-  local skip=" manual_qa_common.cjs "
+  local skip=" manual_qa_common.cjs qa_output.cjs "
   local failed=()
   local passed=()
   local suite name status
@@ -62,10 +75,11 @@ case "${1:-}" in
     run_python "$@"
     ;;
   browser)
-    run_browser
+    shift
+    run_browser "$@"
     ;;
   *)
-    echo "Usage: scripts/test.sh py|browser" >&2
+    echo "Usage: scripts/test.sh py | browser [--record]" >&2
     exit 2
     ;;
 esac

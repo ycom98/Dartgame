@@ -28,7 +28,7 @@ const {chromium}=require('playwright');
   const retained=await page.evaluate(()=>document.getElementById('error').textContent==='Invalid board score'&&getComputedStyle(document.getElementById('error')).display!=='none');
   if(!retained)throw Error('Successful heartbeat erased action validation error');
   results.push({name:'successful heartbeat preserves score validation error',pass:true});
-  fs.writeFileSync('qa-artifacts/developer-recovery-results.json',JSON.stringify({isolated:true,results},null,2)+'\n');
+  fs.writeFileSync(require('./qa_output.cjs').file('developer-recovery-results.json'),JSON.stringify({isolated:true,results},null,2)+'\n');
   console.log(JSON.stringify({results},null,2));
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

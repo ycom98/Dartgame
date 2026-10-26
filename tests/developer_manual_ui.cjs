@@ -40,7 +40,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
   await dart(25,2);if((await game()).scores[0]!==251)throw Error('Innerbull wrong');
   results.push({name:'Bull Double records50',pass:true});
   if(errors.length)throw Error(errors.join(';'));
-  fs.writeFileSync('qa-artifacts/developer-manual-ui-results.json',JSON.stringify({isolated:true,results,errors},null,2)+'\n');
+  fs.writeFileSync(require('./qa_output.cjs').file('developer-manual-ui-results.json'),JSON.stringify({isolated:true,results,errors},null,2)+'\n');
   console.log(JSON.stringify({results,errors},null,2));
  }finally{if(browser)await browser.close();if(child)child.kill('SIGTERM');}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -5,7 +5,7 @@ const net=require('net');
 const {spawn,execFileSync}=require('child_process');
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'), python=process.env.DART_PYTHON||path.join(root,'.venv/bin/python');
-const artifactDir=path.join(root,'qa-artifacts');
+const artifactDir=require('./qa_output.cjs').dir;
 const token='isolated-browser-qa-only';
 const results=[], errors=[];
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));

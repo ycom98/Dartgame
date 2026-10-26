@@ -96,7 +96,7 @@ The project CA private key and server private key stay in `.local/`; never share
 1. One-time setup: `python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt`.
 2. `scripts/test.sh py` runs the Python unittest suite; `scripts/test.sh browser` runs every Playwright suite and lists failures per suite.
 3. Browser suites need Node with `require('playwright')` resolvable and its bundled Chromium; set `DART_CHROME=/path/to/chrome` to use another browser (e.g. Chrome on the Mac).
-4. `DART_PYTHON` overrides the interpreter (default `.venv/bin/python`). Browser suites rewrite their evidence files in `qa-artifacts/`.
+4. `DART_PYTHON` overrides the interpreter (default `.venv/bin/python`). Browser suites write screenshots and result JSON to `test-output/browser-<timestamp>/` (gitignored), or to `$DART_QA_ARTIFACTS` when set. `scripts/test.sh browser --record` writes into the committed `qa-artifacts/` instead; use it only to refresh evidence on purpose.
 
 ## Tests and handoff
 

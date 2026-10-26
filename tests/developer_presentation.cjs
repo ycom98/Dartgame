@@ -10,7 +10,7 @@ run('presentation-developer',async({page,origin,token,api,game,assert,until,paus
  const state=(await api('state')).data;
  const display=await page.context().browser().newPage();await display.goto(origin+state.presentation_path);await display.waitForSelector('.hero .score');
  assert(await display.locator('.hero h1').textContent().then(x=>x.includes('Maya')),'Live spectator reflects current player');
- await display.setViewportSize({width:1920,height:1080});await display.screenshot({path:__dirname+'/../qa-artifacts/developer-presentation-tv.png',fullPage:true});
+ await display.setViewportSize({width:1920,height:1080});await display.screenshot({path:require('./qa_output.cjs').file('developer-presentation-tv.png'),fullPage:true});
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Controller fits mobile');
  await display.close();const before=JSON.stringify(await game());await page.goto(origin+'/showcase');await page.waitForSelector('.hero');await page.locator('#pause').click();
  assert((await page.locator('.demo').textContent()).includes('DEMO'),'Showcase identified');assert(JSON.stringify(await game())===before,'Showcase isolated');

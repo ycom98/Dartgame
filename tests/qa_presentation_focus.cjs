@@ -12,7 +12,7 @@ async function begin(start=301,double=false){let r=await api('game',{names:['Ada
 async function dart(v,m=1){let s=await state();let r=await api('throw',{value:v,multiplier:m,expected_revision:s.revision});assert(r.status===200,'api throw '+JSON.stringify(r));return r.data}
 async function next(){let s=await state(),r=await api('next',{expected_revision:s.revision});assert(r.status===200,'api next');return r.data}
 async function undo(){let s=await state(),r=await api('undo',{expected_revision:s.revision});assert(r.status===200,'api undo');return r.data}
-async function check(name,fn){await fn();result.checks.push(name);fs.writeFileSync(root+'/qa-artifacts/presentation-results.json',JSON.stringify(result,null,2))}
+async function check(name,fn){await fn();result.checks.push(name);fs.writeFileSync(require('./qa_output.cjs').file('presentation-results.json'),JSON.stringify(result,null,2))}
 (async()=>{try{
 const port=await new Promise(r=>{let s=net.createServer();s.listen(0,'127.0.0.1',()=>{let p=s.address().port;s.close(()=>r(p))})});let startup='',stderr='';
 child=spawn(process.env.DART_PYTHON||root+'/.venv/bin/python',['-B','-c','import server;server.app=server.App("'+token+'");server.vision=None;server.vision_error="QA no camera";server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});child.stdout.on('data',d=>startup+=d);child.stderr.on('data',d=>stderr+=d);await until(()=>startup.includes('Computer:'));origin='http://127.0.0.1:'+port;
@@ -36,4 +36,4 @@ await check('hung state health poll cancels pending automatic handoff',async()=>
  await begin();await host.locator('#auto').check();await dart(0);await dart(0);await until(async()=>await host.locator('.dart.filled').count()===2);let release;let gate=new Promise(r=>release=r);await host.route('**/api/state',async route=>{await gate;try{await route.continue()}catch{}});await host.locator('#value').selectOption('0');await host.locator('#record').click();await until(async()=>await host.locator('#cancel').isVisible());await delay(4600);let game=(await state()).game;release();await host.unroute('**/api/state');assert(game.player===0&&game.darts.length===3,'hung health poll allowed automatic next');
 });
 assert(result.errors.length===0,'browser errors');result.pass=true;
-}catch(e){result.pass=false;result.failure=e.stack;process.exitCode=1}finally{if(browser)await browser.close();if(child)child.kill('SIGTERM');fs.writeFileSync(root+'/qa-artifacts/presentation-focus-results.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2))}})();
+}catch(e){result.pass=false;result.failure=e.stack;process.exitCode=1}finally{if(browser)await browser.close();if(child)child.kill('SIGTERM');fs.writeFileSync(require('./qa_output.cjs').file('presentation-focus-results.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2))}})();
