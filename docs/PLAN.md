@@ -131,6 +131,22 @@ If C1 fails but C5 passes, the product still works with "camera-assisted" scorin
   4. The report is saved as `qa-artifacts/M1-05-detection.json`, and the `near-frontal` and shadow-on results are reported.
   5. Existing vision tests (stationary board never proposes, alignment and invalidation tests) still pass.
 
+#### M1-05b — Robust dart segmentation
+- **Why:** The M1-05 gate failed because segmentation, not the tip rule, was the bottleneck: a grayscale difference plus "exactly one contour" split 72–81 % of synthetic darts into fragments and gave no proposal (`docs/M1-DETECTION-RESULTS.md`). Approved by the coordinator after M1-05.
+- **Scope:**
+  - Colour-aware change detection (per-channel or Lab difference with per-frame illumination normalisation) instead of one grayscale threshold.
+  - Group the fragments of one dart into a single candidate (for example closing along the principal axis, or clustering fragments collinear with the foot-point displacement direction), and tell one new dart from two.
+  - Shadow handling: a dart's own shadow must not become the "tip". Shadows are darker but change chroma little; exploit that. Report results with the hard-shadow profile.
+  - The detector uses no harness ground truth and behaves the same on real frames.
+  - Browser suites write screenshots/JSON to a gitignored output directory instead of overwriting committed `qa-artifacts/` evidence (separate commit).
+- **Files:** new `vision_segment.py`, `vision.py`, `tools/eval_detection.py` (false-proposal and two-dart trials), new `tools/run_detection_gate.py`, new `tests/test_segmentation.py`, `tests/test_qa.py`, `tests/test_eval_harness.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05b-*.json`.
+- **Depends on:** M1-05.
+- **Acceptance:** re-run the M1-05 gate (ideal + realistic, all gated mounts, 200 darts, same seeds). Tune on seed 1 only; report on held-out seeds 2 and 3.
+  1. Targets: ≥ 95 % exact on `realistic` for the off-axis mounts, no-proposal rate ≤ 5 %, false-proposal rate reported.
+  2. Results split near-wire (≤ 1.5 mm) vs not, and reported with the hard-shadow profile.
+  3. If targets are missed, report the numbers and the remaining failure modes honestly; do not overfit.
+  4. All existing Python tests pass; new tests cover the segmentation.
+
 #### M1-06 — Split the global lock; a background vision worker
 - **Why:** `server.py` holds one `RLock` across game writes, `/api/state`, image encoding and ORB `align()`. A slow alignment freezes `/api/state` polling and the TV. A pulled stream also needs a long-lived worker thread.
 - **Scope:**
@@ -141,7 +157,7 @@ If C1 fails but C5 passes, the product still works with "camera-assisted" scorin
   - A camera-proposal commit reads the proposal snapshot under the vision lock, then commits under the game lock. Locks are never nested in the opposite order.
   - Image endpoints encode a copy outside both locks.
 - **Files:** `server.py`, `vision.py`, `tests/test_concurrency.py`.
-- **Depends on:** M1-05 (to avoid conflicting `vision.py` edits).
+- **Depends on:** M1-05b (to avoid conflicting `vision.py` edits).
 - **Acceptance:**
   1. A test monkeypatches `Vision.align` to sleep 2 s, starts it via `/api/align`, and meanwhile issues 20 `/api/state` requests. Each returns in < 100 ms and shows the pre-align state.
   2. A manual `/api/throw` during that sleep succeeds in < 100 ms.

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """DIAGNOSTIC ONLY: how good is the tip rule when segmentation is not the bottleneck?
 
-The shipped vision.py segments a dart with a grayscale difference (> 35) and
-requires exactly one contour. On synthetic scenes that splits most darts into
-fragments ("Ambiguous change"), which hides the effect of the tip rule.
+At M1-05, vision.py segmented a dart with a grayscale difference (> 35) and
+required exactly one contour. On synthetic scenes that split most darts into
+fragments ("Ambiguous change"), which hid the effect of the tip rule. M1-05b
+replaced that segmentation (vision_segment.py); this tool is kept for comparison.
 
 This tool runs the same harness with a Vision subclass that, after the normal
 ingest, re-segments stable frames with a per-channel colour difference and

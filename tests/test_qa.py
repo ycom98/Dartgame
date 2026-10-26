@@ -175,8 +175,10 @@ class TipRuleQA(unittest.TestCase):
         cases = [
             ('top', Dart(x=-50.427, y=-142.954, length=112.85, tilt=20.40, azimuth=-42.58, spin=15.42,
                          barrel_colour=(70, 70, 76), shaft_colour=(40, 40, 170), flight_colour=(30, 30, 200))),
-            ('left', Dart(x=-48.508, y=129.524, length=122.19, tilt=25.35, azimuth=21.90, spin=15.03,
-                          barrel_colour=(70, 70, 76), shaft_colour=(220, 220, 220), flight_colour=(30, 30, 200))),
+            # M1-05b: the previous left case (x=-48.508, y=129.524) only failed the centre rule because
+            # grayscale segmentation cut the dart short; with the whole dart segmented both rules agree there.
+            ('left', Dart(x=-114.561, y=73.100, length=117.00, tilt=19.98, azimuth=20.58, spin=73.28,
+                          barrel_colour=(52, 54, 58), shaft_colour=(220, 220, 220), flight_colour=(30, 30, 200))),
         ]
         for mount, dart in cases:
             with self.subTest(mount=mount):

@@ -54,6 +54,16 @@ class HarnessSmoke(unittest.TestCase):
         self.assertEqual(report['settings']['camera']['width'], 1920)
         self.assertEqual(report['mounts']['left']['camera']['hfov_deg'], 70.0)
 
+    def test_false_proposal_and_two_dart_trials_are_reported(self):
+        report = eval_detection.run(['bottom'], 1, 6, 'realistic', empty_trials=3, pair_trials=2)
+        result = report['mounts']['bottom']
+        self.assertEqual(result['false_proposals']['n'], 3)
+        self.assertEqual(result['false_proposals']['false_proposal_rate'], 0.0)
+        self.assertEqual(result['two_darts']['n'], 2)
+        self.assertEqual(sum(result['two_darts']['counts'].values()), 2)
+        self.assertEqual(report['settings']['empty_trials_per_mount'], 3)
+        self.assertIn('false-proposal', eval_detection.summary_line(result))
+
     def test_rule_flag_and_vision_factory(self):
         from tools.diag_segmentation import UnionSegmentationVision
         centre = eval_detection.run(['left'], 3, 5, 'ideal', rule='centre')

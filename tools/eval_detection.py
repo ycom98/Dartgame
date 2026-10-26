@@ -8,6 +8,9 @@ For each mount:
   3. For each trial: ingest empty frames at the trial's exposure and reset the
      base, render one dart, ingest N frames (so the stability gate passes),
      read vision.proposal and compare it with the truth.
+  4. Optionally (--empty-trials, --pair-trials): trials with no new dart and an
+     exposure drift (false proposals), and trials where two new darts appear
+     in one frame.
 
 Profiles come from sim.PROFILES ('ideal', 'realistic').
 
@@ -146,7 +149,7 @@ def camera_settings(camera):
 
 
 def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_frames=3, rule=None,
-                   tip_bias=None, vision_factory=None):
+                   tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0):
     # Random streams are keyed by the mount's name, so adding or reordering mounts leaves the others' darts unchanged.
     mount_key = mount_stream_key(mount)
     dart_rng = np.random.default_rng([seed, mount_key, 0])
@@ -255,7 +258,93 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
         },
         'trials': trials,
     }
+    session = TrialSession(vision, camera, degradation, feeder, empty, click_rng, empty_frames, frames_per_trial)
+    if empty_trials:
+        drift_rng = np.random.default_rng([seed, mount_key, 4])
+        result['false_proposals'] = session.empty_trials(empty_trials, drift_rng)
+    if pair_trials:
+        pair_rng = np.random.default_rng([seed, mount_key, 5])
+        result['two_darts'] = session.pair_trials(pair_trials, pair_rng)
+    result['calibration_invalidations'] += session.invalidations
     return result
+
+
+# Exposure change between the empty base and the empty test frame in false-proposal trials (+/- fraction).
+EMPTY_TRIAL_EXPOSURE_DRIFT = 0.10
+
+
+class TrialSession:
+    """Extra trial kinds on an already calibrated Vision (run after the single-dart trials)."""
+
+    def __init__(self, vision, camera, degradation, feeder, empty, click_rng, empty_frames, frames_per_trial):
+        self.vision = vision
+        self.camera = camera
+        self.degradation = degradation
+        self.feeder = feeder
+        self.empty = empty
+        self.click_rng = click_rng
+        self.empty_frames = empty_frames
+        self.frames_per_trial = frames_per_trial
+        self.invalidations = 0
+
+    def rebase(self, brightness):
+        """Recalibrate if the last trial invalidated the geometry, then re-establish the empty base."""
+        for _ in range(3):
+            if not self.vision.aligned:
+                self.invalidations += 1
+                calibrate(self.vision, self.camera, self.degradation, self.feeder, self.empty, brightness,
+                          self.click_rng, self.empty_frames)
+            self.feeder.ingest(self.empty, brightness, 2, timed=False)
+            if self.vision.aligned:
+                self.vision.reset_base()
+                return
+        raise RuntimeError('Vision stayed unaligned on the empty board: ' + self.vision.message)
+
+    def empty_trials(self, count, rng):
+        """No new dart; the exposure drifts by up to EMPTY_TRIAL_EXPOSURE_DRIFT between base and frame.
+
+        Any proposal is a false proposal (plan criterion C4).
+        """
+        proposals = 0
+        reasons = collections.Counter()
+        for _ in range(count):
+            brightness = self.degradation.brightness
+            self.rebase(brightness)
+            drift = float(rng.uniform(-EMPTY_TRIAL_EXPOSURE_DRIFT, EMPTY_TRIAL_EXPOSURE_DRIFT))
+            self.feeder.ingest(self.empty, brightness * (1 + drift), self.frames_per_trial, timed=False)
+            if self.vision.proposal is not None:
+                proposals += 1
+            else:
+                reasons[self.vision.message] += 1
+        return {'n': count, 'false_proposals': proposals, 'false_proposal_rate': rounded(proposals / count, 4),
+                'exposure_drift': EMPTY_TRIAL_EXPOSURE_DRIFT, 'messages': dict(reasons),
+                'note': 'Empty board; base and frame exposure differ by up to +/- exposure_drift.'}
+
+    def pair_trials(self, count, rng):
+        """Two new darts appear in the same frame. A single proposal here is at best half right.
+
+        Outcomes: 'no_proposal' (the detector declined; see messages), 'one_of_two' (a proposal whose
+        label matches one of the darts), 'wrong' (matches neither).
+        """
+        outcomes = collections.Counter()
+        reasons = collections.Counter()
+        for _ in range(count):
+            darts = [random_dart(rng), random_dart(rng)]
+            brightness = self.degradation.brightness
+            self.rebase(brightness)
+            scene = render_clean(self.camera, darts, self.degradation.shadow, self.degradation.shadow_strength)
+            self.feeder.ingest(scene, brightness, self.frames_per_trial, timed=False)
+            proposal = self.vision.proposal
+            if proposal is None:
+                outcomes['no_proposal'] += 1
+                reasons[self.vision.message] += 1
+            elif proposal['label'] in {dart.label()['label'] for dart in darts}:
+                outcomes['one_of_two'] += 1
+            else:
+                outcomes['wrong'] += 1
+        return {'n': count, 'counts': dict(outcomes),
+                'no_proposal_rate': rounded(outcomes['no_proposal'] / count, 4),
+                'messages': dict(reasons)}
 
 
 def git_commit():
@@ -267,7 +356,7 @@ def git_commit():
 
 
 def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=None, progress=None,
-        tip_bias=None, vision_factory=None):
+        tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0):
     degradation = PROFILES[profile]
     if shadow:
         degradation = degradation.with_options(shadow=DEFAULT_LIGHT)
@@ -276,7 +365,8 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
     for mount in mounts:
         mount_started = time.perf_counter()
         results[mount] = evaluate_mount(mount, darts, seed, degradation, frames_per_trial, rule=rule,
-                                        tip_bias=tip_bias, vision_factory=vision_factory)
+                                        tip_bias=tip_bias, vision_factory=vision_factory,
+                                        empty_trials=empty_trials, pair_trials=pair_trials)
         results[mount]['wall_seconds'] = round(time.perf_counter() - mount_started, 2)
         if progress:
             progress(results[mount])
@@ -289,6 +379,8 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
             'degradation': {k: v for k, v in vars(degradation).items()},
             'shadow': shadow,
             'darts_per_mount': darts,
+            'empty_trials_per_mount': empty_trials,
+            'pair_trials_per_mount': pair_trials,
             'seed': seed,
             'frames_per_trial': frames_per_trial,
             'rule': rule or getattr(vision_module, 'DEFAULT_RULE', 'centre (only rule in this vision.py)'),
@@ -318,7 +410,16 @@ def summary_line(result):
         given=result['exact_given_proposal'],
         wr=result['wrong_ring_rate'], np=result['no_proposal_rate'],
         med=result['tip_error_mm']['median'], p95=result['tip_error_mm']['p95'],
-        wire=result['near_wire']['exact_accuracy'], ms=result['time_per_frame_ms']['mean'])
+        wire=result['near_wire']['exact_accuracy'], ms=result['time_per_frame_ms']['mean']) + extra_summary(result)
+
+
+def extra_summary(result):
+    text = ''
+    if 'false_proposals' in result:
+        text += '  false-proposal {:.1%}'.format(result['false_proposals']['false_proposal_rate'])
+    if 'two_darts' in result:
+        text += '  two-darts declined {:.1%}'.format(result['two_darts']['no_proposal_rate'])
+    return text
 
 
 def main(argv=None):
@@ -329,6 +430,10 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--profile', default='ideal', choices=sorted(PROFILES))
     parser.add_argument('--shadow', action='store_true', help='render hard dart shadows (default light)')
+    parser.add_argument('--empty-trials', type=int, default=0,
+                        help='extra trials per mount with no new dart and an exposure drift (false proposals)')
+    parser.add_argument('--pair-trials', type=int, default=0,
+                        help='extra trials per mount where two new darts appear in one frame')
     parser.add_argument('--frames', type=int, default=4, help='frames ingested per dart (>= 4)')
     parser.add_argument('--rule', choices=getattr(vision_module, 'TIP_RULES', None),
                         help='tip rule (default: vision.DEFAULT_RULE)')
@@ -352,7 +457,8 @@ def main(argv=None):
 
     progress = None if args.quiet else (lambda result: print(summary_line(result), flush=True))
     report = run(mounts, args.darts, args.seed, args.profile, args.shadow, args.frames, rule=args.rule,
-                 progress=progress, tip_bias=args.tip_bias)
+                 progress=progress, tip_bias=args.tip_bias, empty_trials=args.empty_trials,
+                 pair_trials=args.pair_trials)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)

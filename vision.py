@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from core import score_point, near_wire
 import vision_pose
+import vision_segment
 
 SIZE = 700
 SCALE = 1.7
@@ -23,12 +24,78 @@ DEFAULT_RULE = 'foot'
 # then scored on (fragment outliers included); the robust median (tips within 5 mm) was -0.10 mm, and
 # QA measured slightly lower tip error with 0.0 and identical exact scores.
 TIP_BIAS_MM = 0.0
+# Change detection covers the board and most of the number ring (mm): a dart body near the
+# double ring often projects outside the scoring area.
+BOARD_CHANGE_RADIUS_MM = 200.0
+# Pixels within this distance of the chosen blob end refine the tip along the point's own axis (mm).
+TIP_REFINE_MM = 12.0
+# How far beyond the pixel end the half-contrast edge search looks (mm).
+EDGE_SEARCH_MM = 2.0
+SEGMENTATION_MESSAGES = {
+    'none': 'Ready',
+    'multiple': 'More than one new dart; enter scores manually',
+    'too_large': 'Change is too large for one dart; enter score manually',
+}
+
+
+def refine_tip(points, tip, direction, difference=None):
+    """Re-locate a blob-end tip on the dart point's own axis. Returns (tip, unit direction toward the tip).
+
+    The blob's principal axis is dominated by the flight and can be a few degrees off
+    the point, so its extreme pixel is often a corner of the point. Pixels within
+    TIP_REFINE_MM of that end give the point's local axis; the tip is the centre of the
+    pixels at the far end along it. With the change image (difference), the end is then
+    moved to the sub-pixel half-contrast crossing (half_contrast_end).
+    """
+    near = points[np.linalg.norm(points - tip, axis=1) <= TIP_REFINE_MM * SCALE]
+    if len(near) < 6:
+        return tip, direction
+    mean = near.mean(axis=0)
+    _, vectors = np.linalg.eigh(np.cov((near - mean).T))
+    axis = vectors[:, 1].astype(np.float32)
+    if float(axis @ direction) < 0:
+        axis = -axis
+    normal = np.array([-axis[1], axis[0]], np.float32)
+    along = (near - mean) @ axis
+    across = (near - mean) @ normal
+    end = float(along.max())
+    centre = float(np.median(across[along >= end - 1.5]))
+    tip = mean + axis * end + normal * centre
+    if difference is not None:
+        tip = half_contrast_end(difference, tip, axis)
+    return tip, axis
+
+
+def half_contrast_end(difference, tip, axis):
+    """Move tip along axis to where the change falls to half the point's own contrast.
+
+    A fixed threshold puts the end of a blurred point too far out where the point contrasts
+    strongly with the board and too far in where it contrasts weakly. The plateau is the
+    change along the point's centre line 1-3 mm inside the pixel end; the edge is the
+    outermost half-plateau crossing within EDGE_SEARCH_MM, by linear interpolation.
+    """
+    step = 0.25
+    offsets = np.arange(-3.0 * SCALE, EDGE_SEARCH_MM * SCALE + step, step, dtype=np.float32)
+    samples = tip[None, :] + offsets[:, None] * axis[None, :]
+    profile = cv2.remap(difference.astype(np.float32), samples[:, 0].reshape(1, -1),
+                        samples[:, 1].reshape(1, -1), cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)[0]
+    inside = (offsets >= -3.0 * SCALE) & (offsets <= -1.0 * SCALE)
+    half = 0.5 * float(np.median(profile[inside]))
+    above = np.nonzero(profile >= half)[0]
+    if half <= 0 or len(above) == 0 or above[-1] + 1 >= len(profile):
+        return tip
+    last = int(above[-1])
+    high, low = float(profile[last]), float(profile[last + 1])
+    fraction = (high - half) / max(high - low, 1e-6)
+    return tip + axis * float(offsets[last] + fraction * step)
+
 
 class Vision:
     def __init__(self):
         self.frame = None; self.timestamp = 0; self.reference = None; self.H = None
         self.base = None; self.last_warp = None; self.stable = 0; self.proposal = None
         self.aligned = False; self.message = 'Connect the phone rear camera to begin'; self.version = 0
+        self.segmentation = None
         self.verified_version = None
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.orb = cv2.ORB_create(nfeatures=2500)
@@ -207,22 +274,18 @@ class Vision:
             return
         self.stable = self.stable + 1 if motion < .004 else 0
         if self.stable < 3: return
-        diff = cv2.absdiff(gray,cv2.cvtColor(self.base,cv2.COLOR_BGR2GRAY))
-        if np.mean(diff > 35) > .12:
+        foot_mm = self.foot_point()
+        foot = None if foot_mm is None else np.asarray(foot_mm, np.float32) * SCALE + CENTER
+        segmentation = vision_segment.segment(warped, self.base, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot)
+        self.segmentation = segmentation
+        if segmentation.kind == 'large_change':
             self.invalidate('Large scene change: check board alignment before continuing')
             return
-        mask = (diff > 35).astype(np.uint8)*255
-        yy,xx = np.ogrid[:SIZE,:SIZE]
-        mask[(xx-CENTER)**2+(yy-CENTER)**2 > (172*SCALE)**2] = 0
-        mask = cv2.morphologyEx(mask,cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
-        contours,_ = cv2.findContours(mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-        contours = [c for c in contours if 35 < cv2.contourArea(c) < 6000]
-        if len(contours) != 1:
+        if segmentation.kind != 'dart':
             self.proposal = None
-            self.message = 'Ready' if not contours else 'Ambiguous change; enter score manually'
+            self.message = SEGMENTATION_MESSAGES[segmentation.kind]
             return
-        contour = contours[0].reshape(-1,2).astype(np.float32)
-        tip, confidence, rule = self.locate_tip(contour)
+        tip, confidence, rule = self.locate_tip(segmentation.outline, segmentation.points, segmentation.difference)
         if tip is None:
             self.proposal = None; self.message = 'Change is not dart-shaped; use manual scoring'; return
         x,y = (tip-CENTER)/SCALE
@@ -232,13 +295,18 @@ class Vision:
                          'note':'Prototype endpoint guess. Verify actual tip; hidden tips can be wrong.'}
         self.message = 'Possible dart found — confirm or correct score'
 
-    def locate_tip(self, contour):
-        """Return (tip warp px, confidence, rule) for one change contour, or (None, None, rule).
+    def locate_tip(self, contour, pixels=None, difference=None):
+        """Return (tip warp px, confidence, rule) for one dart, or (None, None, rule).
+
+        contour: the dart's outline points (axis, elongation and ends come from it).
+        pixels: all of the dart's pixels for refine_tip (default: contour).
+        difference: the change image, for the sub-pixel edge in refine_tip.
 
         'foot' rule: the end of the blob's principal axis nearer the camera foot point,
-        extended by tip_bias_mm along the axis toward the foot point. A blob that is not
-        elongated (a dart pointing at the lens) uses the contour pixel nearest the foot
-        point with low confidence. Without a pose, the legacy 'centre' rule is used.
+        refined along the point's own axis (refine_tip), then extended by tip_bias_mm
+        toward the foot point. A blob that is not elongated (a dart pointing at the
+        lens) uses the contour pixel nearest the foot point with low confidence.
+        Without a pose, the legacy 'centre' rule is used.
         """
         foot_mm = self.foot_point()
         rule = self.rule
@@ -265,6 +333,7 @@ class Vision:
         tip = min(ends, key=lambda p: np.linalg.norm(p - foot))
         if float((foot - tip) @ direction) < 0:
             direction = -direction
+        tip, direction = refine_tip(contour if pixels is None else pixels, tip, direction, difference)
         tip = tip + direction * (self.tip_bias_mm * SCALE)
         return tip, 'high', rule
 

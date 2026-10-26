@@ -1,0 +1,215 @@
+{
+ "tool": "ad hoc: tools/eval_detection.run with PROFILES[\"realistic\"] minus click noise (click_noise=0.0)",
+ "disclaimer": "Synthetic rendered scenes only (sim/). DIAGNOSTIC ablation, not a gate result: it removes the calibration click noise from the realistic profile to show how much of the realistic error comes from calibration.",
+ "detector": "M1-05b (same working tree as qa-artifacts/M1-05b-detection.json), TIP_BIAS_MM 0.0",
+ "settings": {
+  "profile": "realistic with click_noise=0.0",
+  "darts_per_mount": 200,
+  "seeds": [
+   2,
+   3
+  ]
+ },
+ "results": [
+  {
+   "mount": "top",
+   "seed": 2,
+   "exact_accuracy": 0.95,
+   "no_proposal_rate": 0.01,
+   "tip_error_mm": {
+    "median": 0.756,
+    "p95": 2.105,
+    "mean": 1.246,
+    "n": 198
+   },
+   "near_wire": {
+    "n": 39,
+    "exact_accuracy": 0.8462
+   },
+   "not_near_wire": {
+    "n": 161,
+    "exact_accuracy": 0.9752
+   }
+  },
+  {
+   "mount": "bottom",
+   "seed": 2,
+   "exact_accuracy": 0.95,
+   "no_proposal_rate": 0.015,
+   "tip_error_mm": {
+    "median": 0.68,
+    "p95": 1.255,
+    "mean": 0.724,
+    "n": 197
+   },
+   "near_wire": {
+    "n": 40,
+    "exact_accuracy": 0.825
+   },
+   "not_near_wire": {
+    "n": 160,
+    "exact_accuracy": 0.9812
+   }
+  },
+  {
+   "mount": "left",
+   "seed": 2,
+   "exact_accuracy": 0.965,
+   "no_proposal_rate": 0.01,
+   "tip_error_mm": {
+    "median": 0.712,
+    "p95": 1.4,
+    "mean": 0.793,
+    "n": 198
+   },
+   "near_wire": {
+    "n": 32,
+    "exact_accuracy": 0.8125
+   },
+   "not_near_wire": {
+    "n": 168,
+    "exact_accuracy": 0.994
+   }
+  },
+  {
+   "mount": "right",
+   "seed": 2,
+   "exact_accuracy": 0.985,
+   "no_proposal_rate": 0.0,
+   "tip_error_mm": {
+    "median": 0.769,
+    "p95": 1.645,
+    "mean": 0.96,
+    "n": 200
+   },
+   "near_wire": {
+    "n": 31,
+    "exact_accuracy": 0.9355
+   },
+   "not_near_wire": {
+    "n": 169,
+    "exact_accuracy": 0.9941
+   }
+  },
+  {
+   "mount": "steep-topleft",
+   "seed": 2,
+   "exact_accuracy": 0.93,
+   "no_proposal_rate": 0.0,
+   "tip_error_mm": {
+    "median": 1.182,
+    "p95": 2.211,
+    "mean": 1.292,
+    "n": 200
+   },
+   "near_wire": {
+    "n": 45,
+    "exact_accuracy": 0.7111
+   },
+   "not_near_wire": {
+    "n": 155,
+    "exact_accuracy": 0.9935
+   }
+  },
+  {
+   "mount": "top",
+   "seed": 3,
+   "exact_accuracy": 0.96,
+   "no_proposal_rate": 0.015,
+   "tip_error_mm": {
+    "median": 0.736,
+    "p95": 1.414,
+    "mean": 0.988,
+    "n": 197
+   },
+   "near_wire": {
+    "n": 33,
+    "exact_accuracy": 0.8485
+   },
+   "not_near_wire": {
+    "n": 167,
+    "exact_accuracy": 0.982
+   }
+  },
+  {
+   "mount": "bottom",
+   "seed": 3,
+   "exact_accuracy": 0.955,
+   "no_proposal_rate": 0.005,
+   "tip_error_mm": {
+    "median": 0.681,
+    "p95": 1.384,
+    "mean": 0.806,
+    "n": 199
+   },
+   "near_wire": {
+    "n": 44,
+    "exact_accuracy": 0.8182
+   },
+   "not_near_wire": {
+    "n": 156,
+    "exact_accuracy": 0.9936
+   }
+  },
+  {
+   "mount": "left",
+   "seed": 3,
+   "exact_accuracy": 0.96,
+   "no_proposal_rate": 0.025,
+   "tip_error_mm": {
+    "median": 0.784,
+    "p95": 1.434,
+    "mean": 0.855,
+    "n": 195
+   },
+   "near_wire": {
+    "n": 31,
+    "exact_accuracy": 0.9032
+   },
+   "not_near_wire": {
+    "n": 169,
+    "exact_accuracy": 0.9704
+   }
+  },
+  {
+   "mount": "right",
+   "seed": 3,
+   "exact_accuracy": 0.955,
+   "no_proposal_rate": 0.015,
+   "tip_error_mm": {
+    "median": 0.767,
+    "p95": 1.41,
+    "mean": 0.828,
+    "n": 197
+   },
+   "near_wire": {
+    "n": 37,
+    "exact_accuracy": 0.8378
+   },
+   "not_near_wire": {
+    "n": 163,
+    "exact_accuracy": 0.9816
+   }
+  },
+  {
+   "mount": "steep-topleft",
+   "seed": 3,
+   "exact_accuracy": 0.97,
+   "no_proposal_rate": 0.015,
+   "tip_error_mm": {
+    "median": 1.158,
+    "p95": 2.358,
+    "mean": 1.242,
+    "n": 197
+   },
+   "near_wire": {
+    "n": 35,
+    "exact_accuracy": 0.8571
+   },
+   "not_near_wire": {
+    "n": 165,
+    "exact_accuracy": 0.9939
+   }
+  }
+ ]
+}
