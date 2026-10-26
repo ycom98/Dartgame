@@ -93,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         public = {'/play':'presentation.html', '/control':'control.html', '/showcase':'showcase.html',
                   **{'/static/'+name:name for name in ('presentation.css','presentation.js','control.js','showcase.js',
-                                                       'setup.css','setup.js')},
+                                                       'setup.css','setup.js','board.js')},
                   '/':'index.html', '/phone':'index.html'}  # /phone: old links open the setup page
         if path in public:
             content = (ROOT/'static'/public[path]).read_bytes()

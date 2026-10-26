@@ -8,3 +8,17 @@
 
 .reservoir-label{font-size:7px;letter-spacing:1.5px;color:var(--muted);margin-top:-5px}
 .entrance .stage-name{font-size:clamp(70px,13vw,200px);line-height:1.1;letter-spacing:-.06em}.entrance .stage-big{font-size:17px;letter-spacing:6px;font-weight:normal;margin:30px 0 20px}@media(max-width:700px){.entrance .stage-name{font-size:clamp(60px,18vw,100px)}.entrance .stage-big{font-size:12px;letter-spacing:4px}}
+
+/* Tap-the-board scoring on the host controller (M1-11). Host-only; /play is unaffected. */
+.host .tap-board{margin:14px 0 6px}
+.host .tap-board svg{display:block;width:100%;max-width:520px;margin:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.host .tap-board .hit-region{fill:#000;fill-opacity:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.host .tap-board .hit-region:hover{fill:#fff;fill-opacity:.12}
+.host .tap-board .tap-flash{fill:#e7c77d!important;transition:none}
+.host .tap-board.disabled .hit-region{cursor:default;pointer-events:none}
+.host .tap-board.disabled svg{opacity:.55}
+.host .tap-actions{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.host .tap-actions #miss{min-width:96px;min-height:44px}
+.host #tap-feedback{color:var(--gold,#e7c77d);font-weight:700}
+.host #keypad summary{cursor:pointer;margin:8px 0;font-weight:600}
+@media(max-width:700px){.host .tap-board{margin-left:-41px;margin-right:-41px}}

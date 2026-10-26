@@ -5,11 +5,7 @@ window.DartRoom=(()=>{
  const label=d=>d.value===0?'MISS':d.value===25?(d.multiplier===2?'BULL':'25'):(['','S','D','T'][d.multiplier]+d.value);
  const sectors=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
  const point=(angle,r)=>[220+Math.sin(angle*Math.PI/180)*r,220-Math.cos(angle*Math.PI/180)*r];
- function board(darts){let s='<svg viewBox="0 0 440 440" role="img" aria-label="Entered dart map: approximate segment positions, not physical tracking"><circle cx="220" cy="220" r="217" fill="#0c1413" stroke="#d8b66b" stroke-width="2"/>';
- for(let i=0;i<20;i++){for(const [inner,outer] of [[19,113],[113,122],[122,184],[184,194]]){const a=point(i*18-9,inner),b=point(i*18-9,outer),c=point(i*18+9,outer),d=point(i*18+9,inner);const ring=inner===113||inner===184;s+=`<path d="M${a} L${b} A${outer} ${outer} 0 0 1 ${c} L${d} A${inner} ${inner} 0 0 0 ${a}" fill="${ring?(i%2?'#548274':'#a34440'):(i%2?'#c6bfa9':'#25322e')}" stroke="#8f9c8960" stroke-width=".8"/>`;}
- const p=point(i*18,207);s+=`<text x="${p[0]}" y="${p[1]+4}" fill="#eee9d9" text-anchor="middle" font-size="20" font-family="Arial">${sectors[i]}</text>`;}
- s+='<circle cx="220" cy="220" r="18" fill="#548274"/><circle cx="220" cy="220" r="7" fill="#a34440"/>';
- darts.forEach((d,i)=>{let p=d.value===0?[415,170+i*30]:d.value===25?[220+(i-1)*7,220]:point(sectors.indexOf(d.value)*18+(i-1)*2,d.multiplier===3?117:d.multiplier===2?189:153);s+=`<g class="hit"><circle cx="${p[0]}" cy="${p[1]}" r="10" fill="#e7c77d" stroke="#142722" stroke-width="2"/><text x="${p[0]}" y="${p[1]+3.5}" text-anchor="middle" fill="#142722" font-size="10" font-weight="bold">${i+1}</text></g>`;});return s+'</svg>';}
+ function board(darts){return DartBoard.markup(darts);}
  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
  let motionPaused=false;const motionTimers=new Set();
  function after(fn,ms){const item={fn,remaining:ms,since:performance.now(),id:null};const fire=()=>{motionTimers.delete(item);fn();};item.fire=fire;if(!motionPaused)item.id=setTimeout(fire,ms);motionTimers.add(item);return item;}

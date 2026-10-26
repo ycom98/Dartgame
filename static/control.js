@@ -9,7 +9,7 @@
  function paint(){DartRoom.render(state?.game);const g=state?.game;$('#setup').hidden=!!g&&!showSetup;$('#entry').hidden=!g||showSetup;
  $('#display-link').href=state?.presentation_path||'/play';back.hidden=!g||!showSetup;
  if(!g)return;$('#prompt').textContent=g.winner!==null?g.names[g.winner]+' wins!':done()?'Turn complete · '+g.names[(g.player+1)%g.names.length]+' up next':g.names[g.player]+' · dart '+(g.darts.length+1)+' of 3';
- $('#record').disabled=busy||Date.now()<entryReadyAt||done()||g.winner!==null||state.camera_game;$('#next').disabled=busy||!done()||state.camera_game;$('#undo').disabled=busy;$('#auto').disabled=state.camera_game;
+ $('#record').disabled=busy||Date.now()<entryReadyAt||done()||g.winner!==null||state.camera_game;$('#next').disabled=busy||!done()||state.camera_game;$('#undo').disabled=busy;$('#auto').disabled=state.camera_game;const tap=tapAllowed();$('#tap-board').classList.toggle('disabled',!tap);$('#miss').disabled=!tap;
  if(state.camera_game){$('#handoff').textContent='Camera match: continue using camera setup controls. Automatic handoff is paused.';}
  }
  function schedule(){cancel();if(!done()||!$('#auto').checked||state.camera_game||pausedRevision===state.revision)return;const rev=state.revision;let left=4;$('#cancel').hidden=false;$('#handoff').textContent='Next player in '+left+' seconds · Undo or pause to review.';tick=setInterval(()=>{left--;$('#handoff').textContent='Next player in '+Math.max(left,0)+' seconds · Undo or pause to review.';},1000);timer=setTimeout(()=>{cancel();if(checking||Date.now()-lastHealthy>1500){pausedRevision=rev;notice('Connection check pending. Handoff paused; review the turn before choosing Next player.');return;}if(state.revision===rev&&!busy)mutate('/api/next',{},false);},4000);}
@@ -21,6 +21,12 @@
  function normalize(){const v=Number($('#value').value);if(v===0)ring=1;if(v===25&&ring===3)ring=2;document.querySelectorAll('[data-ring]').forEach(b=>{const r=Number(b.dataset.ring);b.disabled=(v===0&&r!==1)||(v===25&&r===3);b.setAttribute('aria-pressed',String(r===ring));});$('#entry-preview').textContent=DartRoom.label({value:v,multiplier:ring})+' · '+(v*ring)+' points';}
  document.querySelectorAll('[data-ring]').forEach(b=>b.onclick=()=>{ring=Number(b.dataset.ring);normalize();});$('#value').onchange=normalize;normalize();
  $('#dart-form').onsubmit=e=>{e.preventDefault();if($('#record').disabled)return;mutate('/api/throw',{value:Number($('#value').value),multiplier:ring});};
+
+ /* Tap-the-board entry (M1-11). Same 600 ms duplicate guard as Record dart (mutate). */
+ function tapAllowed(){const g=state?.game;return !!g&&!busy&&Date.now()>=entryReadyAt&&!done()&&g.winner===null&&!state.camera_game;}
+ function tapScore(value,multiplier,key){if(!tapAllowed())return;if(key)DartBoard.flash($('#tap-board'),key);$('#tap-feedback').textContent=value===0?'Miss':DartBoard.label(value,multiplier);mutate('/api/throw',{value,multiplier});}
+ DartBoard.tapBoard($('#tap-board'),tapScore);
+ $('#miss').onclick=()=>tapScore(0,1,null);
  $('#undo').onclick=()=>mutate('/api/undo',{},false);$('#next').onclick=()=>mutate('/api/next',{},false);
  $('#cancel').onclick=()=>{pausedRevision=state.revision;cancel();$('#handoff').textContent='Handoff paused. Review the turn, then choose Next player.';};
  $('#auto').onchange=()=>{pausedRevision=null;schedule();};$('#new-game').onclick=()=>{cancel();pausedRevision=state.revision;showSetup=true;paint();$('#start').focus();};
