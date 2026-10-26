@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qs, unquote, urlencode, urlsplit, urlunsplit
 
 import cv2
 import numpy as np
@@ -36,6 +36,8 @@ READ_TIMEOUT_SECONDS = 3.0
 # The source reports disconnected when the newest frame is older than this.
 STALE_SECONDS = 3.0
 BACKOFF_SECONDS = (1.0, 2.0, 4.0, 5.0)
+# A connection that delivers no image for this long is reported as an error.
+NO_FRAME_SECONDS = 5.0
 MAX_PART_BYTES = 12_000_000
 IP_WEBCAM_PORT = 8080
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp')
@@ -66,12 +68,17 @@ def decode_jpeg(data):
     return fit_frame(frame)
 
 
+def bracketed(host):
+    """IPv6 literals need their brackets back in a URL."""
+    return f'[{host}]' if ':' in host else host
+
+
 def redact_url(url):
     """The URL without its password (IP Webcam can require a login)."""
     parts = urlsplit(url)
     if parts.password is None and parts.username is None:
         return url
-    host = parts.hostname or ''
+    host = bracketed(parts.hostname or '')
     if parts.port:
         host += f':{parts.port}'
     user = (parts.username or '') + (':***' if parts.password is not None else '')
@@ -97,6 +104,7 @@ class FrameSource:
         self.encoded = None          # newest JPEG bytes (network sources); decoded lazily
         self.frame = None            # newest decoded frame
         self.frame_seq = 0           # seq that self.frame belongs to
+        self.failed_seq = None       # seq whose image could not be decoded
         self.arrivals = []           # monotonic arrival times over the last 2 s, for fps
         self.connected = False
         self.ended = False
@@ -171,7 +179,7 @@ class FrameSource:
     def latest(self):
         """(frame, timestamp, seq) of the newest frame, or (None, 0, 0) before the first one."""
         with self.lock:
-            if self.encoded is not None and self.frame_seq != self.seq:
+            if self.encoded is not None and self.frame_seq != self.seq and self.failed_seq != self.seq:
                 data, seq = self.encoded, self.seq
             else:
                 data = None
@@ -181,6 +189,7 @@ class FrameSource:
                 decoded = decode_jpeg(data)
             except ValueError as error:
                 self.error = str(error)
+                self.failed_seq = seq  # do not retry the same bad image on every wake (QA D10)
                 return frame, timestamp, seq_out
             with self.lock:
                 if self.frame_seq < seq:
@@ -223,16 +232,32 @@ class NetworkSource(FrameSource):
         super().__init__(redact_url(url))
         self.headers = {'User-Agent': 'DartRoom/1'}
         if parts.username is not None:
-            credentials = f'{parts.username}:{parts.password or ""}'.encode()
+            # Percent-encoded characters (p%40ss for p@ss) are decoded before sending (QA D6).
+            credentials = f'{unquote(parts.username)}:{unquote(parts.password or "")}'.encode()
             self.headers['Authorization'] = 'Basic ' + base64.b64encode(credentials).decode()
-            host = parts.hostname + (f':{parts.port}' if parts.port else '')
+            host = bracketed(parts.hostname) + (f':{parts.port}' if parts.port else '')
             url = urlunsplit((parts.scheme, host, parts.path, parts.query, parts.fragment))
         self.url = url
         self.response = None
+        self.session_started = None   # monotonic time the current connection opened
+        self.session_seq = 0          # seq when it opened
+        # The phone is on the LAN: never route it through a system proxy (QA D10).
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
     def open(self):
         request = urllib.request.Request(self.url, headers=self.headers)
-        return urllib.request.urlopen(request, timeout=READ_TIMEOUT_SECONDS)
+        response = self.opener.open(request, timeout=READ_TIMEOUT_SECONDS)
+        self.session_started, self.session_seq = time.monotonic(), self.seq
+        return response
+
+    def status(self):
+        status = super().status()
+        # Connected but nothing usable arrives (wrong path, unexpected framing): say so (QA D2).
+        if (self.response is not None and self.session_started is not None and self.seq == self.session_seq
+                and time.monotonic() - self.session_started > NO_FRAME_SECONDS and not status['error']):
+            status['error'] = (f'Connected, but no images arrived in {NO_FRAME_SECONDS:.0f} s. '
+                               'Check the address (IP Webcam: /video) and the app.')
+        return status
 
     def close(self):
         response = self.response
@@ -310,15 +335,25 @@ def iter_mjpeg_parts(stream, boundary=None):
     Uses each part's Content-Length when present (IP Webcam). Without one (some DroidCam
     versions), the part runs until the next boundary line.
     """
-    marker = ('--' + boundary.removeprefix('--')).encode() if boundary else None
+    # Servers disagree on whether the header's boundary includes the leading "--" (boundary=--X with
+    # body lines --X or ----X): accept any line of two or more dashes followed by the boundary text (QA D2).
+    bare = boundary.lstrip('-').encode() if boundary else None
+
+    def is_delimiter(text):
+        return text.startswith(b'--') and (bare is None or text.lstrip(b'-').startswith(bare))
+
+    skipped = 0
     line = stream.readline(65536)
     while line:
         stripped = line.strip()
-        is_boundary = stripped.startswith(marker) if marker else stripped.startswith(b'--')
-        if not is_boundary:
+        if not is_delimiter(stripped):
+            skipped += len(line)
+            if skipped > MAX_PART_BYTES:
+                raise ValueError('Stream connected, but no image parts were found (unexpected format)')
             line = stream.readline(65536)
             continue
-        if marker and stripped == marker + b'--':
+        skipped = 0
+        if bare is not None and stripped.lstrip(b'-') == bare + b'--':
             return
         headers = {}
         while True:
@@ -340,14 +375,14 @@ def iter_mjpeg_parts(stream, boundary=None):
             yield data
             line = stream.readline(65536)
             continue
-        if marker is None:
+        if bare is None:
             raise ValueError('Stream parts have no Content-Length and no boundary')
         chunks, total = [], 0
         while True:
             line = stream.readline(65536)
             if not line:
                 return
-            if line.strip().startswith(marker):
+            if is_delimiter(line.strip()):
                 break
             chunks.append(line)
             total += len(line)

@@ -25,7 +25,7 @@ try:
 except ImportError:
     vision = None
     vision_error = 'Camera vision unavailable: install requirements.txt. Manual game still works.'
-from vision_worker import VisionWorker, WorkerBusy
+from vision_worker import ACTION_TIMEOUT_SECONDS, VisionWorker, WorkerBusy
 try:
     import camera_source
 except ImportError:  # OpenCV missing: manual games still work
@@ -45,8 +45,14 @@ def vision_state():
         return {'fresh':False,'aligned':False,'verified':False,'phase':'unavailable','message':vision_error}
     return {**vision.current_state(), 'source':worker.source_status()}
 
+source_switch_lock = threading.Lock()  # one source switch at a time (QA D8)
+
 def set_camera_source(uri):
     """Pull frames from uri (see camera_source.py), or stop pulling when uri is None. Raises ValueError."""
+    with source_switch_lock:
+        return switch_camera_source(uri)
+
+def switch_camera_source(uri):
     if uri is None:
         worker.set_source(None); return None
     if vision is None or camera_source is None: raise ValueError(vision_error)
@@ -108,10 +114,10 @@ class Handler(BaseHTTPRequestHandler):
             if vision is None or vision.frame is None: return self.reply({'error':'No phone image yet'},404)
             frame = vision.frame  # ingest replaces the array, never edits it, so this reference is safe to encode
             if path == '/api/calibration/image':
-                with vision.lock:
-                    try: frame = vision.snapshot_frame(parse_qs(urlparse(self.path).query).get('id',[None])[0])
-                    except ValueError as error: return self.reply({'error':str(error)},400)
-                    finally: vision.publish()
+                snapshot_id = parse_qs(urlparse(self.path).query).get('id',[None])[0]
+                try: frame = worker.call(lambda v: v.snapshot_frame(snapshot_id))  # 10 s limit, 503 (QA D7)
+                except ValueError as error: return self.reply({'error':str(error)},400)
+                except WorkerBusy as error: return self.reply({'error':str(error)},503)
             import cv2
             ok,data = cv2.imencode('.jpg',frame)  # outside both locks
             if not ok: return self.reply({'error':'Camera image could not be encoded'},500)
@@ -133,7 +139,9 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(body,dict): raise ValueError('Expected a JSON object')
             if path in GAME_PATHS: return self.game_action(path, body)
             if path == '/api/camera/source':
-                uri = body.get('uri')
+                # Disconnecting needs an explicit "uri": null; a missing field is an error (QA D5).
+                if 'uri' not in body: raise ValueError('uri is required (null disconnects the camera)')
+                uri = body['uri']
                 if uri is not None and not isinstance(uri,str): raise ValueError('uri must be a string or null')
                 expected = body.get('expected_revision')
                 if type(expected) is not int: raise ValueError('expected_revision must be an integer')
@@ -141,6 +149,7 @@ class Handler(BaseHTTPRequestHandler):
                     if expected != app.revision:
                         return self.reply({**app.state(), 'error':'Match changed on another controller. Review the current turn.'},409)
                 set_camera_source(uri)
+                with app.game_lock: app.revision += 1  # other controllers see the change (QA N2)
                 return self.reply(app.state())
             if path == '/api/camera/test': return self.reply(test_camera_source(body.get('uri')))
             if path == '/api/camera/mount_side':
@@ -184,12 +193,14 @@ class Handler(BaseHTTPRequestHandler):
                 app.game = candidate; app.camera_game = camera; app.revision += 1
             return self.reply(app.state())
         if path == '/api/throw' and body.get('proposal') and vision is not None:
-            with vision.lock:
-                try:
-                    with app.game_lock: conflict = self.write_game(path, body)
-                    if conflict is None: vision.reset_base()
-                finally:
-                    vision.publish()
+            if not vision.lock.acquire(timeout=ACTION_TIMEOUT_SECONDS):  # same limit as worker actions (QA D7)
+                raise WorkerBusy('Camera processing is busy; nothing was recorded. Try again.')
+            try:
+                with app.game_lock: conflict = self.write_game(path, body)
+                if conflict is None: vision.reset_base()
+            finally:
+                vision.publish()
+                vision.lock.release()
         else:
             with app.game_lock: conflict = self.write_game(path, body)
             # The new empty-board image is taken on the worker; the reply does not wait for it.
@@ -216,7 +227,8 @@ class Handler(BaseHTTPRequestHandler):
         elif path == '/api/throw':
             app.game.throw(body.get('value'),body.get('multiplier',1))
         elif path == '/api/next':
-            if app.camera_game and (vision is None or not vision.verified()):
+            # The published state, as /api/state shows it: no refusal while the UI says Ready (QA D3).
+            if app.camera_game and (vision is None or not vision.current_state()['verified']):
                 raise ValueError('Reconnect camera, align board and verify the overlay before next turn')
             app.game.next_turn()
         else:

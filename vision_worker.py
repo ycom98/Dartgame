@@ -39,6 +39,7 @@ class VisionWorker:
         self.last_publish_at = 0.0
         self.max_fps = max_fps       # 0 = no limit (lockstep replay in tests)
         self.source = None
+        self.source_lock = threading.Lock()
         self.last_source_seq = None
         self.last_ingest_at = 0.0
         self.processed = []          # monotonic times of recently ingested source frames
@@ -120,6 +121,10 @@ class VisionWorker:
     # ---- frame source (M1-07) ----------------------------------------------------------
     def set_source(self, source):
         """Attach a frame source (or None) and start it. The previous source is stopped."""
+        with self.source_lock:  # concurrent switches must not leak a source (QA D8)
+            self.replace_source(source)
+
+    def replace_source(self, source):
         previous, self.source = self.source, source
         self.last_source_seq = None
         self.processed = []
@@ -186,12 +191,15 @@ class VisionWorker:
         while not self.stopping:
             self.wake.wait(timeout)
             self.wake.clear()
-            while not self.stopping:
-                try:
-                    action, future = self.jobs.get_nowait()
-                except queue.Empty:
-                    break
+            # One queued action per pass, then a frame: a burst of requests cannot starve the camera (QA D4).
+            try:
+                action, future = self.jobs.get_nowait()
+            except queue.Empty:
+                pass
+            else:
                 self.run_job(action, future)
+                if not self.jobs.empty():
+                    self.wake.set()
             if self.stopping:
                 break
             try:

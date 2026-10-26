@@ -58,6 +58,17 @@ class ParsingAndUris(unittest.TestCase):
         body = b''.join(b'--abc\r\nContent-Type: image/jpeg\r\n\r\n' + p + b'\r\n' for p in parts) + b'--abc--\r\n'
         self.assertEqual(list(iter_mjpeg_parts(io.BytesIO(body), 'abc')), parts)
 
+    def test_boundary_with_or_without_leading_dashes(self):
+        part = self.jpeg(10)
+        for header, line in (('--abc', b'--abc'), ('--abc', b'----abc'), ('abc', b'----abc')):
+            with self.subTest(header=header, line=line):
+                body = line + b'\r\nContent-Type: image/jpeg\r\n\r\n' + part + b'\r\n' + line + b'--\r\n'
+                self.assertEqual(list(iter_mjpeg_parts(io.BytesIO(body), header)), [part])
+
+    def test_stream_without_parts_is_an_error_not_silence(self):
+        with self.assertRaisesRegex(ValueError, 'no image parts'):
+            list(iter_mjpeg_parts(io.BytesIO(b'x' * 100 + b'\n' * 13_000_000), 'abc'))
+
     def test_uri_forms(self):
         self.assertIsInstance(make_source('http://10.0.0.5:8080/video'), MjpegSource)
         self.assertEqual(make_source('10.0.0.5').url, 'http://10.0.0.5:8080/video')
@@ -80,6 +91,10 @@ class ParsingAndUris(unittest.TestCase):
         self.assertTrue(source.headers['Authorization'].startswith('Basic '))
         self.assertNotIn('secret', json.dumps(source.status()))
         self.assertEqual(redact_url('http://kapil:secret@10.0.0.5:8080/video'), 'http://kapil:***@10.0.0.5:8080/video')
+        self.assertEqual(redact_url('http://kapil:secret@[fe80::1]:8080/video'), 'http://kapil:***@[fe80::1]:8080/video')
+        import base64
+        encoded = make_source('http://kapil:p%40ss%2Fx@10.0.0.5:8080/video').headers['Authorization']
+        self.assertEqual(base64.b64decode(encoded.split()[1]), b'kapil:p@ss/x')
 
     def test_large_frames_are_downscaled_not_rejected(self):
         self.assertEqual(fit_frame(np.zeros((1440, 2560, 3), np.uint8)).shape, (1080, 1920, 3))
@@ -110,6 +125,37 @@ class NetworkSources(unittest.TestCase):
         finally:
             for source in sources: source.stop()
             fake.stop()
+
+    def test_connected_stream_without_images_reports_an_error(self):
+        import camera_source as module
+        from http.server import BaseHTTPRequestHandler
+
+        class Silent(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-Type', 'multipart/x-mixed-replace;boundary=zzz')
+                self.end_headers()
+                for _ in range(40):  # keeps sending something that is not a part
+                    try:
+                        self.wfile.write(b'keepalive\r\n'); self.wfile.flush()
+                    except OSError:
+                        return
+                    time.sleep(0.1)
+
+        httpd = ThreadingHTTPServer(('127.0.0.1', 0), Silent)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        previous = module.NO_FRAME_SECONDS
+        module.NO_FRAME_SECONDS = 1.0
+        source = MjpegSource(f'http://127.0.0.1:{httpd.server_address[1]}/video').start()
+        try:
+            self.assertTrue(wait_for(lambda: source.status()['error'], 4), source.status())
+            self.assertIn('no images arrived', source.status()['error'])
+        finally:
+            module.NO_FRAME_SECONDS = previous
+            source.stop(); httpd.shutdown(); httpd.server_close()
 
     def test_bad_address_reports_an_error_and_keeps_retrying(self):
         fake = FakeIPWebcam(self.frames, fps=15).start()
@@ -239,17 +285,22 @@ class ServerWithStream(unittest.TestCase):
         status, body = self.request('/api/camera/source', {'uri': self.fake.url + '/video', 'expected_revision': 7})
         self.assertEqual(status, 409)
         self.assertIsNone(body['vision']['source'])
+        self.assertEqual(self.request('/api/camera/source', {'expected_revision': 0})[0], 400)  # no implicit disconnect
         self.connect()
         self.assertTrue(wait_for(lambda: self.state()['vision']['source']['connected'], 3))
-        status, body = self.request('/api/camera/source', {'uri': None, 'expected_revision': 0})
+        revision = self.state()['revision']
+        self.assertEqual(revision, 1, 'a source switch bumps the revision')
+        self.assertEqual(self.request('/api/camera/source', {'uri': None, 'expected_revision': 0})[0], 409)
+        status, body = self.request('/api/camera/source', {'uri': None, 'expected_revision': revision})
         self.assertEqual(status, 200)
         self.assertIsNone(body['vision']['source'])
+        self.assertEqual(body['revision'], 2)
 
     def test_switching_source_requires_a_new_alignment_check(self):
         self.connect()
         self.calibrate()
         status, body = self.request('/api/camera/source', {'uri': 'snapshot:' + self.fake.url + '/shot.jpg?fps=8',
-                                                           'expected_revision': 0})
+                                                           'expected_revision': self.state()['revision']})
         self.assertEqual(status, 200, body)
         self.assertEqual(body['vision']['source']['kind'], 'snapshot')
         self.assertFalse(body['vision']['verified'])

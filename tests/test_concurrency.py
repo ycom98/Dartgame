@@ -131,6 +131,41 @@ class SlowAlignDoesNotBlock(ServerFixture):
         finally:
             worker.stop()
 
+    def test_queued_actions_do_not_starve_frames(self):
+        from camera_source import ImageFolderSource
+        import tempfile, os
+        vision = Vision()
+        worker = VisionWorker(lambda: vision, max_fps=0)
+        with tempfile.TemporaryDirectory() as folder:
+            cv2.imwrite(os.path.join(folder, 'a.png'), textured_board())
+            worker.set_source(ImageFolderSource(folder, fps=30, loop=True))
+            try:
+                futures = [worker.submit(lambda v: time.sleep(0.02)) for _ in range(60)]  # ~1.2 s of queued work
+                time.sleep(0.6)
+                frames_during_queue = len(worker.processed)
+                for future in futures: future.result(10)
+            finally:
+                worker.stop()
+        self.assertGreater(frames_during_queue, 5, 'frames were processed while actions were queued')
+
+    def test_next_player_check_matches_the_published_state(self):
+        self.assertEqual(self.request('/api/game', {'names': ['A', 'B'], 'camera': True})[0], 200)
+        for value in (20, 20, 20):
+            self.assertEqual(self.request('/api/throw', {'value': value})[0], 200)
+        with server.vision.lock:
+            server.vision.verified_version = None  # changed but not yet published, as part-way through align()
+            status, body, _ = self.request('/api/next', {})
+            server.vision.verified_version = server.vision.version
+        self.assertEqual(status, 200, body)
+
+    def test_proposal_commit_gives_up_with_503_when_vision_is_stuck(self):
+        self.assertEqual(self.request('/api/game', {'names': ['A', 'B'], 'camera': False})[0], 200)
+        with patch.object(server, 'ACTION_TIMEOUT_SECONDS', 0.2), server.vision.lock:
+            results = []
+            thread = threading.Thread(target=lambda: results.append(self.request('/api/throw', {'proposal': True})))
+            thread.start(); thread.join(5)
+        self.assertEqual(results[0][0], 503)
+
     def test_stale_camera_shows_disconnected_without_a_new_publish(self):
         v = server.vision
         self.assertEqual(v.current_state()['phase'], 'ready')
