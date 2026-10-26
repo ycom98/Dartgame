@@ -1,16 +1,17 @@
 // Developer regression: real isolated API; no camera and no live8443 mutations.
 const fs=require('fs'),{spawn}=require('child_process');
-const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
  const token='developer-manual-ui-only';let browser,child;const results=[];
  try{
-  child=spawn('.venv/bin/python',['-B','-u','-c','import server; from http.server import ThreadingHTTPServer; server.app=server.App("'+token+'"); server.vision=None; server.vision_error="Camera intentionally unavailable"; h=ThreadingHTTPServer(("127.0.0.1",0),server.Handler); print(h.server_port,flush=True); h.serve_forever()']);
+  const root=require('path').resolve(__dirname,'..');
+  child=spawn(process.env.DART_PYTHON||root+'/.venv/bin/python',['-B','-u','-c','import server; from http.server import ThreadingHTTPServer; server.app=server.App("'+token+'"); server.vision=None; server.vision_error="Camera intentionally unavailable"; h=ThreadingHTTPServer(("127.0.0.1",0),server.Handler); print(h.server_port,flush=True); h.serve_forever()'],{cwd:root});
   const port=await new Promise((resolve,reject)=>{child.stdout.once('data',b=>resolve(Number(b.toString().trim())));child.once('error',reject);});
   const origin='http://127.0.0.1:'+port;
   async function game(){return(await(await fetch(origin+'/api/state',{headers:{Authorization:'Bearer '+token}})).json()).game;}
   async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await pause(50);}throw Error('Condition timed out');}
-  browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+  browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(origin+'/?t='+token);await page.locator('#cameraGame').uncheck();await page.locator('#newGame').click();await until(async()=>!!(await game()));
   async function dart(v,m=1){

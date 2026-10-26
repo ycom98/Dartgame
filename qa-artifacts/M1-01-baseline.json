@@ -1,0 +1,57 @@
+{
+  "ticket": "M1-01",
+  "date": "2026-10-26",
+  "environment": {
+    "where": "Linux dev container",
+    "python": "3.13.17 (.venv; numpy 2.5.4, opencv-python-headless 4.14.0)",
+    "node": "v22.22.0",
+    "browser": "Playwright bundled Chromium via chromium.launch() (no DART_CHROME override)"
+  },
+  "commands": {
+    "python": "scripts/test.sh py",
+    "browser": "scripts/test.sh browser"
+  },
+  "python": {
+    "tests_run": 48,
+    "passed": 48,
+    "failed": 0
+  },
+  "browser": {
+    "suites_run": 15,
+    "passed": 14,
+    "failed": 1,
+    "skipped_helpers": ["manual_qa_common.cjs"],
+    "wall_clock_seconds": 330,
+    "suites": {
+      "developer_connection_recovery.cjs": "pass",
+      "developer_manual_ui.cjs": "pass",
+      "developer_presentation.cjs": "pass",
+      "qa_browser_smoke.cjs": "pass",
+      "qa_camera_startup.cjs": "pass",
+      "qa_manual_301.cjs": "pass",
+      "qa_manual_501.cjs": "pass",
+      "qa_manual_doubleout.cjs": "pass",
+      "qa_manual_inputs_auth.cjs": "pass",
+      "qa_manual_recovery.cjs": "pass",
+      "qa_presentation.cjs": "fail",
+      "qa_presentation_animation.cjs": "pass",
+      "qa_presentation_focus.cjs": "pass",
+      "qa_presentation_resilience.cjs": "pass",
+      "qa_presentation_visual.cjs": "pass"
+    },
+    "failures": [
+      {
+        "suite": "qa_presentation.cjs",
+        "check": "showcase automatically hands off and wins; Pause/Restart stay isolated",
+        "error": "Timed out: demo.locator('.hero h1') never includes 'Maya' (30 s)",
+        "reason": "Stale test expectation, not a path problem: static/showcase.js now scripts players ['Kapil','Aita'], but this suite still waits for the older demo player 'Maya'. The 7 checks before it pass; the final responsive check does not run because the suite stops at the first failure.",
+        "related_to_paths": false,
+        "action": "Left unchanged in M1-01 (no test expectation edits in this ticket). Owner/QA to decide: update the expected name to 'Aita' in a follow-up."
+      }
+    ]
+  },
+  "notes": [
+    "Browser suites rewrite their historical evidence files (PNG/JSON) in qa-artifacts/ on every run; those regenerated files were restored to the committed versions so this ticket's diff stays limited to tests, scripts and README.",
+    "Hard-coded /Users/... Playwright and /Applications/... Chrome paths were removed from tests/*.cjs; Python is spawned from DART_PYTHON or <root>/.venv/bin/python."
+  ]
+}

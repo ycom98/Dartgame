@@ -3,8 +3,8 @@ const fs=require('fs');
 const path=require('path');
 const net=require('net');
 const {spawn,execFileSync}=require('child_process');
-const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=path.resolve(__dirname,'..'), python=path.join(root,'.venv/bin/python');
+const {chromium}=require('playwright');
+const root=path.resolve(__dirname,'..'), python=process.env.DART_PYTHON||path.join(root,'.venv/bin/python');
 const artifactDir=path.join(root,'qa-artifacts');
 const token='isolated-browser-qa-only';
 const results=[], errors=[];
@@ -35,7 +35,7 @@ async function waitCheck(fn,timeout=5000){const start=Date.now();while(Date.now(
     await page.locator('#value').selectOption('20');await page.locator('#multiplier').selectOption('3');
     await pause(700);
   }
-  browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+  browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);
   const page=await browser.newPage({viewport:{width:1100,height:1000}});
   page.on('pageerror',error=>errors.push('Desktop: '+error.message));
   await page.goto(origin+'/?t='+token);await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Connect your phone');

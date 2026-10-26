@@ -1,6 +1,6 @@
 // Independent QA. Isolated ephemeral HTTP server, fresh Chrome profile, no real media.
 const fs=require('fs'),path=require('path'),net=require('net'),{spawn}=require('child_process');
-const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),token='presentation-qa-only',delay=ms=>new Promise(r=>setTimeout(r,ms));
 const result={checks:[],screenshots:[],errors:[]};
 function assert(v,m){if(!v)throw Error(m)}
@@ -15,8 +15,8 @@ async function undo(){let s=await state(),r=await api('undo',{expected_revision:
 async function check(name,fn){await fn();result.checks.push(name);fs.writeFileSync(root+'/qa-artifacts/presentation-animation-results.json',JSON.stringify(result,null,2))}
 (async()=>{try{
 const port=await new Promise(r=>{let s=net.createServer();s.listen(0,'127.0.0.1',()=>{let p=s.address().port;s.close(()=>r(p))})});let startup='',stderr='';
-child=spawn(root+'/.venv/bin/python',['-B','-c','import server;server.app=server.App("'+token+'");server.vision=None;server.vision_error="QA no camera";server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});child.stdout.on('data',d=>startup+=d);child.stderr.on('data',d=>stderr+=d);await until(()=>startup.includes('Computer:'));origin='http://127.0.0.1:'+port;
-browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});context=await browser.newContext({viewport:{width:1280,height:900}});
+child=spawn(process.env.DART_PYTHON||root+'/.venv/bin/python',['-B','-c','import server;server.app=server.App("'+token+'");server.vision=None;server.vision_error="QA no camera";server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});child.stdout.on('data',d=>startup+=d);child.stderr.on('data',d=>stderr+=d);await until(()=>startup.includes('Computer:'));origin='http://127.0.0.1:'+port;
+browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);context=await browser.newContext({viewport:{width:1280,height:900}});
 await context.addInitScript(()=>{window.mediaCalls=0;Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:()=>{window.mediaCalls++;throw Error('QA forbids camera')}}})});
 context.on('page',p=>p.on('pageerror',e=>result.errors.push(e.message)));
 context.setDefaultTimeout(6000);let host=await context.newPage();host.on('dialog',d=>d.accept());host.on('response',async r=>{if(r.url().includes('/api/')&&r.request().method()==='POST')result.lastPosts=(result.lastPosts||[]).concat([{status:r.status(),body:r.request().postData(),response:await r.text()}]).slice(-8)});await host.goto(origin+'/control?t='+token);await begin();

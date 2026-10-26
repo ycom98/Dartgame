@@ -91,6 +91,13 @@ Browser pages, game state, and frame processing run on the Mac. The S22 (SM-S901
 
 The project CA private key and server private key stay in `.local/`; never share that directory or either private key. Only the public `DartRoom-Local-CA.crt` may be shared for manual trust setup. Preserve `.local/pki/`: leaf renewal and LAN-IP changes reuse the same CA. Deleting `.local/` changes the CA identity and requires removing/replacing previously installed device trust. No cloud account is needed. Initial Python packages require downloads; runtime does not need Internet access.
 
+## Running tests
+
+1. One-time setup: `python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt`.
+2. `scripts/test.sh py` runs the Python unittest suite; `scripts/test.sh browser` runs every Playwright suite and lists failures per suite.
+3. Browser suites need Node with `require('playwright')` resolvable and its bundled Chromium; set `DART_CHROME=/path/to/chrome` to use another browser (e.g. Chrome on the Mac).
+4. `DART_PYTHON` overrides the interpreter (default `.venv/bin/python`). Browser suites rewrite their evidence files in `qa-artifacts/`.
+
 ## Tests and handoff
 
 ### Shared display and manual host

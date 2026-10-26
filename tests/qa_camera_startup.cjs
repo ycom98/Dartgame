@@ -1,7 +1,7 @@
 // Independent camera-startup QA. Media comes only from generated canvases, never a webcam.
 const fs=require('fs'),path=require('path'),net=require('net');
 const {spawn}=require('child_process');
-const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),artifacts=path.join(root,'qa-artifacts');
 const results=[],errors=[];let browser,server;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -81,12 +81,12 @@ async function run(name,fn){
   fs.mkdirSync(artifacts,{recursive:true});
   const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
   let output='';
-  server=spawn(path.join(root,'.venv/bin/python'),['-B','-c','import server;server.app=server.App("'+token+'");server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});
+  server=spawn(process.env.DART_PYTHON||path.join(root,'.venv/bin/python'),['-B','-c','import server;server.app=server.App("'+token+'");server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});
   server.stdout.on('data',chunk=>output+=chunk.toString());
   server.stderr.on('data',chunk=>errors.push('QA server: '+chunk.toString().trim()));
   await waitFor(()=>output.includes('Computer:'),10000);
   origin='http://127.0.0.1:'+port;
-  browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+  browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);
   const baseline=process.argv.includes('--baseline');
   if(!baseline)await run('synthetic rear camera starts, uploads frames and stops cleanly',async()=>{
     const{page,context}=await createPage();let uploads=0;page.on('request',r=>{if(r.url().endsWith('/api/frame'))uploads++;});

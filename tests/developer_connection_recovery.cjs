@@ -1,8 +1,8 @@
 // Developer regression: isolated mocked HTTP, no real app state or camera access.
 const fs=require('fs');
-const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 (async()=>{
- const browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+ const browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);
  const results=[];
  try{
   const page=await browser.newPage();let offline=false,rejectScore=false;
