@@ -1,0 +1,58 @@
+{
+  "note": "sim board, localhost, this machine; not real-phone numbers",
+  "resolution": "1920x1080",
+  "stream_fps": 15,
+  "cpu_count": 4,
+  "runs": [
+    {
+      "recording": true,
+      "seconds": 60.1,
+      "darts": 9,
+      "detected": 9,
+      "latency_s": [
+        0.396,
+        0.157,
+        0.429,
+        0.377,
+        0.536,
+        0.406,
+        0.402,
+        0.359,
+        0.159
+      ],
+      "latency_median_s": 0.396,
+      "latency_p95_s": 0.536,
+      "frame_age_max_s": 0.09,
+      "received_fps": 14.5,
+      "processed_fps": 13.0,
+      "recorded_frames": 903,
+      "recorded_skipped_frames": 0,
+      "recorded_bytes": 98237485
+    },
+    {
+      "recording": false,
+      "seconds": 60.1,
+      "darts": 9,
+      "detected": 9,
+      "latency_s": [
+        0.387,
+        0.176,
+        0.354,
+        0.46,
+        0.38,
+        0.415,
+        0.424,
+        0.355,
+        0.208
+      ],
+      "latency_median_s": 0.38,
+      "latency_p95_s": 0.46,
+      "frame_age_max_s": 0.09,
+      "received_fps": 14.4,
+      "processed_fps": 12.2,
+      "recorded_frames": null,
+      "recorded_skipped_frames": null,
+      "recorded_bytes": null
+    }
+  ]
+}

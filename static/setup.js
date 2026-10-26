@@ -103,6 +103,8 @@ function controls() {
   $('cancelCalibration').hidden = !selecting;
   $('cancelCalibration').disabled = blocked;
   $('mountSide').disabled = blocked || unavailable;
+  $('recordToggle').disabled = blocked || unavailable;
+  $('saveNotes').disabled = blocked || !state?.recording?.active;
   $('newGame').disabled = blocked || selecting || ($('cameraGame').checked && !v.verified);
   $('confirm').disabled = scoreBlocked || selecting || !state?.camera?.pending || !v.aligned || finished ||
     (state?.camera_game && !v.verified);
@@ -286,6 +288,39 @@ $('mountSide').onchange = async () => {
   finally { actionBusy = false; await refresh(); controls(); }
 };
 
+// ---- recording (M1-14) ----
+const gigabytes = bytes => bytes == null ? '?' : (bytes / 1024 ** 3).toFixed(1) + ' GB';
+let idleFreeBytes = null;
+
+async function refreshDisk() {
+  try { idleFreeBytes = (await api('record/disk')).free_bytes; recordingStatus(); } catch (e) { /* shown on next poll */ }
+}
+
+function notes() {
+  const fields = {mount: $('noteMount').value.trim(), lighting: $('noteLighting').value.trim(), phone: $('notePhone').value.trim()};
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value));
+}
+
+function recordingStatus() {
+  const r = state?.recording;
+  if (!r) return;
+  $('recordToggle').textContent = r.active ? 'Stop recording' : 'Start recording';
+  $('recordToggle').classList.toggle('primary', !r.active);
+  const minutes = Math.floor((r.seconds || 0) / 60), seconds = Math.round((r.seconds || 0) % 60);
+  let text = r.active ? '● Recording · ' + minutes + ' min ' + seconds + ' s · ' + gigabytes(r.bytes) + ' · ' +
+    r.frames + ' frames' + (r.skipped_frames ? ' (' + r.skipped_frames + ' skipped)' : '') + ' · ' + gigabytes(r.free_bytes) +
+    ' free · ' + r.directory : 'Not recording · ' + gigabytes(idleFreeBytes) + ' free' +
+    (r.directory ? ' · last session ' + r.directory : '');
+  if (r.error) text += ' · ' + r.error;
+  $('recordStatus').textContent = text;
+  $('recordStatus').className = r.error ? 'warning' : r.active ? 'ok' : 'muted';
+}
+
+act('recordToggle', async () => {
+  await api('record', state?.recording?.active ? {enabled: false} : {enabled: true, notes: notes()});
+});
+act('saveNotes', async () => { await api('record/notes', {notes: notes()}); });
+
 // ---- overlay geometry: board mm -> image pixels from the four calibration points ----
 function solveHomography(src, dst) {
   const rows = [];
@@ -451,6 +486,7 @@ async function refresh() {
       (p.commit_in != null ? ' · auto-accept in ' + Math.ceil(p.commit_in) + ' s' : '') +
       ' · Prototype tip guess: check the real dart.' : 'No dart proposal.';
     setupStatus();
+    recordingStatus();
     controls();
   } catch (e) {
     if (epoch !== stateEpoch) return;
@@ -628,4 +664,6 @@ if (remembered) fillSourceField(remembered);
 controls();
 setInterval(refresh, 1000);
 refresh();
+refreshDisk();
+setInterval(refreshDisk, 10000);
 previewLoop();

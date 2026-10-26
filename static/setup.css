@@ -135,3 +135,7 @@ details summary { cursor: pointer; font-weight: 600; }
   section { padding: 14px; }
   button { max-width: 100%; }
 }
+
+/* ---- recording ---- */
+#recordStatus.ok { color: #ff8f7a; font-weight: 600; }
+#recordStatus { overflow-wrap: anywhere; }

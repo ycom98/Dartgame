@@ -46,6 +46,7 @@ class VisionWorker:
         self.ingest_errors = 0
         self.last_ingest_error = None
         self.after_publish = None     # called with vision (lock held) after each publish
+        self.after_ingest = None      # called with (vision, source seq), lock held, after each source frame (recorder)
         self.on_ingest = None        # test hook: called after each source frame with (frame, seq)
 
     # ---- lifecycle ---------------------------------------------------------------------
@@ -181,6 +182,8 @@ class VisionWorker:
             except ValueError as error:
                 self.ingest_errors += 1
                 self.last_ingest_error = str(error)
+            if self.after_ingest is not None:
+                self.after_ingest(vision, seq)
             self.publish(vision)
         now = time.monotonic()
         self.processed = [t for t in self.processed if now - t <= 2.0] + [now]

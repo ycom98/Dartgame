@@ -35,6 +35,18 @@ In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** wi
 
 Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
 
+## Recording the trial (footage stays on this Mac)
+
+Press **Start recording** on the setup page, or start with `bash start-mac.command --camera PHONE_IP --record ~/dart-trial/session1`. A session folder (default `recordings/<date-time>/`, gitignored) holds every received camera frame exactly as the phone sent it, the processed-frame detections, an event log (every dart with how it was recorded, corrections, filled misses, undo, calibration and alignment) and your notes (mount, lighting, phone settings). The page shows size, frames and free disk space; recording stops by itself below 5 GB free. In the sim, 1080p at 15 fps used about 100 MB per minute; real phone frames are usually larger. Nothing is uploaded; delete a session folder to remove it.
+
+Afterwards:
+
+```sh
+.venv/bin/python tools/make_labels.py recordings/SESSION      # labels.jsonl: one line per dart; host corrections are the truth
+.venv/bin/python tools/replay_recording.py recordings/SESSION # replays through the detector; accuracy vs the labels
+.venv/bin/python tools/contact_sheet.py recordings/SESSION    # contact_sheet.png: before/after crop per dart
+```
+
 ## Test games without a board or camera
 
 Open the **Setup** link on the Mac. Under **Start a game**, uncheck **Camera game**, choose 301 or 501, select 2–4 players and enter their names. Select Double out if wanted, then press **Start game**. Manual games require no calibration.

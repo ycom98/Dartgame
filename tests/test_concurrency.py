@@ -182,6 +182,7 @@ class SlowAlignDoesNotBlock(ServerFixture):
     def test_proposal_commit_reads_proposal_under_vision_lock_and_commits_once(self):
         status, game, _ = self.request('/api/game', {'names': ['A', 'B'], 'camera': True})
         self.assertEqual(status, 200, game)
+        server.worker.call(lambda v: None)  # the base reset queued by the game start has run
         with server.vision.lock:
             server.vision.proposal = {'value': 20, 'multiplier': 3}
         proposal_id = pending_id(server)

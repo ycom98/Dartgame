@@ -115,6 +115,23 @@
     </details>
   </section>
 
+  <section id="recordingSection">
+    <h2>Recording for the trial</h2>
+    <div class="row">
+      <button id="recordToggle">Start recording</button>
+      <span id="recordStatus" role="status" aria-live="polite">Not recording.</span>
+    </div>
+    <div class="row">
+      <label>Mount <input id="noteMount" maxlength="500" placeholder="ceiling, 1.5 ft from the wall"></label>
+      <label>Lighting <input id="noteLighting" maxlength="500" placeholder="room lights + ring light"></label>
+      <label>Phone settings <input id="notePhone" maxlength="500" placeholder="1080p, 15 fps, focus locked"></label>
+      <button id="saveNotes">Save notes</button>
+    </div>
+    <small>Records the camera stream and every dart, correction and calibration step, so the trial can be replayed
+      and labelled later. Footage stays on this Mac in the <code>recordings</code> folder and is never uploaded;
+      delete a session folder to remove it. Recording stops by itself when less than 5 GB is free.</small>
+  </section>
+
   <section>
     <h2>2 · Start a game</h2>
     <div class="row">

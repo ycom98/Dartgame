@@ -18,6 +18,7 @@ on their own with a 1 → 2 → 4 → 5 s backoff. Frames over 1920 px on the lo
 Only the standard library, NumPy and OpenCV are used.
 """
 import base64
+import collections
 import os
 import re
 import threading
@@ -31,6 +32,8 @@ import cv2
 import numpy as np
 
 MAX_LONG_SIDE = 1920
+# Frames kept for the recorder; it falls behind by at most this many before it must skip (about 3 s at 15 fps).
+HISTORY_FRAMES = 45
 # A network read that waits longer than this counts as a dropped connection.
 READ_TIMEOUT_SECONDS = 3.0
 # The source reports disconnected when the newest frame is older than this.
@@ -111,6 +114,8 @@ class FrameSource:
         self.reconnects = 0
         self.error = None
         self.size = None
+        # The last HISTORY_FRAMES frames as received, for the recorder (M1-14): seq -> (timestamp, bytes, frame).
+        self.history = collections.OrderedDict()
         self.consumed = threading.Event()   # lockstep replay: the newest frame was taken
         self.consumed.set()
 
@@ -150,6 +155,7 @@ class FrameSource:
         with self.lock:
             self.encoded = data
             self.mark_arrival()
+            self.remember(data, None)
         self.notify()
 
     def put_frame(self, frame):
@@ -160,7 +166,18 @@ class FrameSource:
             self.mark_arrival()
             self.frame_seq = self.seq
             self.size = (int(frame.shape[1]), int(frame.shape[0]))
+            self.remember(None, frame)
         self.notify()
+
+    def remember(self, data, frame):
+        self.history[self.seq] = (self.timestamp, data, frame)
+        while len(self.history) > HISTORY_FRAMES:
+            self.history.popitem(last=False)
+
+    def frames_after(self, seq):
+        """[(seq, timestamp, jpeg bytes or None, decoded frame or None)] received after seq, oldest first."""
+        with self.lock:
+            return [(s, t, data, frame) for s, (t, data, frame) in self.history.items() if s > seq]
 
     def mark_arrival(self):
         self.seq += 1

@@ -29,13 +29,18 @@ from vision_worker import ACTION_TIMEOUT_SECONDS, VisionWorker, WorkerBusy
 from camera_flow import DEFAULT_AUTO_COMMIT_SECONDS, CameraFlow, Conflict, EventLog
 try:
     import camera_source
+    import recorder as recording
 except ImportError:  # OpenCV missing: manual games still work
-    camera_source = None
+    camera_source = recording = None
+# Session recordings (M1-14) stay on this Mac, under a gitignored folder unless --record names another.
+RECORDINGS_ROOT = ROOT / 'recordings'
+recorder = None
 
 # All Vision work runs on this one thread (M1-06). It looks up the module-level `vision` each time.
 worker = VisionWorker(lambda: vision)
 # After every published vision state, update the pending camera dart of the current app (M1-12).
 worker.after_publish = lambda v: app.flow.observe(v)
+worker.after_ingest = lambda v, seq: recorder.on_ingest(v, seq) if recorder is not None else None
 AUTO_COMMIT_SECONDS = DEFAULT_AUTO_COMMIT_SECONDS
 
 # Lock order (M1-06): app.game_lock protects only the game, revision and camera_game. vision.lock may be
@@ -71,6 +76,34 @@ def switch_camera_source(uri):
     worker.set_source(source)
     return source
 
+def recording_state():
+    """Recording status for /api/state. Free disk space is included only while recording, so an idle state
+    does not change on its own (the setup page reads it from /api/record/disk)."""
+    if recorder is not None and recorder.active: return recorder.status()
+    last = recorder.status() if recorder is not None else {}
+    return {'active':False, 'directory':last.get('directory'), 'error':last.get('error'), 'root':str(RECORDINGS_ROOT)}
+
+def free_disk_bytes():
+    try: return shutil.disk_usage(RECORDINGS_ROOT if RECORDINGS_ROOT.exists() else ROOT).free
+    except OSError: return None
+
+def start_recording(directory=None, notes=None):
+    """Start recording the stream and event log (M1-14). Raises ValueError."""
+    global recorder
+    if vision is None or recording is None: raise ValueError(vision_error)
+    if recorder is not None and recorder.active: return recorder
+    directory = Path(directory) if directory else RECORDINGS_ROOT / time.strftime('%Y%m%d-%H%M%S')
+    candidate = recording.Recorder(directory, lambda: worker.source)
+    worker.call(lambda v: candidate.start(v, notes))  # instruments vision under its lock
+    app.events.listeners.append(candidate.match_event)
+    recorder = candidate
+    return recorder
+
+def stop_recording(reason=None):
+    if recorder is None or not recorder.active: return
+    worker.call(lambda v: recorder.stop(reason))
+    if recorder.match_event in app.events.listeners: app.events.listeners.remove(recorder.match_event)
+
 class App:
     def __init__(self, token=None):
         self.token = token or secrets.token_urlsafe(24)
@@ -86,7 +119,8 @@ class App:
         game = self.game_state()
         return {'game':game['game'], 'revision':game['revision'],
                 'presentation_path':'/play?t='+self.display_token,
-                'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view()}
+                'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view(),
+                'recording':recording_state()}
 
 app = App()
 
@@ -116,6 +150,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers(); self.wfile.write(content); return
         if not self.authenticated(display=path == '/api/state'): return self.reply({'error':'Open the complete pairing link printed in Terminal'},401)
         if path == '/api/state': return self.reply(app.state())
+        if path == '/api/record/disk':
+            return self.reply({'free_bytes':free_disk_bytes(), 'min_free_bytes':recording.MIN_FREE_BYTES if recording else None})
         if path == '/api/events':
             try: since = int(parse_qs(urlparse(self.path).query).get('since',['0'])[0])
             except ValueError: return self.reply({'error':'since must be an integer'},400)
@@ -177,6 +213,17 @@ class Handler(BaseHTTPRequestHandler):
             with app.game_lock: app.revision += 1  # other controllers see the change (QA N2)
             return None
         if path == '/api/camera/test': return {'test':test_camera_source(body.get('uri'))}
+        if path == '/api/record':
+            enabled = body.get('enabled')
+            if type(enabled) is not bool: raise ValueError('enabled must be true or false')
+            if enabled: start_recording(notes=clean_notes(body.get('notes', {})))
+            else: stop_recording()
+            return None
+        if path == '/api/record/notes':
+            notes = clean_notes(body.get('notes'))
+            if recorder is None: raise ValueError('Start a recording first')
+            recorder.set_notes(notes)
+            return None
         if path == '/api/camera/auto_commit':
             paused, seconds = body.get('paused', app.flow.paused), body.get('seconds', app.flow.delay)
             if type(paused) is not bool: raise ValueError('paused must be true or false')
@@ -208,6 +255,14 @@ class Handler(BaseHTTPRequestHandler):
         return {'snapshot':result} if path == '/api/calibration/start' else None
 
 NOT_FOUND = object()
+
+def clean_notes(notes):
+    """Session notes from the setup page: a few short text fields."""
+    if not isinstance(notes, dict) or len(notes) > 10: raise ValueError('notes must be an object with up to 10 fields')
+    for key, value in notes.items():
+        if not isinstance(value, str) or len(key) > 40 or len(value) > 500:
+            raise ValueError('each note must be text up to 500 characters')
+    return notes
 
 def game_write(path, body):
     """Game writes. Lock order: vision.lock (camera commits only), then app.game_lock; never the reverse."""
@@ -250,7 +305,8 @@ def game_write(path, body):
             app.events.add('next', **turn_info(before))
         elif path == '/api/undo':
             g.undo()
-            app.events.add('undo', **turn_info(before))
+            app.events.add('undo', after={'turn':g.data['turn'], 'player':g.data['player'], 'darts':g.data['darts']},
+                           **turn_info(before))
         elif path == '/api/correct':
             index = body.get('dart_index')
             dropped = g.correct(index, body.get('value'), body.get('multiplier',1))
@@ -375,6 +431,8 @@ def main():
                         help='pull frames from a camera: http://PHONE:8080/video (IP Webcam), http://PHONE:4747/video '
                              '(DroidCam), snapshot:http://PHONE:8080/shot.jpg, file:VIDEO, dir:FOLDER, or just the phone IP')
     parser.add_argument('--camera-fps',type=float,default=15.0,help='maximum frames per second processed (default 15)')
+    parser.add_argument('--record',metavar='DIR',
+                        help='record the camera stream and event log into DIR from the start (stays on this Mac)')
     parser.add_argument('--auto-commit',type=float,default=DEFAULT_AUTO_COMMIT_SECONDS,metavar='SECONDS',
                         help='commit a camera dart after this many seconds unless corrected (default 3; 0 = always tap Accept)')
     parser.add_argument('--camera-hfov',type=float,default=70.0,
@@ -422,12 +480,15 @@ def main():
         print('Local CA: '+certificate_info['ca_subject'],flush=True)
         print('CA SHA-256: '+certificate_info['sha256_fingerprint'],flush=True)
         print('Device trust setup: see README. Public CA helper: .venv/bin/python local_https.py serve --lan-ip '+ip,flush=True)
+    if args.record:
+        try: start_recording(args.record); print('Recording to: '+str(recorder.directory),flush=True)
+        except ValueError as error: print('Recording not started: '+str(error),flush=True)
     if worker.source is not None: print('Camera source: '+worker.source.description,flush=True)
     else: print('Camera source: none yet. Open the Setup link and enter the phone\'s IP Webcam address.',flush=True)
     if vision_error: print(vision_error,flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally:
-        worker.stop(); server.server_close()
+        stop_recording('server stopped'); worker.stop(); server.server_close()
 
 if __name__=='__main__': main()

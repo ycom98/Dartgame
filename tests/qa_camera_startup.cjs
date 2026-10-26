@@ -172,6 +172,24 @@ print(json.dumps({'points': calibration_points(camera).tolist(), 'ring170': np.a
     return {message: await page.locator('#error').textContent()};
   });
 
+  await run('recording: one toggle starts and stops it, with size and free disk shown', async () => {
+    await page.locator('#noteMount').fill('QA sim mount');
+    await page.locator('#recordToggle').click();
+    await waitFor(async () => (await page.locator('#recordStatus').textContent()).includes('Recording'));
+    await waitFor(async () => (await api('state')).recording.frames > 10);
+    const status = await page.locator('#recordStatus').textContent();
+    check(/GB free/.test(status) && /frames/.test(status), 'Status shows size, frames and free space: ' + status);
+    const directory = (await api('state')).recording.directory;
+    check(directory.startsWith(path.join(root, 'recordings')), 'Recorded under the gitignored recordings folder');
+    await page.locator('#recordToggle').click();
+    await waitFor(async () => (await page.locator('#recordStatus').textContent()).startsWith('Not recording'));
+    const session = JSON.parse(fs.readFileSync(path.join(directory, 'session.json'), 'utf8'));
+    check(session.notes.mount === 'QA sim mount', 'Notes saved');
+    const frames = fs.readdirSync(path.join(directory, 'frames')).length;
+    fs.rmSync(directory, {recursive: true, force: true});
+    return {frames, status};
+  });
+
   await run('disconnect stops pulling frames', async () => {
     await page.locator('#disconnectSource').click();
     await waitFor(async () => (await api('state')).vision.source === null);
