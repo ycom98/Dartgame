@@ -22,17 +22,36 @@ try:
 except ImportError:
     vision = None
     vision_error = 'Camera vision unavailable: install requirements.txt. Manual game still works.'
+from vision_worker import VisionWorker, WorkerBusy
+
+# All Vision work runs on this one thread (M1-06). It looks up the module-level `vision` each time.
+worker = VisionWorker(lambda: vision)
+
+# Lock order (M1-06): app.game_lock protects only the game, revision and camera_game. vision.lock may be
+# held while taking app.game_lock (camera-proposal commit); app.game_lock is never held while taking
+# vision.lock or waiting for the vision worker.
+GAME_PATHS = ('/api/game', '/api/throw', '/api/next', '/api/undo')
+
+def vision_state():
+    """Latest vision state without waiting for the vision lock."""
+    if vision is None:
+        return {'fresh':False,'aligned':False,'verified':False,'phase':'unavailable','message':vision_error}
+    return vision.current_state()
 
 class App:
     def __init__(self, token=None):
         self.token = token or secrets.token_urlsafe(24)
         self.display_token = secrets.token_urlsafe(24)
-        self.game = None; self.lock = threading.RLock(); self.camera_game = False; self.revision = 0
+        self.game = None; self.game_lock = threading.RLock(); self.camera_game = False; self.revision = 0
+    def game_state(self):
+        with self.game_lock:
+            return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
+                    'camera_game':self.camera_game}
     def state(self):
-        return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
+        game = self.game_state()
+        return {'game':game['game'], 'revision':game['revision'],
                 'presentation_path':'/play?t='+self.display_token,
-                'vision':vision.state() if vision else {'fresh':False,'aligned':False,'verified':False,'phase':'unavailable','message':vision_error},
-                'camera_game':self.camera_game}
+                'vision':vision_state(), 'camera_game':game['camera_game']}
 
 app = App()
 
@@ -65,20 +84,21 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Referrer-Policy','no-referrer'); self.send_header('X-Content-Type-Options','nosniff')
             self.end_headers(); self.wfile.write(content); return
         if not self.authenticated(display=path == '/api/state'): return self.reply({'error':'Open the complete pairing link printed in Terminal'},401)
-        with app.lock:
-            if path == '/api/state': return self.reply(app.state())
-            if path in ('/api/image', '/api/calibration/image'):
-                if vision is None or vision.frame is None: return self.reply({'error':'No phone image yet'},404)
-                frame = vision.frame
-                if path == '/api/calibration/image':
+        if path == '/api/state': return self.reply(app.state())
+        if path in ('/api/image', '/api/calibration/image'):
+            if vision is None or vision.frame is None: return self.reply({'error':'No phone image yet'},404)
+            frame = vision.frame  # ingest replaces the array, never edits it, so this reference is safe to encode
+            if path == '/api/calibration/image':
+                with vision.lock:
                     try: frame = vision.snapshot_frame(parse_qs(urlparse(self.path).query).get('id',[None])[0])
                     except ValueError as error: return self.reply({'error':str(error)},400)
-                import cv2
-                ok,data = cv2.imencode('.jpg',frame)
-                if not ok: return self.reply({'error':'Camera image could not be encoded'},500)
-                payload = data.tobytes()
-                self.send_response(200); self.send_header('Content-Type','image/jpeg'); self.send_header('Cache-Control','no-store')
-                self.send_header('Content-Length',str(len(payload))); self.end_headers(); self.wfile.write(payload); return
+                    finally: vision.publish()
+            import cv2
+            ok,data = cv2.imencode('.jpg',frame)  # outside both locks
+            if not ok: return self.reply({'error':'Camera image could not be encoded'},500)
+            payload = data.tobytes()
+            self.send_response(200); self.send_header('Content-Type','image/jpeg'); self.send_header('Cache-Control','no-store')
+            self.send_header('Content-Length',str(len(payload))); self.end_headers(); self.wfile.write(payload); return
         self.reply({'error':'Not found'},404)
     def do_POST(self):
         if not self.authenticated(): return self.reply({'error':'Unauthorized'},401)
@@ -87,82 +107,95 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 2_000_000: return self.reply({'error':'Request must be under 2 MB'},413)
             raw = self.rfile.read(length)
             path = urlparse(self.path).path
-            with app.lock:
-                if path == '/api/frame':
-                    if vision is None: raise ValueError(vision_error)
-                    vision.ingest(raw); return self.reply({'ok':True})
-                body = json.loads(raw)
-                if not isinstance(body,dict): raise ValueError('Expected a JSON object')
-                if path in ('/api/throw','/api/next','/api/undo') and 'expected_revision' in body:
-                    expected = body['expected_revision']
-                    if type(expected) is not int: raise ValueError('expected_revision must be an integer')
-                    if expected != app.revision:
-                        return self.reply({**app.state(), 'error':'Match changed on another controller. Review the current turn.'},409)
-                if path == '/api/game':
-                    camera = body.get('camera', True)
-                    if type(camera) is not bool: raise ValueError('camera must be boolean')
-                    candidate = Game(body.get('names'),body.get('start',301),body.get('double_out',False))
-                    if camera:
-                        if vision is None or not vision.verified():
-                            raise ValueError('Complete calibration and verify the live overlay before starting')
-                        vision.align(preserve_verification=True)
-                        if not vision.verified():
-                            raise ValueError('Board position changed. Check the live overlay and verify it, then start again.')
-                    app.game = candidate
-                    app.camera_game = camera
-                elif path == '/api/camera/reset':
-                    if vision is None: raise ValueError(vision_error)
-                    vision.reset_camera()
-                elif path == '/api/calibration/start':
-                    if vision is None: raise ValueError(vision_error)
-                    snapshot = vision.begin_calibration()
-                    return self.reply({**app.state(), 'snapshot':snapshot})
-                elif path == '/api/calibration/cancel':
-                    if vision is None: raise ValueError(vision_error)
-                    vision.cancel_calibration()
-                elif path == '/api/calibrate':
-                    if vision is None: raise ValueError(vision_error)
-                    if not isinstance(body.get('snapshot_id'),str):
-                        raise ValueError('Select Set four points to capture a calibration image first')
-                    vision.calibrate(body.get('points'),body['snapshot_id'])
-                elif path == '/api/verify':
-                    if vision is None: raise ValueError(vision_error)
-                    vision.verify(body.get('version'))
-                elif path == '/api/align':
-                    if vision is None: raise ValueError(vision_error)
-                    vision.align()
-                elif path == '/api/baseline':
-                    if vision is None: raise ValueError(vision_error)
-                    vision.reset_base()
-                elif path == '/api/throw':
-                    if app.game is None: raise ValueError('Start a game first')
-                    if body.get('proposal'):
-                        if app.camera_game and (vision is None or not vision.verified()):
-                            raise ValueError('Verify the current live overlay before confirming a camera score')
-                        if vision is None or not vision.fresh() or not vision.aligned or vision.proposal is None:
-                            raise ValueError('No fresh calibrated proposal available')
-                        candidate = vision.proposal.copy()
-                        app.game.throw(candidate['value'],candidate['multiplier']); vision.reset_base()
-                    else:
-                        app.game.throw(body.get('value'),body.get('multiplier',1))
-                        if vision and vision.aligned and vision.fresh(): vision.reset_base()
-                elif path == '/api/next':
-                    if app.game is None: raise ValueError('Start a game first')
-                    if app.camera_game and (vision is None or not vision.verified()):
-                        raise ValueError('Reconnect camera, align board and verify the overlay before next turn')
-                    app.game.next_turn()
-                    if vision and vision.aligned and vision.fresh(): vision.reset_base()
-                elif path == '/api/undo':
-                    if app.game is None: raise ValueError('Start a game first')
-                    app.game.undo()
-                    if vision and vision.aligned and vision.fresh(): vision.reset_base()
-                else: return self.reply({'error':'Not found'},404)
-                if path in ('/api/game','/api/throw','/api/next','/api/undo'): app.revision += 1
-                self.reply(app.state())
+            if path == '/api/frame':
+                if vision is None: raise ValueError(vision_error)
+                worker.call(lambda v: v.ingest(raw)); return self.reply({'ok':True})
+            body = json.loads(raw)
+            if not isinstance(body,dict): raise ValueError('Expected a JSON object')
+            if path in GAME_PATHS: return self.game_action(path, body)
+            if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
+                if vision is None: raise ValueError(vision_error)
+                raise ValueError('Select Set four points to capture a calibration image first')
+            actions = {
+                '/api/camera/reset': lambda v: v.reset_camera(),
+                '/api/calibration/start': lambda v: v.begin_calibration(),
+                '/api/calibration/cancel': lambda v: v.cancel_calibration(),
+                '/api/calibrate': lambda v: v.calibrate(body.get('points'),body['snapshot_id']),
+                '/api/verify': lambda v: v.verify(body.get('version')),
+                '/api/align': lambda v: v.align(),
+                '/api/baseline': lambda v: v.reset_base(),
+            }
+            if path not in actions: return self.reply({'error':'Not found'},404)
+            if vision is None: raise ValueError(vision_error)
+            result = worker.call(actions[path])
+            if path == '/api/calibration/start': return self.reply({**app.state(), 'snapshot':result})
+            self.reply(app.state())
+        except WorkerBusy as error:
+            self.reply({'error':str(error)},503)
         except (ValueError,TypeError,KeyError,OverflowError) as error:
             self.reply({'error':str(error)},400)
         except Exception:
             self.reply({'error':'Request failed. Check camera connection and calibration.'},500)
+    def game_action(self, path, body):
+        """Game writes take app.game_lock only. A camera-proposal commit takes vision.lock first."""
+        if path == '/api/game':
+            camera = body.get('camera', True)
+            if type(camera) is not bool: raise ValueError('camera must be boolean')
+            candidate = Game(body.get('names'),body.get('start',301),body.get('double_out',False))
+            if camera:
+                if vision is None: raise ValueError('Complete calibration and verify the live overlay before starting')
+                worker.call(recheck_before_camera_game)
+            with app.game_lock:
+                app.game = candidate; app.camera_game = camera; app.revision += 1
+            return self.reply(app.state())
+        if path == '/api/throw' and body.get('proposal') and vision is not None:
+            with vision.lock:
+                try:
+                    with app.game_lock: conflict = self.write_game(path, body)
+                    if conflict is None: vision.reset_base()
+                finally:
+                    vision.publish()
+        else:
+            with app.game_lock: conflict = self.write_game(path, body)
+            # The new empty-board image is taken on the worker; the reply does not wait for it.
+            if conflict is None and vision is not None: worker.submit(reset_base_if_ready)
+        if conflict is not None: return self.reply(conflict,409)
+        self.reply(app.state())
+    def write_game(self, path, body):
+        """throw / next / undo. Call with app.game_lock held (and vision.lock first for a proposal).
+
+        Returns the 409 body for a stale expected_revision, otherwise None after the write."""
+        if 'expected_revision' in body:
+            expected = body['expected_revision']
+            if type(expected) is not int: raise ValueError('expected_revision must be an integer')
+            if expected != app.revision:
+                return {**app.state(), 'error':'Match changed on another controller. Review the current turn.'}
+        if app.game is None: raise ValueError('Start a game first')
+        if path == '/api/throw' and body.get('proposal'):
+            if app.camera_game and (vision is None or not vision.verified()):
+                raise ValueError('Verify the current live overlay before confirming a camera score')
+            if vision is None or not vision.fresh() or not vision.aligned or vision.proposal is None:
+                raise ValueError('No fresh calibrated proposal available')
+            candidate = vision.proposal.copy()
+            app.game.throw(candidate['value'],candidate['multiplier'])
+        elif path == '/api/throw':
+            app.game.throw(body.get('value'),body.get('multiplier',1))
+        elif path == '/api/next':
+            if app.camera_game and (vision is None or not vision.verified()):
+                raise ValueError('Reconnect camera, align board and verify the overlay before next turn')
+            app.game.next_turn()
+        else:
+            app.game.undo()
+        app.revision += 1
+        return None
+
+def recheck_before_camera_game(v):
+    if not v.verified(): raise ValueError('Complete calibration and verify the live overlay before starting')
+    v.align(preserve_verification=True)
+    if not v.verified(): raise ValueError('Board position changed. Check the live overlay and verify it, then start again.')
+
+def reset_base_if_ready(v):
+    if v.aligned and v.fresh(): v.reset_base()
 
 def local_ip():
     # Resolve LAN address without contacting an Internet service.

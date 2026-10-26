@@ -1,5 +1,6 @@
 """Camera prototype. Every proposed dart requires confirmation by the player."""
 import secrets
+import threading
 import time
 import cv2
 import numpy as np
@@ -106,6 +107,12 @@ class Vision:
         self.pose = None
         self.rule = DEFAULT_RULE
         self.tip_bias_mm = TIP_BIAS_MM
+        # Threading boundary (M1-06). Vision methods do not lock themselves: the server's vision worker
+        # (vision_worker.py) holds self.lock around every action and frame, then calls publish().
+        # Readers on other threads use current_state() and never wait for the lock.
+        self.lock = threading.RLock()
+        self.state_snapshot = None
+        self.publish()
     def decode(self, data):
         arr = np.frombuffer(data, dtype=np.uint8)
         frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -336,6 +343,27 @@ class Vision:
         tip, direction = refine_tip(contour if pixels is None else pixels, tip, direction, difference)
         tip = tip + direction * (self.tip_bias_mm * SCALE)
         return tip, 'high', rule
+
+    def publish(self):
+        """Replace state_snapshot with a new state() dict. Call with self.lock held."""
+        self.state_snapshot = self.state()
+        return self.state_snapshot
+
+    def current_state(self):
+        """The latest published state, safe from any thread without the lock.
+
+        Freshness is re-evaluated now from the live frame timestamp, so a camera that stops
+        sending frames shows as disconnected even while the worker is busy (for example in align()).
+        """
+        state = dict(self.state_snapshot)
+        timestamp = self.timestamp
+        if not timestamp:
+            return state
+        age = time.time() - timestamp
+        state['age_seconds'] = round(age, 1)
+        if state['fresh'] and age >= 5:
+            state.update(fresh=False, aligned=False, verified=False, proposal=None, phase='camera_disconnected')
+        return state
 
     def state(self):
         fresh = self.fresh()
