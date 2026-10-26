@@ -22,3 +22,14 @@
 .host #tap-feedback{color:var(--gold,#e7c77d);font-weight:700}
 .host #keypad summary{cursor:pointer;margin:8px 0;font-weight:600}
 @media(max-width:700px){.host .tap-board{margin-left:-41px;margin-right:-41px}}
+
+/* Camera darts on the host controller (M1-12). Host-only. */
+.host .camera-panel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+.host .pending-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:4px 0}
+.host .pending{font-weight:700}
+.host .pending.active{color:var(--gold)}
+.host .turn-darts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.host .dart-chip{min-height:44px;padding:8px 12px}
+.host .dart-chip.selected{outline:3px solid var(--gold)}
+.host .dart-chip.filled{font-style:italic}
+.host .tap-board .pending-marker{fill:none;stroke:#ffe27a;stroke-width:4;pointer-events:none}

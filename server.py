@@ -26,6 +26,7 @@ except ImportError:
     vision = None
     vision_error = 'Camera vision unavailable: install requirements.txt. Manual game still works.'
 from vision_worker import ACTION_TIMEOUT_SECONDS, VisionWorker, WorkerBusy
+from camera_flow import DEFAULT_AUTO_COMMIT_SECONDS, CameraFlow, Conflict, EventLog
 try:
     import camera_source
 except ImportError:  # OpenCV missing: manual games still work
@@ -33,6 +34,9 @@ except ImportError:  # OpenCV missing: manual games still work
 
 # All Vision work runs on this one thread (M1-06). It looks up the module-level `vision` each time.
 worker = VisionWorker(lambda: vision)
+# After every published vision state, update the pending camera dart of the current app (M1-12).
+worker.after_publish = lambda v: app.flow.observe(v)
+AUTO_COMMIT_SECONDS = DEFAULT_AUTO_COMMIT_SECONDS
 
 # Lock order (M1-06): app.game_lock protects only the game, revision and camera_game. vision.lock may be
 # held while taking app.game_lock (camera-proposal commit); app.game_lock is never held while taking
@@ -72,6 +76,8 @@ class App:
         self.token = token or secrets.token_urlsafe(24)
         self.display_token = secrets.token_urlsafe(24)
         self.game = None; self.game_lock = threading.RLock(); self.camera_game = False; self.revision = 0
+        self.flow = CameraFlow(AUTO_COMMIT_SECONDS)  # pending camera dart and auto-commit (M1-12)
+        self.events = EventLog()
     def game_state(self):
         with self.game_lock:
             return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
@@ -80,7 +86,7 @@ class App:
         game = self.game_state()
         return {'game':game['game'], 'revision':game['revision'],
                 'presentation_path':'/play?t='+self.display_token,
-                'vision':vision_state(), 'camera_game':game['camera_game']}
+                'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view()}
 
 app = App()
 
@@ -110,6 +116,10 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers(); self.wfile.write(content); return
         if not self.authenticated(display=path == '/api/state'): return self.reply({'error':'Open the complete pairing link printed in Terminal'},401)
         if path == '/api/state': return self.reply(app.state())
+        if path == '/api/events':
+            try: since = int(parse_qs(urlparse(self.path).query).get('since',['0'])[0])
+            except ValueError: return self.reply({'error':'since must be an integer'},400)
+            return self.reply({'events':app.events.since(since)})
         if path in ('/api/image', '/api/calibration/image'):
             if vision is None or vision.frame is None: return self.reply({'error':'No phone image yet'},404)
             frame = vision.frame  # ingest replaces the array, never edits it, so this reference is safe to encode
@@ -132,109 +142,192 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 2_000_000: return self.reply({'error':'Request must be under 2 MB'},413)
             raw = self.rfile.read(length)
             path = urlparse(self.path).path
-            if path == '/api/frame':
+            if path == '/api/frame':  # push path, kept for tests only; no revision
                 if vision is None: raise ValueError(vision_error)
                 worker.call(lambda v: v.ingest(raw)); return self.reply({'ok':True})
             body = json.loads(raw)
             if not isinstance(body,dict): raise ValueError('Expected a JSON object')
-            if path in GAME_PATHS: return self.game_action(path, body)
-            if path == '/api/camera/source':
-                # Disconnecting needs an explicit "uri": null; a missing field is an error (QA D5).
-                if 'uri' not in body: raise ValueError('uri is required (null disconnects the camera)')
-                uri = body['uri']
-                if uri is not None and not isinstance(uri,str): raise ValueError('uri must be a string or null')
-                expected = body.get('expected_revision')
-                if type(expected) is not int: raise ValueError('expected_revision must be an integer')
-                with app.game_lock:
-                    if expected != app.revision:
-                        return self.reply({**app.state(), 'error':'Match changed on another controller. Review the current turn.'},409)
-                set_camera_source(uri)
-                with app.game_lock: app.revision += 1  # other controllers see the change (QA N2)
-                return self.reply(app.state())
-            if path == '/api/camera/test': return self.reply(test_camera_source(body.get('uri')))
-            if path == '/api/camera/mount_side':
-                if vision is None: raise ValueError(vision_error)
-                side = body.get('mount_side')
-                worker.call(lambda v: v.set_mount_side(side))
-                return self.reply(app.state())
-            if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
-                if vision is None: raise ValueError(vision_error)
-                raise ValueError('Select Set four points to capture a calibration image first')
-            actions = {
-                '/api/camera/reset': lambda v: v.reset_camera(),
-                '/api/calibration/start': lambda v: v.begin_calibration(),
-                '/api/calibration/cancel': lambda v: v.cancel_calibration(),
-                '/api/calibrate': lambda v: v.calibrate(body.get('points'),body['snapshot_id']),
-                '/api/verify': lambda v: v.verify(body.get('version')),
-                '/api/align': lambda v: v.align(),
-                '/api/baseline': lambda v: v.reset_base(),
-            }
-            if path not in actions: return self.reply({'error':'Not found'},404)
-            if vision is None: raise ValueError(vision_error)
-            result = worker.call(actions[path])
-            if path == '/api/calibration/start': return self.reply({**app.state(), 'snapshot':result})
-            self.reply(app.state())
+            # M1-10: every write names the revision it was based on.
+            if 'expected_revision' not in body or type(body['expected_revision']) is not int:
+                raise ValueError('expected_revision (an integer) is required')
+            with app.game_lock:
+                if body['expected_revision'] != app.revision:
+                    raise Conflict('Match changed on another controller. Review the current turn.')
+            result = self.route_post(path, body)
+            if result is NOT_FOUND: return self.reply({'error':'Not found'},404)
+            self.reply({**app.state(), **(result or {})})
+        except Conflict as error:
+            self.reply({**app.state(), 'error':str(error)},409)
         except WorkerBusy as error:
             self.reply({'error':str(error)},503)
         except (ValueError,TypeError,KeyError,OverflowError) as error:
             self.reply({'error':str(error)},400)
         except Exception:
             self.reply({'error':'Request failed. Check camera connection and calibration.'},500)
-    def game_action(self, path, body):
-        """Game writes take app.game_lock only. A camera-proposal commit takes vision.lock first."""
-        if path == '/api/game':
-            camera = body.get('camera', True)
-            if type(camera) is not bool: raise ValueError('camera must be boolean')
-            candidate = Game(body.get('names'),body.get('start',301),body.get('double_out',False))
-            if camera:
-                if vision is None: raise ValueError('Complete calibration and verify the live overlay before starting')
-                worker.call(recheck_before_camera_game)
+    def route_post(self, path, body):
+        """Handle one write. Returns extra reply fields, None, or NOT_FOUND."""
+        if path in GAME_PATHS or path in ('/api/correct', '/api/turn/fill_misses'):
+            return game_write(path, body)
+        if path == '/api/camera/source':
+            # Disconnecting needs an explicit "uri": null; a missing field is an error (QA D5).
+            if 'uri' not in body: raise ValueError('uri is required (null disconnects the camera)')
+            uri = body['uri']
+            if uri is not None and not isinstance(uri,str): raise ValueError('uri must be a string or null')
+            set_camera_source(uri)
+            with app.game_lock: app.revision += 1  # other controllers see the change (QA N2)
+            return None
+        if path == '/api/camera/test': return {'test':test_camera_source(body.get('uri'))}
+        if path == '/api/camera/auto_commit':
+            paused, seconds = body.get('paused', app.flow.paused), body.get('seconds', app.flow.delay)
+            if type(paused) is not bool: raise ValueError('paused must be true or false')
+            if type(seconds) not in (int, float) or not 0 <= seconds <= 30: raise ValueError('seconds must be 0-30')
             with app.game_lock:
-                app.game = candidate; app.camera_game = camera; app.revision += 1
-            return self.reply(app.state())
-        if path == '/api/throw' and body.get('proposal') and vision is not None:
-            if not vision.lock.acquire(timeout=ACTION_TIMEOUT_SECONDS):  # same limit as worker actions (QA D7)
-                raise WorkerBusy('Camera processing is busy; nothing was recorded. Try again.')
-            try:
-                with app.game_lock: conflict = self.write_game(path, body)
-                if conflict is None: vision.reset_base()
-            finally:
-                vision.publish()
-                vision.lock.release()
-        else:
-            with app.game_lock: conflict = self.write_game(path, body)
-            # The new empty-board image is taken on the worker; the reply does not wait for it.
-            if conflict is None and vision is not None: worker.submit(reset_base_if_ready)
-        if conflict is not None: return self.reply(conflict,409)
-        self.reply(app.state())
-    def write_game(self, path, body):
-        """throw / next / undo. Call with app.game_lock held (and vision.lock first for a proposal).
+                app.flow.paused, app.flow.delay = paused, float(seconds)
+                app.revision += 1
+            app.events.add('auto_commit', paused=paused, seconds=float(seconds))
+            return None
+        if path == '/api/camera/mount_side':
+            if vision is None: raise ValueError(vision_error)
+            side = body.get('mount_side')
+            worker.call(lambda v: v.set_mount_side(side))
+            return None
+        actions = {
+            '/api/camera/reset': lambda v: v.reset_camera(),
+            '/api/calibration/start': lambda v: v.begin_calibration(),
+            '/api/calibration/cancel': lambda v: v.cancel_calibration(),
+            '/api/calibrate': lambda v: v.calibrate(body.get('points'),body['snapshot_id']),
+            '/api/verify': lambda v: v.verify(body.get('version')),
+            '/api/align': lambda v: v.align(),
+            '/api/baseline': lambda v: v.reset_base(),
+        }
+        if path not in actions: return NOT_FOUND
+        if vision is None: raise ValueError(vision_error)
+        if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
+            raise ValueError('Select Set four points to capture a calibration image first')
+        result = worker.call(actions[path])
+        return {'snapshot':result} if path == '/api/calibration/start' else None
 
-        Returns the 409 body for a stale expected_revision, otherwise None after the write."""
-        if 'expected_revision' in body:
-            expected = body['expected_revision']
-            if type(expected) is not int: raise ValueError('expected_revision must be an integer')
-            if expected != app.revision:
-                return {**app.state(), 'error':'Match changed on another controller. Review the current turn.'}
+NOT_FOUND = object()
+
+def game_write(path, body):
+    """Game writes. Lock order: vision.lock (camera commits only), then app.game_lock; never the reverse."""
+    if path == '/api/game':
+        camera = body.get('camera', True)
+        if type(camera) is not bool: raise ValueError('camera must be boolean')
+        candidate = Game(body.get('names'),body.get('start',301),body.get('double_out',False))
+        if camera:
+            if vision is None: raise ValueError('Complete calibration and verify the live overlay before starting')
+            worker.call(recheck_before_camera_game)
+        with app.game_lock:
+            check_revision(body)
+            app.game = candidate; app.camera_game = camera; app.revision += 1
+            app.events.add('game', names=candidate.data['names'], start=candidate.data['start'],
+                           double_out=candidate.data['double_out'], camera=camera)
+        if vision is not None: worker.submit(reset_base_if_ready)
+        return None
+    if path == '/api/throw' and 'proposal' in body:
+        raise ValueError('Confirm a camera dart with its proposal_id')
+    if path == '/api/throw' and ('proposal_id' in body or 'replaces_proposal_id' in body):
+        accept = 'proposal_id' in body
+        proposal_id = body['proposal_id'] if accept else body['replaces_proposal_id']
+        if not isinstance(proposal_id,str): raise ValueError('proposal id must be a string')
+        replacement = None if accept else (body.get('value'), body.get('multiplier',1))
+        commit_camera_dart(proposal_id, 'accepted' if accept else 'corrected', replacement, body['expected_revision'])
+        return None
+    with app.game_lock:
+        check_revision(body)
         if app.game is None: raise ValueError('Start a game first')
-        if path == '/api/throw' and body.get('proposal'):
-            if app.camera_game and (vision is None or not vision.verified()):
-                raise ValueError('Verify the current live overlay before confirming a camera score')
-            if vision is None or not vision.fresh() or not vision.aligned or vision.proposal is None:
-                raise ValueError('No fresh calibrated proposal available')
-            candidate = vision.proposal.copy()
-            app.game.throw(candidate['value'],candidate['multiplier'])
-        elif path == '/api/throw':
-            app.game.throw(body.get('value'),body.get('multiplier',1))
+        g = app.game
+        before = g.snapshot()
+        if path == '/api/throw':
+            g.throw(body.get('value'),body.get('multiplier',1))
+            app.events.add('commit', source='manual', dart=last_dart(g), proposal=None, **turn_info(before))
         elif path == '/api/next':
             # The published state, as /api/state shows it: no refusal while the UI says Ready (QA D3).
             if app.camera_game and (vision is None or not vision.current_state()['verified']):
                 raise ValueError('Reconnect camera, align board and verify the overlay before next turn')
-            app.game.next_turn()
+            g.next_turn()
+            app.events.add('next', **turn_info(before))
+        elif path == '/api/undo':
+            g.undo()
+            app.events.add('undo', **turn_info(before))
+        elif path == '/api/correct':
+            index = body.get('dart_index')
+            dropped = g.correct(index, body.get('value'), body.get('multiplier',1))
+            app.events.add('correct', before=before['darts'][index], after=g.data['darts'][index],
+                           dropped_later_darts=dropped, **turn_info(before, index))
         else:
-            app.game.undo()
+            count = g.fill_misses()
+            app.events.add('fill_misses', count=count, **turn_info(before))
         app.revision += 1
-        return None
+    # The new empty-board image is taken on the worker; the reply does not wait for it.
+    if vision is not None and path in ('/api/throw', '/api/next', '/api/undo'): worker.submit(reset_base_if_ready)
+    return None
+
+def check_revision(body):
+    """Call with app.game_lock held; internal callers (auto-commit) pass no revision."""
+    if body.get('expected_revision') is not None and body['expected_revision'] != app.revision:
+        raise Conflict('Match changed on another controller. Review the current turn.')
+
+def turn_info(snapshot, dart_index=None):
+    return {'player':snapshot['player'], 'turn':snapshot['turn'],
+            'dart_index':len(snapshot['darts']) if dart_index is None else dart_index}
+
+def last_dart(game):
+    return dict(game.data['darts'][-1]) if game.data['darts'] else None
+
+def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=None):
+    """Commit the pending camera dart `proposal_id` (accepted / auto), or the host's tapped value in its
+    place (corrected). Raises Conflict if that dart is no longer the pending one."""
+    if vision is None: raise ValueError('No fresh calibrated proposal available')
+    if not vision.lock.acquire(timeout=ACTION_TIMEOUT_SECONDS):  # same limit as worker actions (QA D7)
+        raise WorkerBusy('Camera processing is busy; nothing was recorded. Try again.')
+    try:
+        pending = app.flow.observe(vision)
+        with app.game_lock:
+            check_revision({'expected_revision':expected_revision})
+            if app.game is None: raise ValueError('Start a game first')
+            if pending is None or pending['id'] != proposal_id:
+                raise Conflict('Proposal changed. Check the board and the current camera dart.')
+            if source != 'corrected' and app.camera_game and not vision.verified():
+                raise ValueError('Verify the current live overlay before confirming a camera score')
+            g = app.game
+            before = g.snapshot()
+            value, multiplier = replacement or (pending['value'], pending['multiplier'])
+            g.throw(value, multiplier)
+            app.revision += 1
+            proposal = {key:val for key,val in pending.items() if key != 'seen_at'}
+            app.events.add('commit', source=source, dart=last_dart(g), proposal=proposal,
+                           frame_seq=worker.last_source_seq, **turn_info(before))
+        app.flow.close(proposal_id)
+        reset_base_if_ready(vision)
+    finally:
+        vision.publish(); app.flow.observe(vision)
+        vision.lock.release()
+
+def auto_commit_once():
+    """Commit the pending camera dart if its time has come (decision #1). Returns True if it committed."""
+    flow = app.flow
+    pending = flow.due()
+    if pending is None: return False
+    with app.game_lock:
+        g = app.game
+        if g is None or not app.camera_game or g.data['winner'] is not None or g.data['bust'] or len(g.data['darts']) >= 3:
+            return False
+    try:
+        commit_camera_dart(pending['id'], 'auto')
+        return True
+    except (Conflict, ValueError, WorkerBusy):
+        return False
+
+def auto_commit_loop():
+    while True:
+        time.sleep(0.1)
+        try: auto_commit_once()
+        except Exception: pass  # keep the loop alive; the next tick retries
+
+auto_commit_thread = threading.Thread(target=auto_commit_loop, name='auto-commit', daemon=True)
+auto_commit_thread.start()
 
 def test_camera_source(uri, timeout=5.0):
     """Try a camera address without switching to it: wait for one frame. Returns a JSON-ready dict."""
@@ -282,6 +375,8 @@ def main():
                         help='pull frames from a camera: http://PHONE:8080/video (IP Webcam), http://PHONE:4747/video '
                              '(DroidCam), snapshot:http://PHONE:8080/shot.jpg, file:VIDEO, dir:FOLDER, or just the phone IP')
     parser.add_argument('--camera-fps',type=float,default=15.0,help='maximum frames per second processed (default 15)')
+    parser.add_argument('--auto-commit',type=float,default=DEFAULT_AUTO_COMMIT_SECONDS,metavar='SECONDS',
+                        help='commit a camera dart after this many seconds unless corrected (default 3; 0 = always tap Accept)')
     parser.add_argument('--camera-hfov',type=float,default=70.0,
                         help='assumed horizontal FOV (degrees) when the camera focal length cannot be solved from calibration')
     args=parser.parse_args(); ip=args.lan_ip or local_ip()
@@ -292,6 +387,8 @@ def main():
     if vision is not None: vision.camera_hfov = args.camera_hfov
     if not 0 < args.camera_fps <= 60: parser.error('--camera-fps must be between 0 and 60')
     worker.max_fps = args.camera_fps
+    if not 0 <= args.auto_commit <= 30: parser.error('--auto-commit must be between 0 and 30 seconds')
+    app.flow.delay = args.auto_commit
     try: ipaddress.IPv4Address(ip)
     except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
     if args.https and not shutil.which('openssl'):

@@ -22,6 +22,7 @@ async function waitCheck(fn,timeout=5000){const start=Date.now();while(Date.now(
   await waitCheck(async()=>startup.includes('Computer:'),10000);
   const origin='http://127.0.0.1:'+port;
   async function api(endpoint,body,raw){
+    /* M1-10: writes carry expected_revision */if(raw===undefined&&body!==undefined&&body!==null&&typeof body==='object'&&!Array.isArray(body)&&body.expected_revision===undefined){const _s=await(await fetch(origin+'/api/state',{headers:{Authorization:'Bearer '+token}})).json();body={...body,expected_revision:_s.revision};}
     const options={headers:{Authorization:'Bearer '+token}};
     if(body!==undefined||raw!==undefined){options.method='POST';options.body=raw===undefined?JSON.stringify(body):raw;}
     const response=await fetch(origin+'/api/'+endpoint,options);

@@ -6,7 +6,7 @@ const result={checks:[],screenshots:[],errors:[]};
 function assert(v,m){if(!v)throw Error(m)}
 async function until(fn,ms=6000){let end=Date.now()+ms;while(Date.now()<end){if(await fn())return;await delay(40)}throw Error('Timed out: '+String(fn).slice(0,140))}
 let child,browser,context,origin;
-async function api(action,body,auth=token){let r=await fetch(origin+'/api/'+action,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json()}}
+async function api(action,body,auth=token){/* M1-10: writes carry expected_revision */if(body!==undefined&&body!==null&&typeof body==='object'&&!Array.isArray(body)&&body.expected_revision===undefined){const _s=await(await fetch(origin+'/api/state',{headers:{Authorization:'Bearer '+token}})).json();body={...body,expected_revision:_s.revision};}let r=await fetch(origin+'/api/'+action,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json()}}
 async function state(){return(await api('state')).data}
 async function begin(start=301,double=false){let r=await api('game',{names:['Ada','Lin'],camera:false,start,double_out:double});assert(r.status===200,'start game');await delay(1200);return r.data}
 async function dart(v,m=1){let s=await state();let r=await api('throw',{value:v,multiplier:m,expected_revision:s.revision});assert(r.status===200,'api throw '+JSON.stringify(r));return r.data}

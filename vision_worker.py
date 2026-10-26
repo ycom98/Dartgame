@@ -45,6 +45,7 @@ class VisionWorker:
         self.processed = []          # monotonic times of recently ingested source frames
         self.ingest_errors = 0
         self.last_ingest_error = None
+        self.after_publish = None     # called with vision (lock held) after each publish
         self.on_ingest = None        # test hook: called after each source frame with (frame, seq)
 
     # ---- lifecycle ---------------------------------------------------------------------
@@ -115,6 +116,8 @@ class VisionWorker:
     def publish(self, vision):
         try:
             vision.publish()
+            if self.after_publish is not None:
+                self.after_publish(vision)
         finally:
             self.last_publish_at = time.monotonic()
 

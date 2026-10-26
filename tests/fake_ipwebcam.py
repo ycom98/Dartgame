@@ -3,6 +3,7 @@
 Serves, like IP Webcam:
   /video     multipart/x-mixed-replace MJPEG with a Content-Length per part
   /shot.jpg  the current frame as one JPEG
+Test control (not part of IP Webcam): /scene?n=K switches to scene K of --scenes (or set_scene(K) in Python).
 With style='droidcam' the /video parts have no Content-Length (some DroidCam versions).
 
 Each frame carries its sequence number as a row of 16 black/white blocks in the top-left
@@ -66,6 +67,8 @@ class FakeIPWebcam:
         self.httpd = None
         self.clock = None
         self.connections = set()
+        self.scenes = []
+        self.scene_changed_at = None
 
     @property
     def url(self):
@@ -85,6 +88,12 @@ class FakeIPWebcam:
                 try:
                     if self.path.startswith('/video'):
                         owner.stream(self)
+                    elif self.path.startswith('/scene') and owner.scenes:
+                        index = int(self.path.partition('n=')[2] or 0)
+                        owner.set_frames([owner.scenes[index]])
+                        self.send_response(200)
+                        self.send_header('Content-Length', '0')
+                        self.end_headers()
                     elif self.path.startswith('/shot.jpg'):
                         with owner.lock:
                             data = owner.jpeg
@@ -125,6 +134,11 @@ class FakeIPWebcam:
                 pass
         if self.clock is not None:
             self.clock.join(2)
+
+    def set_frames(self, frames):
+        """Serve these frames from now on (cycled), e.g. the board with one more dart."""
+        self.frames = list(frames)
+        self.scene_changed_at = time.monotonic()
 
     def encode_next(self):
         frame = embed_seq(self.frames[self.seq % len(self.frames)], self.seq + 1)
@@ -190,14 +204,23 @@ def main():
     parser.add_argument('--width', type=int, default=1280)
     parser.add_argument('--height', type=int, default=720)
     parser.add_argument('--folder', help='serve these images (sorted, cycled) instead of a sim render')
+    parser.add_argument('--scenes', help='folder of scene images; GET /scene?n=K switches between them (tests)')
     parser.add_argument('--style', choices=('ipwebcam', 'droidcam'), default='ipwebcam')
     args = parser.parse_args()
-    if args.folder:
+    scenes = []
+    if args.scenes:
+        scene_paths = sorted(p for p in Path(args.scenes).iterdir() if p.suffix.lower() in ('.jpg', '.jpeg', '.png', '.bmp'))
+        scenes = [cv2.imread(str(p)) for p in scene_paths]
+    if scenes:
+        frames = scenes[:1]
+    elif args.folder:
         paths = sorted(p for p in Path(args.folder).iterdir() if p.suffix.lower() in ('.jpg', '.jpeg', '.png', '.bmp'))
         frames = [cv2.imread(str(p)) for p in paths]
     else:
         _, frames = sim_frames(args.mount, args.width, args.height)
-    fake = FakeIPWebcam(frames, args.fps, args.port, args.style, host=args.host).start()
+    fake = FakeIPWebcam(frames, args.fps, args.port, args.style, host=args.host)
+    fake.scenes = scenes
+    fake.start()
     print(f'Fake IP Webcam: {fake.url}/video and {fake.url}/shot.jpg (Ctrl-C stops)', flush=True)
     try:
         while True:

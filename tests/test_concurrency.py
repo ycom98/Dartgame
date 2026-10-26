@@ -10,12 +10,15 @@ import random
 import threading
 import time
 import unittest
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from http.server import ThreadingHTTPServer
 from unittest.mock import patch
 
 import cv2
 import numpy as np
 
+from api_helper import pending_id, with_revision
 import server
 import vision as vision_module
 from vision import Vision
@@ -60,6 +63,7 @@ class ServerFixture(unittest.TestCase):
 
     def request(self, path, body=None, raw=None, timeout=15):
         connection = http.client.HTTPConnection('127.0.0.1', self.port, timeout=timeout)
+        if raw is None and body is not None: body = with_revision(self.port, TOKEN, path, body)
         payload = raw if raw is not None else json.dumps(body).encode() if body is not None else None
         started = time.perf_counter()
         connection.request('POST' if payload is not None else 'GET', path, payload,
@@ -162,7 +166,7 @@ class SlowAlignDoesNotBlock(ServerFixture):
         self.assertEqual(self.request('/api/game', {'names': ['A', 'B'], 'camera': False})[0], 200)
         with patch.object(server, 'ACTION_TIMEOUT_SECONDS', 0.2), server.vision.lock:
             results = []
-            thread = threading.Thread(target=lambda: results.append(self.request('/api/throw', {'proposal': True})))
+            thread = threading.Thread(target=lambda: results.append(self.request('/api/throw', {'proposal_id': 'any'})))
             thread.start(); thread.join(5)
         self.assertEqual(results[0][0], 503)
 
@@ -180,13 +184,15 @@ class SlowAlignDoesNotBlock(ServerFixture):
         self.assertEqual(status, 200, game)
         with server.vision.lock:
             server.vision.proposal = {'value': 20, 'multiplier': 3}
-            server.vision.publish()
+        proposal_id = pending_id(server)
+        revision = self.request('/api/state')[1]['revision']
         outcomes = []
-        threads = [threading.Thread(target=lambda: outcomes.append(self.request('/api/throw', {'proposal': True})[0]))
+        threads = [threading.Thread(target=lambda: outcomes.append(
+            self.request('/api/throw', {'proposal_id': proposal_id, 'expected_revision': revision})[0]))
                    for _ in range(4)]
         for t in threads: t.start()
         for t in threads: t.join(10)
-        self.assertEqual(sorted(outcomes), [200, 400, 400, 400])
+        self.assertEqual(sorted(outcomes), [200, 409, 409, 409])  # M1-10/12: one commit per proposal id
         self.assertEqual(self.request('/api/state')[1]['game']['scores'][0], 241)
 
 

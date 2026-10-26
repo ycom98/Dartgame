@@ -55,6 +55,8 @@ async function api(path, body, signal) {
   const options = {headers: {Authorization: 'Bearer ' + token}};
   if (body !== undefined) {
     stateEpoch++;
+    // M1-10: every write names the revision it is based on; a 409 means another device changed the match.
+    if (body.expected_revision === undefined) body = {...body, expected_revision: state?.revision ?? 0};
     options.method = 'POST';
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
@@ -102,7 +104,7 @@ function controls() {
   $('cancelCalibration').disabled = blocked;
   $('mountSide').disabled = blocked || unavailable;
   $('newGame').disabled = blocked || selecting || ($('cameraGame').checked && !v.verified);
-  $('confirm').disabled = scoreBlocked || selecting || !v.proposal || !v.aligned || finished ||
+  $('confirm').disabled = scoreBlocked || selecting || !state?.camera?.pending || !v.aligned || finished ||
     (state?.camera_game && !v.verified);
   $('manual').disabled = scoreBlocked || selecting || finished;
   $('undo').disabled = scoreBlocked || selecting || !g;
@@ -182,7 +184,7 @@ act('testSource', async () => {
   const uri = $('sourceUri').value.trim();
   $('sourceStatus').textContent = 'Testing ' + uri + ' …';
   $('sourceStatus').className = 'muted';
-  const result = await api('camera/test', {uri});
+  const result = (await api('camera/test', {uri})).test;
   if (!result.ok) throw Error('Connection test failed: ' + result.error);
   $('sourceStatus').textContent = 'Connection OK · ' + result.width + '×' + result.height + ' · first image in ' +
     result.first_frame_ms + ' ms. Press Connect to use it.';
@@ -443,9 +445,11 @@ async function refresh() {
     $('visionStatus').textContent = state.vision.message +
       (state.vision.age_seconds != null ? ' · frame ' + state.vision.age_seconds + 's old' : '');
     renderGame(state.game);
-    const p = state.vision.proposal;
+    const p = state.camera?.pending;
     $('candidate').textContent = p ? 'Suggested ' + p.label + ' = ' + p.score +
-      (p.near_wire ? ' · Near wire; check carefully' : '') + ' · ' + p.note : 'No dart proposal.';
+      (p.near_wire ? ' · Near wire; check carefully' : '') +
+      (p.commit_in != null ? ' · auto-accept in ' + Math.ceil(p.commit_in) + ' s' : '') +
+      ' · Prototype tip guess: check the real dart.' : 'No dart proposal.';
     setupStatus();
     controls();
   } catch (e) {
@@ -593,7 +597,7 @@ act('newGame', async () => {
     camera: $('cameraGame').checked,
   });
 });
-act('confirm', () => api('throw', {proposal: true}));
+act('confirm', () => api('throw', {proposal_id: state?.camera?.pending?.id}));
 act('manual', () => api('throw', {value: +$('value').value, multiplier: +$('multiplier').value}));
 act('undo', () => api('undo', {}));
 act('next', () => api('next', {}));

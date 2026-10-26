@@ -2,6 +2,9 @@
 import math
 import time
 import unittest
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from api_helper import pending_id, with_revision  # M1-10: writes carry expected_revision
 
 from core import Game, SECTORS, score_point, near_wire
 from vision import Vision, TARGETS
@@ -247,6 +250,7 @@ class ApiQA(unittest.TestCase):
         conn=http.client.HTTPConnection('127.0.0.1',self.port,timeout=3)
         headers={'Authorization':'Bearer '+token}
         method='GET' if payload is None and raw is None else 'POST'
+        if raw is None and payload is not None: payload=with_revision(self.port,token,path,payload)
         body=raw if raw is not None else json.dumps(payload).encode() if payload is not None else None
         conn.request(method,path,body,headers)
         r=conn.getresponse();data=r.read();status=r.status;conn.close()
@@ -255,16 +259,19 @@ class ApiQA(unittest.TestCase):
     def test_confirmed_proposal_commits_once(self):
         module=self.module
         self.request('/api/game',{'names':['A','B'],'camera':False})
+        module.worker.call(lambda v:None)  # the base reset queued by the game start has run
         frame=VisionQA.textured_board()
         module.vision.frame=frame
         module.vision.timestamp=time.time()
         module.vision.calibrate([[400,150],[650,400],[400,650],[150,400]])
         module.vision.proposal={'value':20,'multiplier':3}
-        status,body=self.request('/api/throw',{'proposal':True})
+        proposal_id=pending_id(module)  # M1-12: a camera dart is confirmed by its id
+        status,body=self.request('/api/throw',{'proposal_id':proposal_id})
         self.assertEqual(status,200)
         self.assertEqual(body['game']['scores'][0],241)
         self.assertIsNone(body['vision']['proposal'])
-        self.assertEqual(self.request('/api/throw',{'proposal':True})[0],400)
+        self.assertIsNone(body['camera']['pending'])
+        self.assertEqual(self.request('/api/throw',{'proposal_id':proposal_id})[0],409)  # M1-10: already committed
 
     def test_api_authorization_validation_and_lifecycle(self):
         status,body=self.request('/api/state',token='wrong')

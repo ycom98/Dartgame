@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fake_ipwebcam import FakeIPWebcam, embed_seq, read_seq, sim_frames  # noqa: E402
 
 import camera_source  # noqa: E402
+from api_helper import with_revision  # noqa: E402
 import server  # noqa: E402
 from camera_source import (ImageFolderSource, MjpegSource, SnapshotSource, VideoFileSource,  # noqa: E402
                            fit_frame, iter_mjpeg_parts, make_source, redact_url)
@@ -191,6 +192,7 @@ class ServerWithStream(unittest.TestCase):
 
     def request(self, path, body=None, token=TOKEN):
         connection = http.client.HTTPConnection('127.0.0.1', self.httpd.server_address[1], timeout=15)
+        if body is not None and path != '/api/camera/source': body = with_revision(self.httpd.server_address[1], token, path, body)
         payload = json.dumps(body).encode() if body is not None else None
         connection.request('POST' if payload is not None else 'GET', path, payload, {'Authorization': 'Bearer ' + token})
         response = connection.getresponse()

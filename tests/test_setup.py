@@ -1,6 +1,9 @@
 """Regression checks for frozen calibration and readiness gates."""
 import time
 import unittest
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from api_helper import pending_id, with_revision  # M1-10: writes carry expected_revision
 import cv2
 import numpy as np
 from vision import Vision, TARGETS
@@ -75,15 +78,17 @@ class SetupApiRegression(unittest.TestCase):
         self.module.app,self.module.vision=self.previous
     def post(self,path,body):
         import http.client,json
+        body=with_revision(self.server.server_address[1],'setup-test-token',path,body)
         c=http.client.HTTPConnection('127.0.0.1',self.server.server_address[1],timeout=3)
         c.request('POST',path,json.dumps(body),{'Authorization':'Bearer setup-test-token'})
         r=c.getresponse();data=json.loads(r.read());status=r.status;c.close();return status,data
     def test_camera_proposal_requires_current_verified_alignment(self):
         v=self.module.vision;v.align();v.proposal={'value':20,'multiplier':3}
-        self.assertEqual(self.post('/api/throw',{'proposal':True})[0],400)
+        proposal_id=pending_id(self.module)  # M1-12: confirmed by id
+        self.assertEqual(self.post('/api/throw',{'proposal_id':proposal_id})[0],400)
         self.assertEqual(self.module.app.game.snapshot()['scores'][0],301)
         v.verify(v.version)
-        self.assertEqual(self.post('/api/throw',{'proposal':True})[0],200)
+        self.assertEqual(self.post('/api/throw',{'proposal_id':proposal_id})[0],200)
         self.assertEqual(self.module.app.game.snapshot()['scores'][0],241)
     def test_camera_restart_invalidates_snapshot_and_verification_immediately(self):
         v=self.module.vision;snapshot=v.begin_calibration()

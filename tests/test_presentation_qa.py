@@ -3,6 +3,9 @@ import http.client
 import json
 import threading
 import unittest
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from api_helper import with_revision  # M1-10: writes carry expected_revision
 from http.server import ThreadingHTTPServer
 import server
 
@@ -19,6 +22,7 @@ class PresentationQA(unittest.TestCase):
         self.httpd.shutdown(); self.httpd.server_close(); self.thread.join()
         server.app, server.vision, server.vision_error = self.previous
     def request(self, path, body=None, auth="presentation-qa"):
+        if body is not None: body = with_revision(self.httpd.server_port, auth, path, body)
         c = http.client.HTTPConnection('127.0.0.1', self.httpd.server_port, timeout=5)
         c.request('GET' if body is None else 'POST', path, None if body is None else json.dumps(body),
                   {'Authorization':'Bearer '+auth, 'Content-Type':'application/json'})

@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 TOKEN = 'setup-page-token'
+from api_helper import with_revision  # noqa: E402
 
 
 def free_port():
@@ -127,6 +128,7 @@ class SetupApi(unittest.TestCase):
 
     def request(self, path, body=None):
         connection = http.client.HTTPConnection('127.0.0.1', self.httpd.server_address[1], timeout=15)
+        if body is not None: body = with_revision(self.httpd.server_address[1], TOKEN, path, body)
         payload = json.dumps(body).encode() if body is not None else None
         connection.request('POST' if payload is not None else 'GET', path, payload, {'Authorization': 'Bearer ' + TOKEN})
         response = connection.getresponse()
@@ -144,6 +146,7 @@ class SetupApi(unittest.TestCase):
         fake = FakeIPWebcam(sim_frames('left', 1280, 720)[1], fps=15).start()
         try:
             status, result = self.request('/api/camera/test', {'uri': fake.url + '/video'})
+            result = result['test']
             self.assertEqual(status, 200)
             self.assertTrue(result['ok'], result)
             self.assertEqual((result['width'], result['height'], result['kind']), (1280, 720, 'mjpeg'))
@@ -151,9 +154,10 @@ class SetupApi(unittest.TestCase):
         finally:
             fake.stop()
         status, result = self.request('/api/camera/test', {'uri': fake.url + '/video'})
+        result = result['test']
         self.assertFalse(result['ok'])
         self.assertIn('refused', result['error'])
-        self.assertFalse(self.request('/api/camera/test', {'uri': 'nonsense address'})[1]['ok'])
+        self.assertFalse(self.request('/api/camera/test', {'uri': 'nonsense address'})[1]['test']['ok'])
 
     def test_mount_side_override(self):
         status, state = self.request('/api/camera/mount_side', {'mount_side': 'top'})

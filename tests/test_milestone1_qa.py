@@ -6,6 +6,9 @@ import sys
 import threading
 import time
 import unittest
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from api_helper import with_revision  # M1-10: writes carry expected_revision
 from pathlib import Path
 from unittest.mock import patch
 
@@ -47,6 +50,7 @@ class MilestoneOneQA(unittest.TestCase):
 
     def request(self, path, body=None, raw=None, token='independent-m1-qa'):
         connection = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
+        if raw is None and body is not None: body = with_revision(self.port, token, path, body)
         payload = raw if raw is not None else json.dumps(body).encode() if body is not None else None
         headers = {'Authorization': 'Bearer ' + token}
         connection.request('POST' if payload is not None else 'GET', path, payload, headers)
@@ -200,6 +204,8 @@ httpd = server.ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
 worker = threading.Thread(target=httpd.serve_forever, daemon=True)
 worker.start()
 def request(path, body=None):
+    if body is not None:  # M1-10: writes carry expected_revision
+        body = {**body, 'expected_revision': server.app.revision}
     connection = http.client.HTTPConnection('127.0.0.1', httpd.server_address[1], timeout=5)
     connection.request('GET' if body is None else 'POST', path,
         None if body is None else json.dumps(body).encode(),

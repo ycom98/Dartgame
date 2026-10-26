@@ -23,6 +23,18 @@ DroidCam is the fallback: use `http://PHONE:4747/video`. Other sources: `snapsho
 
 Plain HTTP on the home LAN is the default (owner decision #7): the links carry the access token unencrypted, so anyone on your Wi-Fi who sees a link can control the match. Use `--https` if you want encryption (below).
 
+## Camera darts on the controller
+
+In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** with a marker on the board and a countdown. It is accepted automatically after 3 s unless you act (owner decision #1; `--auto-commit SECONDS` changes it, 0 turns it off):
+
+- **Wrong dart:** tap the right place on the board (one tap). Your value is recorded instead and logged as a correction.
+- **Accept now** or **Pause auto-accept** (camera darts then wait for Accept).
+- **Dart the camera missed:** tap where it landed.
+- **Fix a dart already recorded:** tap its chip (Dart 1: …), then tap the board (two taps).
+- **Darts off the board:** press **End turn · fill misses**; the missing darts are recorded as clearly marked misses, which you can still correct.
+
+Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
+
 ## Test games without a board or camera
 
 Open the **Setup** link on the Mac. Under **Start a game**, uncheck **Camera game**, choose 301 or 501, select 2–4 players and enter their names. Select Double out if wanted, then press **Start game**. Manual games require no calibration.
