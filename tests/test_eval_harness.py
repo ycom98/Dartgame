@@ -43,6 +43,17 @@ class HarnessSmoke(unittest.TestCase):
         second = eval_detection.run(['top'], 5, 9, 'realistic')
         self.assertEqual(first['mounts']['top']['trials'], second['mounts']['top']['trials'])
 
+    def test_mount_streams_do_not_depend_on_which_mounts_run(self):
+        alone = eval_detection.run(['right'], 2, 4, 'ideal')['mounts']['right']['trials']
+        with_others = eval_detection.run(['top', 'right'], 2, 4, 'ideal')['mounts']['right']['trials']
+        self.assertEqual(alone, with_others)
+        self.assertNotEqual(eval_detection.mount_stream_key('top'), eval_detection.mount_stream_key('right'))
+
+    def test_report_records_the_camera_used(self):
+        report = eval_detection.run(['left'], 1, 2, 'ideal')
+        self.assertEqual(report['settings']['camera']['width'], 1920)
+        self.assertEqual(report['mounts']['left']['camera']['hfov_deg'], 70.0)
+
     def test_rule_flag_and_vision_factory(self):
         from tools.diag_segmentation import UnionSegmentationVision
         centre = eval_detection.run(['left'], 3, 5, 'ideal', rule='centre')

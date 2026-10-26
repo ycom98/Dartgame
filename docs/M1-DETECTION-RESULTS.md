@@ -6,7 +6,9 @@ Seed 1, 200 single-dart trials per mount, 1920×1080, HFOV 70°. Every dart stay
 
 ## Result in one paragraph
 
-The foot-point tip rule (M1-05) works: when the dart is segmented as one blob, it beats the old "nearer the centre" rule by 5.5–23.5 points and gives tip errors of about 1 mm. **But the M1-05 gate is not met**, because the shipped segmentation, not the tip rule, is the bottleneck. `vision.py` thresholds a *grayscale* difference at 35, then requires exactly one contour. Any dart part whose gray level is close to the board behind it drops out: a barrel over the red treble, a black shaft on a black segment, a red flight on a red ring, or the thin point after the 3×3 opening. The dart splits into fragments, and 72–81% of darts get "Ambiguous change" and no proposal.
+The foot-point tip rule (M1-05) helps: when the dart is segmented as one blob, it beats the old "nearer the centre" rule by 5.5–23.5 points. **The M1-05 gate is not met.** The shipped segmentation is the first bottleneck: `vision.py` thresholds a *grayscale* difference at 35, then requires exactly one contour. Any dart part whose gray level is close to the board behind it drops out: a barrel over the red treble, a black shaft on a black segment, a red flight on a red ring, or the thin point after the 3×3 opening. The dart splits into fragments, and 72–81% of darts get "Ambiguous change" and no proposal.
+
+Segmentation is not the only bottleneck. Even with the optimistic diagnostic segmentation below, ideal-profile accuracy is 90.5–94.5% against the 99% gate, limited by near-wire darts and about 1 mm of tip error at the 1.7 px/mm warp (0.59 mm per warp pixel). Meeting the 99% gate likely also needs finer tip localisation (sub-pixel, or at the original camera resolution). That is a PM input.
 
 ## Exact-score accuracy, shipped pipeline (`tools/eval_detection.py`)
 
@@ -19,7 +21,7 @@ The foot-point tip rule (M1-05) works: when the dart is segmented as one blob, i
 | steep-topleft | 13.0% | 13.5% | 15.0% | 15.5% | 15.0% |
 | near-frontal (not gated) | 13.0% | 26.0% | 9.5% | 17.5% | 8.5% |
 
-M1-05 gate (≥ 99% ideal, ≥ 95% realistic and +10 points over centre, tip median ≤ 2 mm and p95 ≤ 5 mm): **failed on all five gated mounts**. Only the tip median (≤ 2 mm) passes.
+M1-05 gate (≥ 99% ideal, ≥ 95% realistic and +10 points over centre, tip median ≤ 2 mm and p95 ≤ 5 mm): **failed on all five gated mounts**. Only the tip median (≤ 2 mm) passes, and that median covers only the 19–28% of darts that got a proposal (a selection-biased statistic).
 
 ## Diagnostic: tip rule with segmentation taken out of the way (`tools/diag_segmentation.py`)
 
@@ -45,4 +47,9 @@ A hard shadow from the default light (`--shadow`) is badly harmful, as the plan'
 
 ## Recommended next step (needs a PM decision; not done in M1-05)
 
-Add a segmentation ticket ahead of M1-08. Use a colour-aware difference and group fragments along one axis into a single dart candidate, with an explicit "two darts" ambiguity check. Then re-run the M1-05 gate. `TIP_BIAS_MM` (0.2 mm from the harness) and the thresholds must be refit on real footage (M2-02/M2-03).
+Add a segmentation ticket ahead of M1-08. Use a colour-aware difference and group fragments along one axis into a single dart candidate, with an explicit "two darts" ambiguity check. Then re-run the M1-05 gate. The thresholds must be refit on real footage (M2-02/M2-03).
+
+## QA follow-ups (after M1-05)
+
+- `TIP_BIAS_MM` is now 0.0. M1-05 shipped 0.2, fit on the same seed-1 darts it was scored on; QA found 0.0 gives identical exact scores and slightly lower tip error. The tables above were produced with 0.2.
+- The harness now keys its random streams by mount *name* (it used the mount's position in `MOUNTS`). Same seed, different darts: the tables above came from the old keying (commit 9af1ad3) and are not reproduced trial-for-trial by later commits.

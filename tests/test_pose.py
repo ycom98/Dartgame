@@ -110,6 +110,22 @@ class VisionPoseState(unittest.TestCase):
         vision.align()
         self.assertEqual(vision.state()['pose']['source'], 'solved')
 
+    def test_invalidation_and_failed_align_clear_pose_but_keep_mount_side(self):
+        vision, _ = self.calibrated('left')
+        vision.set_mount_side('left')
+        vision.invalidate('test invalidation')
+        state = vision.state()
+        self.assertIsNone(state['pose'])
+        self.assertIsNone(state['foot'])
+        self.assertEqual(state['mount_side'], 'left')
+        vision.set_mount_side(None)
+        vision.frame = np.full_like(vision.frame, 127)
+        vision.timestamp = time.time()
+        with self.assertRaises(ValueError):
+            vision.align()
+        self.assertIsNone(vision.state()['pose'])
+        self.assertIsNone(vision.state()['foot'])
+
     def test_frontal_test_board_reports_fallback(self):
         rng = np.random.default_rng(149)
         frame = np.full((800, 800, 3), 80, np.uint8)

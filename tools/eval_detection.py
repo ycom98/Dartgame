@@ -26,6 +26,7 @@ import statistics
 import subprocess
 import sys
 import time
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -134,13 +135,24 @@ def calibrate(vision, camera, degradation, feeder, empty, brightness, click_rng,
     return points
 
 
+def mount_stream_key(mount):
+    """Stable integer for a mount name (CRC-32), used to seed its random streams."""
+    return zlib.crc32(mount.encode('utf-8'))
+
+
+def camera_settings(camera):
+    return {'width': camera.width, 'height': camera.height, 'hfov_deg': camera.hfov,
+            'look_at': [float(v) for v in camera.look_at], 'k1': camera.k1}
+
+
 def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_frames=3, rule=None,
                    tip_bias=None, vision_factory=None):
-    mount_index = list(MOUNTS).index(mount)
-    dart_rng = np.random.default_rng([seed, mount_index, 0])
-    noise_rng = np.random.default_rng([seed, mount_index, 1])
-    click_rng = np.random.default_rng([seed, mount_index, 2])
-    exposure_rng = np.random.default_rng([seed, mount_index, 3])
+    # Random streams are keyed by the mount's name, so adding or reordering mounts leaves the others' darts unchanged.
+    mount_key = mount_stream_key(mount)
+    dart_rng = np.random.default_rng([seed, mount_key, 0])
+    noise_rng = np.random.default_rng([seed, mount_key, 1])
+    click_rng = np.random.default_rng([seed, mount_key, 2])
+    exposure_rng = np.random.default_rng([seed, mount_key, 3])
 
     camera = camera_for_mount(mount)
     vision = make_vision(rule, tip_bias, vision_factory)
@@ -209,6 +221,7 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
     result = {
         'mount': mount,
         'camera_position_mm': list(MOUNTS[mount]),
+        'camera': camera_settings(camera),
         'foot_point_mm': [float(v) for v in foot],
         'darts': darts,
         'exact_accuracy': rounded(outcomes['exact'] / darts, 4),
@@ -280,7 +293,8 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
             'frames_per_trial': frames_per_trial,
             'rule': rule or getattr(vision_module, 'DEFAULT_RULE', 'centre (only rule in this vision.py)'),
             'tip_bias_mm': tip_bias if tip_bias is not None else getattr(vision_module, 'TIP_BIAS_MM', None),
-            'camera': {'width': 1920, 'height': 1080, 'hfov_deg': 70, 'look_at': 'bull'},
+            'camera': camera_settings(camera_for_mount(mounts[0])) if mounts else None,
+            'random_streams': 'numpy default_rng([seed, crc32(mount name), stream])',
             'dart_tips': 'uniform by area within r <= 170 mm (all darts stay in the board)',
             'exposure': 'brightness drawn once per trial (base and dart frames share it); '
                         'noise is independent per frame',

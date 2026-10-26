@@ -18,11 +18,11 @@ CALIBRATION_SECONDS = 300
 TIP_RULES = ('foot', 'centre')
 DEFAULT_RULE = 'foot'
 # Extension of the chosen endpoint along the blob axis toward the foot point, in mm.
-# Default from the harness median signed error (true tip minus detected tip, toward the foot point),
-# pooled over the top/bottom/left/right/steep-topleft mounts (240 proposals):
-#   python tools/eval_detection.py --profile ideal --darts 200 --seed 1 --tip-bias 0   (commit f3cb7be + M1-05 rule)
-#   median +0.22 mm (tips within 5 mm of truth: -0.10 mm). Synthetic only; refit on real footage in M2-03.
-TIP_BIAS_MM = 0.2
+# 0.0 until it can be fit on held-out synthetic seeds or, preferably, real footage (M2-03).
+# History: M1-05 shipped 0.2, the median signed error over all proposals on the same seed-1 darts it was
+# then scored on (fragment outliers included); the robust median (tips within 5 mm) was -0.10 mm, and
+# QA measured slightly lower tip error with 0.0 and identical exact scores.
+TIP_BIAS_MM = 0.0
 
 class Vision:
     def __init__(self):
@@ -51,6 +51,9 @@ class Vision:
     def invalidate(self, message):
         self.aligned = False; self.verified_version = None; self.proposal = None
         self.version += 1; self.message = message
+        # The pose belongs to the geometry just invalidated; a successful calibrate()/align() re-solves it.
+        # mount_side is kept on purpose: it describes where the phone is mounted, not this calibration.
+        self.solved_pose = None; self.pose = None
     def reset_camera(self):
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.timestamp = 0

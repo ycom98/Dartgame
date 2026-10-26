@@ -87,6 +87,7 @@ def main(argv=None):
     report['settings']['segmentation'] = ('per-channel colour diff > 35, 3x3 open, all changed pixels in r<=172 mm '
                                           'treated as one dart (valid only because each trial has one dart)')
     if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(json.dumps(report, indent=1, allow_nan=False) + '\n')
     return 0
 
