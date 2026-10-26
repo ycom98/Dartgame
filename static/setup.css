@@ -1,0 +1,137 @@
+/* Camera setup page (served at /). Same palette as the original prototype page. */
+:root {
+  color-scheme: dark;
+  font: 16px system-ui;
+  background: #101715;
+  color: #eff5f0;
+}
+
+body {
+  max-width: 1100px;
+  margin: auto;
+  padding: 24px;
+}
+
+h1 { font-size: 32px; margin: 0; }
+h2 { font-size: 20px; }
+h3 { font-size: 17px; margin: 18px 0 6px; }
+.muted { color: #a8beb1; }
+a { color: #c6ed88; }
+code { color: #c6ed88; }
+[hidden] { display: none !important; }
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+section {
+  background: #19241f;
+  border: 1px solid #344b3e;
+  border-radius: 14px;
+  padding: 20px;
+  margin: 18px 0;
+}
+
+/* ---- controls ---- */
+button, input, select {
+  font: inherit;
+  padding: 10px;
+  border-radius: 7px;
+  border: 1px solid #526b5b;
+  margin: 4px;
+  background: #213a2c;
+  color: white;
+}
+button { cursor: pointer; }
+button.primary { background: #c6ed88; color: #14230e; border: 0; font-weight: 700; }
+button:disabled { opacity: .4; cursor: default; }
+label { display: inline-block; margin: 5px; max-width: 100%; box-sizing: border-box; }
+label input, label select { display: block; margin-left: 0; }
+input, select { max-width: 100%; box-sizing: border-box; }
+label.wide { display: block; width: min(100%, 640px); }
+label.wide input { width: 100%; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+small { display: block; color: #abc0b2; margin: 8px 0; }
+.warning { color: #f4cf80; }
+
+#error {
+  position: sticky;
+  top: 0;
+  background: #6c2323;
+  color: #fff;
+  padding: 12px;
+  display: none;
+  z-index: 2;
+}
+
+/* ---- readiness ---- */
+.setup-status { border-left: 4px solid #f4cf80; padding: 12px 16px; background: #142019; margin: 14px 0; }
+.setup-status.ready { border-color: #c6ed88; }
+.setup-status strong { display: block; font-size: 20px; }
+#setupDetail { margin: 6px 0 0; }
+
+.readiness { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; }
+.readiness li { padding-left: 30px; position: relative; color: #a8beb1; }
+.readiness li::before {
+  content: "○";
+  position: absolute;
+  left: 6px;
+  color: #f4cf80;
+}
+.readiness li.done { color: #eff5f0; }
+.readiness li.done::before { content: "✓"; color: #c6ed88; font-weight: 700; }
+.readiness li.problem::before { content: "!"; color: #ff8f7a; font-weight: 700; }
+
+.source { border-top: 1px solid #344b3e; margin-top: 12px; }
+#sourceStatus.ok { color: #c6ed88; }
+#sourceStatus.problem { color: #ff8f7a; }
+
+/* ---- live view ---- */
+.stage { position: relative; max-width: 960px; }
+canvas#board {
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  touch-action: manipulation;
+  background: #0b100d;
+  border-radius: 10px;
+}
+#board { cursor: crosshair; }
+#loupe {
+  position: absolute;
+  width: 168px;
+  height: 168px;
+  border: 2px solid #c6ed88;
+  border-radius: 50%;
+  pointer-events: none;
+  background: #0b100d;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .6);
+}
+
+/* ---- camera position ---- */
+.pose { display: flex; gap: 16px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+.pose > div { flex: 1 1 260px; }
+.board-ring { fill: #142019; stroke: #a8beb1; stroke-width: 3; }
+.bull { fill: #c6ed88; }
+.foot-arrow { stroke: #f4cf80; stroke-width: 4; stroke-linecap: round; }
+.foot-dot { fill: #f4cf80; }
+
+.checklist { margin: 8px 0; padding-left: 22px; color: #abc0b2; }
+.checklist li { margin: 6px 0; }
+details summary { cursor: pointer; font-weight: 600; }
+
+/* ---- game ---- */
+.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.player { padding: 15px; border: 1px solid #3c5044; border-radius: 10px; }
+.active { border: 2px solid #c6ed88; }
+.score { font-size: 48px; font-weight: 700; }
+
+@media (max-width: 550px) {
+  body { padding: 12px; }
+  header { align-items: flex-start; flex-direction: column; }
+  section { padding: 14px; }
+  button { max-width: 100%; }
+}

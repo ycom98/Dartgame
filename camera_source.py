@@ -41,6 +41,14 @@ IP_WEBCAM_PORT = 8080
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp')
 
 
+def rate(times, now, window=2.0):
+    """Events per second from monotonic times in the last window seconds (spans shorter windows correctly)."""
+    recent = [t for t in times if now - t <= window]
+    if len(recent) < 2:
+        return 0.0
+    return round((len(recent) - 1) / max(now - recent[0], 1e-6), 1)
+
+
 def fit_frame(frame):
     """Downscale a frame whose long side exceeds MAX_LONG_SIDE (instead of rejecting it)."""
     height, width = frame.shape[:2]
@@ -196,12 +204,10 @@ class FrameSource:
         return self.stopping.is_set()
 
     def status(self):
-        now = time.monotonic()
-        recent = [t for t in self.arrivals if now - t <= 2.0]
         age = time.time() - self.timestamp if self.timestamp else None
         connected = self.connected and age is not None and age < STALE_SECONDS
         return {'kind': self.kind, 'url_redacted': self.description, 'connected': connected,
-                'fps': round(len(recent) / 2.0, 1), 'last_frame_age': round(age, 2) if age is not None else None,
+                'fps': rate(self.arrivals, time.monotonic()), 'last_frame_age': round(age, 2) if age is not None else None,
                 'reconnects': self.reconnects, 'frames': self.seq, 'ended': self.ended,
                 'width': self.size[0] if self.size else None, 'height': self.size[1] if self.size else None,
                 'error': self.error}
@@ -403,9 +409,10 @@ class ReplaySource(FrameSource):
         raise NotImplementedError
 
     def run(self):
+        started = time.monotonic()
+        produced = 0  # counts across loops, so a looped folder keeps its frame rate
         while not self.stopping.is_set():
-            started = time.monotonic()
-            produced = 0
+            produced_this_pass = produced
             for frame in self.frames():
                 if self.stopping.is_set():
                     return
@@ -417,7 +424,7 @@ class ReplaySource(FrameSource):
                         return
                 self.put_frame(frame)
                 produced += 1
-            if produced == 0:
+            if produced == produced_this_pass:
                 raise ValueError(f'No readable frames in {self.description}')
             if not self.loop:
                 break

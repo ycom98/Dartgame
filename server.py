@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Private LAN prototype. No cloud services or image retention."""
+"""Dart Room server: a private home-LAN app. No cloud services or image retention."""
 import argparse
 import json
 import ipaddress
@@ -10,11 +10,14 @@ import socket
 import ssl
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 from core import Game
 
 ROOT = Path(__file__).resolve().parent
+# Where --https keeps its local CA and certificate (.local/). Tests point this at a temporary folder.
+HTTPS_ROOT = ROOT
 try:
     from vision import Vision
     vision = Vision()
@@ -89,17 +92,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         public = {'/play':'presentation.html', '/control':'control.html', '/showcase':'showcase.html',
-                  **{'/static/'+name:name for name in ('presentation.css','presentation.js','control.js','showcase.js')}}
+                  **{'/static/'+name:name for name in ('presentation.css','presentation.js','control.js','showcase.js',
+                                                       'setup.css','setup.js')},
+                  '/':'index.html', '/phone':'index.html'}  # /phone: old links open the setup page
         if path in public:
             content = (ROOT/'static'/public[path]).read_bytes()
             mime = 'text/css' if path.endswith('.css') else 'text/javascript' if path.endswith('.js') else 'text/html'
             self.send_response(200); self.send_header('Content-Type',mime+'; charset=utf-8')
-            self.send_header('Cache-Control','no-store'); self.send_header('Content-Length',str(len(content)))
-            self.send_header('Referrer-Policy','no-referrer'); self.send_header('X-Content-Type-Options','nosniff')
-            self.end_headers(); self.wfile.write(content); return
-        if path in ('/','/phone'):
-            content = (ROOT/'static'/'index.html').read_bytes()
-            self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8')
             self.send_header('Cache-Control','no-store'); self.send_header('Content-Length',str(len(content)))
             self.send_header('Referrer-Policy','no-referrer'); self.send_header('X-Content-Type-Options','nosniff')
             self.end_headers(); self.wfile.write(content); return
@@ -142,6 +141,12 @@ class Handler(BaseHTTPRequestHandler):
                     if expected != app.revision:
                         return self.reply({**app.state(), 'error':'Match changed on another controller. Review the current turn.'},409)
                 set_camera_source(uri)
+                return self.reply(app.state())
+            if path == '/api/camera/test': return self.reply(test_camera_source(body.get('uri')))
+            if path == '/api/camera/mount_side':
+                if vision is None: raise ValueError(vision_error)
+                side = body.get('mount_side')
+                worker.call(lambda v: v.set_mount_side(side))
                 return self.reply(app.state())
             if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
                 if vision is None: raise ValueError(vision_error)
@@ -219,6 +224,25 @@ class Handler(BaseHTTPRequestHandler):
         app.revision += 1
         return None
 
+def test_camera_source(uri, timeout=5.0):
+    """Try a camera address without switching to it: wait for one frame. Returns a JSON-ready dict."""
+    if camera_source is None: return {'ok':False, 'error':vision_error}
+    try: source = camera_source.make_source(uri)
+    except ValueError as error: return {'ok':False, 'error':str(error)}
+    started = time.monotonic(); source.start()
+    try:
+        while time.monotonic() - started < timeout:
+            frame, _, _ = source.latest()
+            if frame is not None:
+                return {'ok':True, 'kind':source.kind, 'url_redacted':source.description,
+                        'width':int(frame.shape[1]), 'height':int(frame.shape[0]),
+                        'first_frame_ms':round((time.monotonic()-started)*1000)}
+            time.sleep(0.05)
+        return {'ok':False, 'kind':source.kind, 'url_redacted':source.description,
+                'error':source.error or f'No image within {timeout:.0f} s'}
+    finally:
+        source.stop()
+
 def recheck_before_camera_game(v):
     if not v.verified(): raise ValueError('Complete calibration and verify the live overlay before starting')
     v.align(preserve_verification=True)
@@ -236,8 +260,11 @@ def local_ip():
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host',default='0.0.0.0'); parser.add_argument('--port',type=int,default=8443)
-    parser.add_argument('--http',action='store_true',help='localhost/manual testing only; phone camera requires HTTPS')
+    parser.add_argument('--host',default='0.0.0.0',help='address to listen on (default 0.0.0.0: every network, so phones and the TV can connect)')
+    parser.add_argument('--port',type=int,help='default 8000 (HTTP) or 8443 (--https)')
+    parser.add_argument('--https',action='store_true',
+                        help='optional: serve HTTPS with the local certificate authority (needs OpenSSL; see README)')
+    parser.add_argument('--http',action='store_true',help=argparse.SUPPRESS)  # plain HTTP is now the default; kept for old scripts
     parser.add_argument('--lan-ip',help='Override LAN IP printed and included in local certificate')
     parser.add_argument('--camera',metavar='URI',
                         help='pull frames from a camera: http://PHONE:8080/video (IP Webcam), http://PHONE:4747/video '
@@ -246,45 +273,48 @@ def main():
     parser.add_argument('--camera-hfov',type=float,default=70.0,
                         help='assumed horizontal FOV (degrees) when the camera focal length cannot be solved from calibration')
     args=parser.parse_args(); ip=args.lan_ip or local_ip()
-    if not 1 <= args.port <= 65535: parser.error('--port must be between 1 and 65535')
+    if args.https and args.http: parser.error('choose --https or plain HTTP, not both')
+    port = args.port if args.port is not None else 8443 if args.https else 8000
+    if not 1 <= port <= 65535: parser.error('--port must be between 1 and 65535')
     if not 20 <= args.camera_hfov <= 150: parser.error('--camera-hfov must be between 20 and 150 degrees')
     if vision is not None: vision.camera_hfov = args.camera_hfov
     if not 0 < args.camera_fps <= 60: parser.error('--camera-fps must be between 0 and 60')
     worker.max_fps = args.camera_fps
+    try: ipaddress.IPv4Address(ip)
+    except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
+    if args.https and not shutil.which('openssl'):
+        parser.exit(1,'OpenSSL was not found. Install it or restore the macOS /usr/bin tools, or run without --https.\n')
     if args.camera:
         try: set_camera_source(args.camera)
         except ValueError as error: parser.error(f'--camera: {error}')
-    try: ipaddress.IPv4Address(ip)
-    except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
-    if args.http and args.host not in ('127.0.0.1','localhost','::1'):
-        parser.error('--http requires --host 127.0.0.1 (or localhost/::1)')
-    if not args.http and not shutil.which('openssl'):
-        parser.exit(1,'OpenSSL was not found. Install it or restore the macOS /usr/bin tools, then retry.\n')
     server = None
     try:
-        server=ThreadingHTTPServer((args.host,args.port),Handler)
-        if not args.http:
+        server=ThreadingHTTPServer((args.host,port),Handler)
+        if args.https:
             from local_https import activate
-            cert,key,certificate_info=activate(ROOT,ip)
+            cert,key,certificate_info=activate(HTTPS_ROOT,ip)
             context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); context.minimum_version=ssl.TLSVersion.TLSv1_2
             context.load_cert_chain(cert,key); server.socket=context.wrap_socket(server.socket,server_side=True)
     except (OSError, RuntimeError) as error:
         if server is not None: server.server_close()
-        parser.exit(1,f'Could not start Dart Room: {error}\nIf port {args.port} is busy, stop the other instance or use --port 8444.\n')
-    scheme='http' if args.http else 'https'
-    print(f'Computer: {scheme}://localhost:{args.port}/?t={app.token}',flush=True)
-    print(f'Controller: {scheme}://localhost:{args.port}/control?t={app.token}',flush=True)
-    print(f'Presentation: {scheme}://localhost:{args.port}/play?t={app.display_token}',flush=True)
-    print(f'Showcase: {scheme}://localhost:{args.port}/showcase',flush=True)
-    print(f'Phone:    {scheme}://{ip}:{args.port}/phone?t={app.token}',flush=True)
+        worker.stop()
+        parser.exit(1,f'Could not start Dart Room: {error}\nIf port {port} is busy, stop the other instance or use --port {port+1}.\n')
+    scheme='https' if args.https else 'http'
+    print(f'Computer: Dart Room is listening on {args.host}:{port} ({scheme.upper()})',flush=True)
+    print(f'Setup:        {scheme}://localhost:{port}/?t={app.token}',flush=True)
+    print(f'Controller:   {scheme}://{ip}:{port}/control?t={app.token}',flush=True)
+    print(f'Presentation: {scheme}://{ip}:{port}/play?t={app.display_token}',flush=True)
+    print(f'Showcase:     {scheme}://{ip}:{port}/showcase',flush=True)
     if ip == '127.0.0.1':
-        print('Phone pairing needs the Mac Wi-Fi address. Restart with --lan-ip YOUR_WIFI_IPV4.',flush=True)
-    print('Private LAN prototype. Keep links private. Ctrl-C stops it. Images and game state stay in memory.',flush=True)
-    if not args.http:
+        print('Other devices need the Mac Wi-Fi address. Restart with --lan-ip YOUR_WIFI_IPV4.',flush=True)
+    print('Private home-LAN app. Keep the links private: anyone on your Wi-Fi with a link can control the match.',flush=True)
+    print('Ctrl-C stops it. Images and game state stay in memory.',flush=True)
+    if args.https:
         print('Local CA: '+certificate_info['ca_subject'],flush=True)
         print('CA SHA-256: '+certificate_info['sha256_fingerprint'],flush=True)
-        print('Phone trust setup: see README. Public CA helper: .venv/bin/python local_https.py serve --lan-ip '+ip,flush=True)
+        print('Device trust setup: see README. Public CA helper: .venv/bin/python local_https.py serve --lan-ip '+ip,flush=True)
     if worker.source is not None: print('Camera source: '+worker.source.description,flush=True)
+    else: print('Camera source: none yet. Open the Setup link and enter the phone\'s IP Webcam address.',flush=True)
     if vision_error: print(vision_error,flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: pass

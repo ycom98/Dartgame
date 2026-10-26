@@ -349,6 +349,18 @@ class ReplayMatchesDirectFeeding(unittest.TestCase):
         self.assertEqual(source.seq, len(self.sequence))
         self.assertGreater(elapsed, (len(self.sequence) - 1) / 30 * 0.8)
 
+    def test_looped_single_image_keeps_its_frame_rate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cv2.imwrite(os.path.join(folder, 'board.png'), self.empty)
+            source = ImageFolderSource(folder, fps=10, loop=True).start()
+            try:
+                time.sleep(1.5)
+                fps = source.status()['fps']
+            finally:
+                source.stop()
+        self.assertGreater(fps, 8)
+        self.assertLess(fps, 12)
+
     def test_oversized_folder_frames_are_downscaled(self):
         with tempfile.TemporaryDirectory() as folder:
             cv2.imwrite(os.path.join(folder, 'big.png'), cv2.resize(self.empty, (2560, 1440)))

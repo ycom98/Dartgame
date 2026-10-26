@@ -1,5 +1,6 @@
 """Managed local CA/leaf and public-download regression checks."""
 import http.client
+import shutil
 from pathlib import Path
 import ssl
 import tempfile
@@ -8,6 +9,7 @@ import unittest
 from http.server import HTTPServer
 from local_https import prepare,activate,bootstrap_handler,PUBLIC_CERTIFICATE,fingerprint,openssl
 
+@unittest.skipUnless(shutil.which('openssl'), 'optional --https path: needs OpenSSL (M1-13)')
 class LocalHttpsRegression(unittest.TestCase):
     def setUp(self):
         self.temporary=tempfile.TemporaryDirectory();self.root=Path(self.temporary.name)

@@ -98,13 +98,14 @@ async function waitCheck(fn,timeout=5000){const start=Date.now();while(Date.now(
   clearInterval(feedTimer);feedTimer=null;
   await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Camera disconnected',undefined,{timeout:8000});
   check('stopped synthetic feed disables camera-game start',await page.locator('#newGame').isDisabled());
+  // M1-13: the phone no longer runs a camera page. Old /phone links open the Mac setup page.
   const phone=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   phone.on('pageerror',error=>errors.push('Phone route: '+error.message));
   await phone.goto(origin+'/phone?t='+token);
-  await phone.waitForSelector('#phone #startCamera');
-  check('phone route shows rear-camera controls',await phone.locator('#startCamera').isVisible());
+  await phone.waitForSelector('#sourceUri');
+  check('old phone link opens the setup page without a browser camera',await phone.locator('#startCamera').count()===0&&await phone.locator('video').count()===0);
   const sizing=await phone.evaluate(()=>({width:document.documentElement.clientWidth,content:document.documentElement.scrollWidth,layoutWidth:innerWidth}));
-  check('phone route has no horizontal overflow',sizing.content<=sizing.width,sizing);
+  check('setup page has no horizontal overflow at phone width',sizing.content<=sizing.width,sizing);
   await phone.screenshot({path:path.join(artifactDir,'setup-phone.png'),fullPage:true});
   check('no uncaught application browser errors',errors.length===0,errors);
 })().catch(error=>{results.push({name:'browser harness completion',pass:false,detail:error.stack});})

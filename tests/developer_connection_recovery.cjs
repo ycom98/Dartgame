@@ -11,6 +11,7 @@ const {chromium}=require('playwright');
   await page.route('http://127.0.0.1:9876/**',route=>{
    const path=new URL(route.request().url()).pathname;
    if(path==='/')return route.fulfill({contentType:'text/html',body:html});
+   if(path.startsWith('/static/'))return route.fulfill({contentType:path.endsWith('.css')?'text/css':'text/javascript',body:fs.readFileSync(path.slice(1),'utf8')});
    if(offline)return route.abort();
    if(path==='/api/throw'&&rejectScore)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Invalid board score'})});
    return route.fulfill({contentType:'application/json',body:JSON.stringify(state)});

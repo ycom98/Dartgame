@@ -13,6 +13,7 @@ import threading
 import time
 from concurrent.futures import Future, TimeoutError as FutureTimeout
 
+
 # How long an HTTP request waits for a queued vision action (plan: at most 10 s).
 ACTION_TIMEOUT_SECONDS = 10.0
 # Re-publish the vision state at least this often, so time-based changes (calibration
@@ -138,8 +139,8 @@ class VisionWorker:
         if source is None:
             return None
         status = source.status()
-        now = time.monotonic()
-        status['processed_fps'] = round(len([t for t in self.processed if now - t <= 2.0]) / 2.0, 1)
+        from camera_source import rate  # only reached with a source attached, so OpenCV is present
+        status['processed_fps'] = rate(self.processed, time.monotonic())
         if self.last_ingest_error:
             status['ingest_error'] = self.last_ingest_error
         return status

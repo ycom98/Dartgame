@@ -4,31 +4,35 @@ A small local 301/501 game for a **Winmau Diamond Plus**, **Samsung Galaxy S22 (
 
 **This is a prototype for physical testing, not production-ready automatic scoring. Every camera proposal requires human confirmation.** The archive includes prior Linux tests. This milestone is being validated locally on the Mac; the physical S22 (SM-S901U) and mounted board still need supervised live testing.
 
-## Start on the Mac
+## Quickstart: Mac + Galaxy S22 with IP Webcam
 
-1. Extract the project folder to your Mac. Install Python 3.10 or newer from python.org if `python3 --version` is unavailable or reports a version below 3.10. The Mac needs Internet access for initial dependency installation.
-2. Open Terminal in the project folder and run:
+The phone streams video with the free Android app **IP Webcam**; the Mac pulls the stream over plain HTTP on your home Wi-Fi and does everything else. No certificates or phone browser page are needed.
 
-   ```sh
-   bash start-mac.command
-   ```
+1. On the Mac, install Python 3.10+ from python.org if `python3 --version` is missing or older. Extract this folder.
+2. On the S22, install **IP Webcam** (by Pavel Khlebovich) from the Play Store. Mount the phone (main 1× lens, whole board in view, 20 at the top) and plug it in.
+3. In IP Webcam → **Video preferences**: resolution 1920×1080 (1280×720 if the stream is slow), quality about 80, FPS limit 15; turn video stabilisation off. Then scroll to the bottom and tap **Start server**. Note the address it shows, e.g. `http://192.168.1.23:8080`.
+4. Mac and phone must be on the same, non-guest Wi-Fi. In Terminal, in this folder, run `bash start-mac.command --camera 192.168.1.23` (your phone's numbers; `http://192.168.1.23:8080/video` works too). The first run installs dependencies, which needs Internet.
+5. Allow Python's incoming connections if macOS asks. Open the **Setup** link printed in Terminal on the Mac.
+6. The checklist shows **Camera stream ✓** with fps. (No `--camera`? Type the phone IP under **Phone stream**, press **Test connection**, then **Connect**.) Lock focus and exposure in IP Webcam once framed.
+7. Empty the board. Press **Freeze and set four points** and click the outer edge of the double ring at the centre of 20, 6, 3, 11 (a magnifier follows the cursor).
+8. Check that the drawn rings and sector lines sit on the wires, then press **Markers correct · Ready to play**.
+9. Open the **Controller** link on a phone/tablet and the **Presentation** link on the TV (both printed in Terminal), or start a game in section 2 of the setup page.
+10. Stop with **Ctrl-C** in Terminal.
 
-   You can also try double-clicking `start-mac.command`; macOS permissions may require the Terminal method. The script checks Python 3.10+, creates `.venv`, installs dependencies on first use, and starts the local HTTPS server. Later launches reuse compatible installed dependencies and can run offline. An existing project `.venv` is preferred. To choose a specific interpreter on first setup, run `DART_PYTHON=/absolute/path/to/python3 bash start-mac.command`.
-3. Open the **Computer** URL printed in Terminal on the Mac. Open the **Phone** URL on the S22 (SM-S901U) in Chrome. Keep the complete pairing URLs, including `?t=...`, private. Restarting the server generates a new token.
-4. On the Mac, allow Python's incoming local-network connection if prompted. Both devices must be on the same non-guest Wi-Fi with client isolation disabled. No router port forwarding is needed.
-5. Phone camera access requires browser-trusted HTTPS. A certificate warning or Connection trusted for camera: No / Camera access API: Unavailable blocks camera access even when the page loads. Complete the local CA setup below; accepting a privacy warning alone is insufficient. Do not disable browser protections.
-6. On the phone, press **Start rear camera** and allow camera access. Start with the main rear lens at 1× zoom. The page shows the selected camera and offers a camera picker after permission when the browser exposes multiple cameras; inspect the preview rather than assuming a specific S22 (SM-S901U) lens was selected. Keep the page visible, screen awake, and orientation fixed. Frames are sent about every 700 ms. No microphone is requested.
-7. Stop with **Ctrl-C** in the Mac Terminal.
+DroidCam is the fallback: use `http://PHONE:4747/video`. Other sources: `snapshot:http://PHONE:8080/shot.jpg` (single photos), `file:clip.avi` and `dir:frames/` (replay). The default port is 8000; `--port` changes it. If the printed LAN address is wrong, add `--lan-ip YOUR_MAC_WIFI_IPV4`. The stream reconnects by itself after a Wi-Fi drop; after more than 5 s without images, press **Check / realign board** and verify again. To rehearse without a phone, run `.venv/bin/python tests/fake_ipwebcam.py --port 8080` and connect to `127.0.0.1`.
 
-The default port is 8443. If the printed LAN address is wrong, run `bash start-mac.command --lan-ip 192.168.1.123` using the Mac's Wi-Fi IPv4 address from System Settings → Wi-Fi → Details → TCP/IP. The certificate is regenerated when the selected IP changes. macOS's included `openssl` is used with a config file rather than requiring `-addext`.
+Plain HTTP on the home LAN is the default (owner decision #7): the links carry the access token unencrypted, so anyone on your Wi-Fi who sees a link can control the match. Use `--https` if you want encryption (below).
 
 ## Test games without a board or camera
 
-Open the **Computer** pairing URL on the Mac. Under **Start a game**, uncheck **Camera game**, choose 301 or 501, select 2–4 players and enter their names. Select Double out if wanted, then press **Start game**. Manual games require no calibration.
+Open the **Setup** link on the Mac. Under **Start a game**, uncheck **Camera game**, choose 301 or 501, select 2–4 players and enter their names. Select Double out if wanted, then press **Start game**. Manual games require no calibration.
 
 Use **Value** and **Ring**, then **Record manual score**. Miss records zero; bull Single is 25 and Double is 50. Record three darts, then press **Darts removed · Next player**. A bust also permits advancing. **Undo last action** reverses a score or turn change; record the corrected dart afterwards. Starting another game asks before replacing an unfinished game.
 
-## Trust local HTTPS on the Galaxy S22 (SM-S901U)
+## Optional: HTTPS with a local certificate authority
+
+Not needed for the IP Webcam setup. `bash start-mac.command --https` serves HTTPS on port 8443 (requires `openssl`). Browsers on other devices then need to trust the project CA, as below.
+
 
 The app generates a uniquely named project CA and a 30-day server certificate for localhost, 127.0.0.1 and the selected Mac Wi-Fi IPv4 address. Leaf renewal preserves that CA. No trust is installed automatically on the Mac, phone or browser. The CA expires after one year; replacing it deliberately also requires updating device trust.
 
@@ -42,7 +46,7 @@ This opens a **10-minute public-certificate-only HTTP setup page** at `http://YO
 
 On the S22, compare the complete fingerprint with the trusted Mac/chat value, then download `DartRoom-Local-CA.crt`. Installing a CA authorizes the device to trust certificates signed by that CA's private key; install it only after explicitly accepting that trust. The private key remains in this project on the Mac.
 
-In Android Settings, search for **Install a certificate** or **CA certificate**. Select **CA certificate**, then choose the downloaded file. Do not select a Wi-Fi certificate. Samsung menu names vary by Android/One UI version; Android 11+ requires this CA installation through Settings rather than a web page. Close and reopen Chrome, open the complete current HTTPS Phone link, and verify **Connection trusted for camera: Yes** and **Camera access API: Available** before pressing Start rear camera and allowing Camera.
+In Android Settings, search for **Install a certificate** or **CA certificate**. Select **CA certificate**, then choose the downloaded file. Do not select a Wi-Fi certificate. Samsung menu names vary by Android/One UI version; Android 11+ requires this CA installation through Settings rather than a web page. Close and reopen Chrome and open the HTTPS link.
 
 If the Mac browser also needs trust, that is a separate deliberate user/Keychain step. This software does not change Keychain or Android trust. To remove the phone trust later, find the uniquely named **Dart Room Local CA …** under Android's user-installed/trusted credentials and remove that specific CA.
 
@@ -60,16 +64,16 @@ References: [local HTTPS development](https://web.dev/articles/how-to-use-local-
 
 Use a fixed phone mount outside the throwing path and bright, even lighting without glare. Mount the board normally with 20 at the top; ensure it cannot turn during throws. The **full scoring circle must remain visible**, with the board filling much of the image. Initially calibrate with **no darts in the board**. Do not buy additional camera hardware before testing this setup.
 
-On the computer, select **Set four points**. The exact image freezes while the live phone stream continues. Then click the outer edge of the double ring at the centre of:
+On the setup page, select **Freeze and set four points**. The exact image freezes while the live phone stream continues. Then click the outer edge of the double ring at the centre of:
 
 1. 20 at the top;
 2. 6 at the right;
 3. 3 at the bottom;
 4. 11 at the left.
 
-These points define a perspective transform to a regulation board plane. After the fourth point, the server matches that frozen reference to the latest live frame. Check all four overlay markers on the live image, then press **Markers correct · Ready to play**. The Start game button becomes available for camera games only after verification. If the snapshot expires after five minutes, restart point selection. The calibration target is 1–5 minutes once the camera is connected; physical timing must still be measured. The procedure assumes a regulation-sized scoring area with outer double radius 170 mm.
+These points define a perspective transform to a regulation board plane. After the fourth point, the server matches that frozen reference to the latest live frame. Every ring and sector line is then drawn on the live image: check they sit on the wires, then press **Markers correct · Ready to play**. The Start game button becomes available for camera games only after verification. If the snapshot expires after five minutes, restart point selection. The calibration target is 1–5 minutes once the camera is connected; physical timing must still be measured. The procedure assumes a regulation-sized scoring area with outer double radius 170 mm.
 
-**Check / realign board** matches the current image to the initial reference using ORB features and a RANSAC homography. Before each camera game, the server also requires a fresh frame and automatically runs this alignment check. If the four markers move by more than two image pixels, it asks you to verify the updated overlay before starting. A new alignment, detected scene change, camera dimension change, stale/disconnected stream, or phone camera start/stop/lens switch clears prior verification. If matching is too weak, insufficiently distributed, or takes the board out of frame, it blocks startup and asks for manual calibration. Blank, low-detail images cannot pass. Significant stable scene changes and frame resolution changes invalidate alignment. Small movement, rotationally repetitive board features, autofocus, and lighting changes can still defeat or confuse matching: always check the overlay. Robust movement detection is an open physical-test item.
+**Check / realign board** matches the current image to the initial reference using ORB features and a RANSAC homography. Before each camera game, the server also requires a fresh frame and automatically runs this alignment check. If the four markers move by more than two image pixels, it asks you to verify the updated overlay before starting. A new alignment, detected scene change, camera dimension change, stale/disconnected stream (more than 5 s without images), or a change of camera source clears prior verification. If matching is too weak, insufficiently distributed, or takes the board out of frame, it blocks startup and asks for manual calibration. Blank, low-detail images cannot pass. Significant stable scene changes and frame resolution changes invalidate alignment. Small movement, rotationally repetitive board features, autofocus, and lighting changes can still defeat or confuse matching: always check the overlay. Robust movement detection is an open physical-test item.
 
 ## Play
 
@@ -87,9 +91,9 @@ Single-camera accuracy must be measured with real footage before deciding whethe
 
 ## Privacy and local operation
 
-Browser pages, game state, and frame processing run on the Mac. The S22 (SM-S901U) uploads images over the LAN's HTTPS connection. Images and game state are held in memory and are lost when the server stops. They are not sent to an AI service, stored on disk, or published. The pairing token authorizes all game controls: anyone with that link and LAN access can control the game. Keep it private and avoid untrusted networks. The server is a small development server, not hardened for public Internet exposure.
+Browser pages, game state, and frame processing run on the Mac. The Mac pulls images from the S22's IP Webcam stream over the home LAN (plain HTTP unless the phone app is set up otherwise). Images and game state are held in memory and are lost when the server stops. They are not sent to an AI service, stored on disk, or published. The pairing token authorizes all game controls: anyone with that link and LAN access can control the game. Keep it private and avoid untrusted networks. The server is a small development server, not hardened for public Internet exposure.
 
-The project CA private key and server private key stay in `.local/`; never share that directory or either private key. Only the public `DartRoom-Local-CA.crt` may be shared for manual trust setup. Preserve `.local/pki/`: leaf renewal and LAN-IP changes reuse the same CA. Deleting `.local/` changes the CA identity and requires removing/replacing previously installed device trust. No cloud account is needed. Initial Python packages require downloads; runtime does not need Internet access.
+With `--https`, the project CA private key and server private key stay in `.local/`; never share that directory or either private key. Only the public `DartRoom-Local-CA.crt` may be shared for manual trust setup. Preserve `.local/pki/`: leaf renewal and LAN-IP changes reuse the same CA. Deleting `.local/` changes the CA identity and requires removing/replacing previously installed device trust. No cloud account is needed. Initial Python packages require downloads; runtime does not need Internet access.
 
 ## Running tests
 
@@ -125,10 +129,9 @@ From the project folder:
 Install `requirements.txt` first for vision tests. For manual-only development without dependencies:
 
 ```sh
-python3 server.py --host 127.0.0.1 --http --port 8443
+python3 server.py --host 127.0.0.1
 ```
-
-HTTP mode is deliberately restricted to loopback; it is unsuitable for the phone camera. See `REQUIREMENTS.md` and `QA_REPORT.md` for requirements and independent QA results. The next phase is live Mac/S22 (SM-S901U) setup, overlay verification, and a known-score throwing trial. Kapil reviews and accepts the result before any production release.
+ See `REQUIREMENTS.md` and `QA_REPORT.md` for requirements and independent QA results. The next phase is live Mac/S22 (SM-S901U) setup, overlay verification, and a known-score throwing trial. Kapil reviews and accepts the result before any production release.
 
 ## Milestone 1 readiness
 
@@ -136,6 +139,6 @@ The setup panel shows camera waiting/disconnected, ready to calibrate, point-sel
 
 The agreed hardware is a Winmau Diamond Plus, MacBook, and confirmed Galaxy S22 (SM-S901U) using the rear camera. Game state is currently in memory only. Broader games, robust movement recovery, saved statistics and a dashboard are later decisions.
 
-## Camera start feedback and retry
+## Camera stream status
 
-The phone page shows connection checks, camera permission waiting, preview startup and frame upload separately. Start remains available to explain a pairing, network or trust problem. Network requests time out after 8 seconds; camera permission waits at most 30 seconds and preview startup 10 seconds. **Cancel camera start** stays available while waiting. A browser permission prompt may outlive cancellation; any stream it later grants is stopped unless it belongs to the current attempt. Permission denial, unavailable/busy camera, insecure connection and upload failures appear beside the camera controls. These paths are tested with mocked media; the actual S22 trust/permission flow still needs user validation.
+The setup page shows the stream address (password hidden), frames received and checked per second, the age of the newest image and the number of reconnects. A dropped stream retries after 1, 2, 4, then every 5 s. Only the newest image is processed; older ones are skipped, so a slow Mac never builds up delay. The phone-browser camera page was retired in M1-13; old `/phone` links open the setup page.
