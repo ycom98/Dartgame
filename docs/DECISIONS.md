@@ -14,3 +14,4 @@ Confirmed by the owner on 2026-10-26 ("go with your suggestions"). These answer 
 | 8 | Trial footage | Kept on the Mac only; deleted whenever the owner wants. |
 | 9 | Thursday trial | Owner throws, Thursday Oct 29; about 2 hours. Phone on the ceiling mount. |
 | 10 | Next game after 301/501 | Cricket. |
+| 11 | Priority after M1 | If M1 finishes before Thursday, move straight on to games (Cricket first, then the Flight Club-style party games) and the UI experience (game-selection dashboard, polish, sound). Camera tuning resumes with real footage from Thursday. |
