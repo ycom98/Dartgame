@@ -5,7 +5,7 @@ Confirmed by the owner on 2026-10-26 ("go with your suggestions"). These answer 
 | # | Question | Decision |
 |---|---|---|
 | 1 | Camera darts: auto-commit or host confirmation? | Auto-commit after ~3 seconds with no correction; one tap fixes it. |
-| 2 | Mounting hardware and power | Ceiling mount above and in front of the board, looking down at it; power cable to the phone. Add a matching "ceiling" mount to the synthetic harness. Exact height and distance from the wall to be confirmed on board day. |
+| 2 | Mounting hardware and power | Ceiling mount: 7.5 ft basement ceiling, bull at 5 ft 8 in, so the phone is about 52 cm above the bull. The owner proposed 0.5 ft from the wall; that is a ~16° grazing view, and a dart in the bull would hide about 1.2 m of board below it. Recommended: 1.5–2 ft from the wall (41–49° view, ~9–14 cm hidden below each dart), via a drop arm or by moving the mount, with no obstacles. Add "ceiling-0.5ft", "ceiling-1.5ft" and "ceiling-2ft" mounts to the synthetic harness. Power cable to the phone. |
 | 3 | Ring light | Yes, recommended (diffuse lighting cuts shadow errors). Not required for Thursday's trial. |
 | 4 | Second camera if one isn't accurate enough | Maybe later; decide after Thursday's numbers. |
 | 5 | Off-board misses | Filled in automatically when a turn ends with fewer than 3 darts detected; the host can correct them. |
