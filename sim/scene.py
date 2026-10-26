@@ -331,8 +331,8 @@ def render_clean(camera, darts=(), shadow=None, shadow_strength=0.45, px_per_mm=
     return image
 
 
-def degrade(image, degradation, rng, brightness=None):
-    """Apply photometric degradations. Returns (frame, encoded_jpeg_bytes_or_None).
+def photometric(image, degradation, brightness=None):
+    """Deterministic part of the degradation: brightness/contrast, then blur.
 
     brightness overrides degradation.brightness (used for per-trial jitter).
     """
@@ -345,9 +345,22 @@ def degrade(image, degradation, rng, brightness=None):
         out = np.clip(work + 0.5, 0, 255).astype(np.uint8)
     if degradation.blur_sigma > 0:
         out = cv2.GaussianBlur(out, (0, 0), degradation.blur_sigma)
+    return out
+
+
+def sensor(image, degradation, rng):
+    """Per-frame part of the degradation: Gaussian noise, then JPEG.
+
+    Returns (frame, encoded_jpeg_bytes_or_None).
+    """
+    out = image
     if degradation.noise_sigma > 0:
-        noise = rng.normal(0.0, degradation.noise_sigma, out.shape).astype(np.float32)
-        out = np.clip(out.astype(np.float32) + noise + 0.5, 0, 255).astype(np.uint8)
+        # OpenCV's generator is ~4x faster than numpy here; seed it from rng so output stays deterministic.
+        cv2.setRNGSeed(int(rng.integers(0, 2 ** 31 - 1)))
+        noise = np.empty(out.shape, np.int16)
+        sigma = float(degradation.noise_sigma)
+        cv2.randn(noise, (0.0,) * out.shape[2], (sigma,) * out.shape[2])
+        out = cv2.add(out, noise, dtype=cv2.CV_8U)
     encoded = None
     if degradation.jpeg_quality is not None:
         ok, data = cv2.imencode('.jpg', out, [cv2.IMWRITE_JPEG_QUALITY, int(degradation.jpeg_quality)])
@@ -356,6 +369,11 @@ def degrade(image, degradation, rng, brightness=None):
         encoded = data.tobytes()
         out = cv2.imdecode(data, cv2.IMREAD_COLOR)
     return out, encoded
+
+
+def degrade(image, degradation, rng, brightness=None):
+    """Apply all degradations. Returns (frame, encoded_jpeg_bytes_or_None)."""
+    return sensor(photometric(image, degradation, brightness), degradation, rng)
 
 
 @dataclass
