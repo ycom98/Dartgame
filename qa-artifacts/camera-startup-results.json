@@ -1,0 +1,76 @@
+{
+  "testOnly": true,
+  "media": "Generated canvas.captureStream returned by mocked getUserMedia; no actual webcam",
+  "network": "Own ephemeral localhost app; no HTTPS trust bypass; live8443 untouched",
+  "results": [
+    {
+      "name": "synthetic rear camera starts, uploads frames and stops cleanly",
+      "pass": true,
+      "detail": {
+        "uploads": 1,
+        "streamCount": 1
+      }
+    },
+    {
+      "name": "permission denial is actionable and retry succeeds",
+      "pass": true,
+      "detail": {
+        "retry": "streaming"
+      }
+    },
+    {
+      "name": "pending permission shows progress and cancellation cleans a late stream",
+      "pass": true,
+      "detail": {
+        "lateTrack": "ended",
+        "status": "Camera start cancelled. You can retry; any late permission result will be discarded."
+      }
+    },
+    {
+      "name": "cancelled old permission cannot replace a newer successful stream",
+      "pass": true,
+      "detail": {
+        "oldTrack": "ended",
+        "currentTrack": "live"
+      }
+    },
+    {
+      "name": "reset failure gives feedback and permits a successful retry",
+      "pass": true,
+      "detail": {
+        "retry": "streaming"
+      }
+    },
+    {
+      "name": "hung reset is bounded, releases startup and allows retry",
+      "pass": true,
+      "detail": {
+        "timeoutElapsedMs": 8054,
+        "retry": "streaming"
+      }
+    },
+    {
+      "name": "cancelled playback cannot start an abandoned stream after retry",
+      "pass": true,
+      "detail": {
+        "oldPlayback": "discarded",
+        "currentTrack": "live"
+      }
+    },
+    {
+      "name": "ended event from a stopped old track does not stop the restarted camera",
+      "pass": true,
+      "detail": {
+        "currentTrack": "live"
+      }
+    },
+    {
+      "name": "missing camera API explains secure-context requirement without locking retry",
+      "pass": true,
+      "detail": {
+        "diagnostic": "actionable"
+      }
+    }
+  ],
+  "errors": []
+}

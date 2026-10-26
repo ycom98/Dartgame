@@ -1,0 +1,58 @@
+{
+  "testOnly": true,
+  "scope": "Own ephemeral bootstrap handler; no trust changes or live8443 restart",
+  "results": [
+    {
+      "name": "bootstrap identity page shows the exact CA and manual trust explanation",
+      "pass": true
+    },
+    {
+      "name": "only the exact public DER certificate is downloadable",
+      "pass": true
+    },
+    {
+      "name": "fingerprint route matches independent DER SHA256",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /.local/pki/ca-key.pem",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /.local/pki/server-key.pem",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /private-key.pem",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /api/state",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /phone",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /server.py",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /../.local/pki/ca-key.pem",
+      "pass": true
+    },
+    {
+      "name": "non-allowlisted route is not served: /%2e%2e/.local/pki/ca-key.pem",
+      "pass": true
+    },
+    {
+      "name": "POST cannot access public download or mutate state",
+      "pass": true
+    },
+    {
+      "name": "bootstrap QA leaves active certificate and private key unchanged",
+      "pass": true
+    }
+  ]
+}

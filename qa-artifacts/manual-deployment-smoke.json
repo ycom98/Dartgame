@@ -1,0 +1,49 @@
+{
+  "normal_tls_verification": true,
+  "no_game_mutations": true,
+  "checks": [
+    {
+      "method": "GET",
+      "route": "/",
+      "status": 200,
+      "pass": true,
+      "auth_case": "missing"
+    },
+    {
+      "method": "GET",
+      "route": "/api/state",
+      "status": 200,
+      "pass": true,
+      "auth_case": "valid",
+      "game_active": false
+    },
+    {
+      "method": "GET",
+      "route": "/api/state",
+      "status": 401,
+      "pass": true,
+      "auth_case": "missing"
+    },
+    {
+      "method": "GET",
+      "route": "/api/state",
+      "status": 401,
+      "pass": true,
+      "auth_case": "wrong"
+    },
+    {
+      "method": "GET",
+      "route": "/api/state",
+      "status": 401,
+      "pass": true,
+      "auth_case": "non-ASCII"
+    },
+    {
+      "method": "POST",
+      "route": "/api/throw",
+      "status": 401,
+      "pass": true,
+      "auth_case": "non-ASCII"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "lobby Open display carries valid spectator credential",
+    "rapid double click records exactly one dart",
+    "new match setup cancel resumes current match without mutation",
+    "hung state health poll cancels pending automatic handoff"
+  ],
+  "screenshots": [],
+  "errors": [],
+  "lastPosts": [
+    {
+      "status": 200,
+      "body": "{\"value\":20,\"multiplier\":1,\"expected_revision\":1}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [281, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 20, \"multiplier\": 1, \"score\": 20}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 2, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 200,
+      "body": "{\"value\":0,\"multiplier\":1,\"expected_revision\":5}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [301, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 6, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    }
+  ],
+  "pass": true
+}

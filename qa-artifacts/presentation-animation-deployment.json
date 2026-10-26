@@ -1,0 +1,33 @@
+{
+  "tls_chain_hostname_verified": true,
+  "no_game_mutations": true,
+  "checks": [
+    {
+      "asset": "presentation.js",
+      "sha256": "7a9be8603cfe81a8b7918f7c4e6ea81a035cc6bb4f4f26e984347e657b5002bd",
+      "matches_disk": true
+    },
+    {
+      "asset": "presentation.css",
+      "sha256": "a901db5b44c3dd54a8e9f8140d8653d7c09269803847497ebf05580f4c173283",
+      "matches_disk": true
+    },
+    {
+      "asset": "showcase.js",
+      "sha256": "af6c28676c9003ea82a04d3114b24bd11bfc0835a6020a49a7f2d68db937c6d6",
+      "matches_disk": true
+    },
+    {
+      "port": 8443,
+      "reachable": true,
+      "game_active": true,
+      "revision": null
+    },
+    {
+      "port": 8444,
+      "reachable": true,
+      "game_active": false,
+      "revision": 0
+    }
+  ]
+}

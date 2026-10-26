@@ -1,0 +1,22 @@
+{
+  "checks": [
+    "denied and unsupported fullscreen visible fallback /play",
+    "denied and unsupported fullscreen visible fallback /showcase"
+  ],
+  "screenshots": [
+    "presentation-play-320.png",
+    "presentation-play-736.png",
+    "presentation-play-1280.png",
+    "presentation-play-1920.png",
+    "presentation-control-320.png",
+    "presentation-control-736.png",
+    "presentation-control-1280.png",
+    "presentation-control-1920.png",
+    "presentation-showcase-320.png",
+    "presentation-showcase-736.png",
+    "presentation-showcase-1280.png",
+    "presentation-showcase-1920.png"
+  ],
+  "errors": [],
+  "pass": true
+}

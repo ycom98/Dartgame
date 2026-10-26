@@ -1,0 +1,66 @@
+{
+  "test_only": true,
+  "tls_validation": "SSLContext with project certificate only; certificate chain and hostname checks enabled; no global trust changes",
+  "results": [
+    {
+      "host": "localhost",
+      "route": "/",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "localhost",
+      "route": "/phone",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "localhost",
+      "route": "/api/state",
+      "authenticated": false,
+      "status": 401,
+      "pass": true
+    },
+    {
+      "host": "localhost",
+      "route": "/api/state",
+      "authenticated": true,
+      "status": 200,
+      "pass": true,
+      "phase": "waiting_camera",
+      "game_started": false
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/phone",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/api/state",
+      "authenticated": false,
+      "status": 401,
+      "pass": true
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/api/state",
+      "authenticated": true,
+      "status": 200,
+      "pass": true,
+      "phase": "waiting_camera",
+      "game_started": false
+    }
+  ]
+}

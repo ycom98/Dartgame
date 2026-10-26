@@ -1,0 +1,75 @@
+{
+  "testOnly": true,
+  "environment": "Isolated headless Chrome; localhost HTTP; synthetic images; no physical camera",
+  "results": [
+    {
+      "name": "camera game disabled before calibration",
+      "pass": true
+    },
+    {
+      "name": "normal 100ms double-click records one intended dart",
+      "pass": true,
+      "detail": {
+        "darts": 1,
+        "scores": [
+          241,
+          301
+        ]
+      }
+    },
+    {
+      "name": "double-click while score request pending records one dart",
+      "pass": true,
+      "detail": {
+        "darts": 1
+      }
+    },
+    {
+      "name": "four browser-selected calibration points reach overlay review",
+      "pass": true
+    },
+    {
+      "name": "overlay verification waits until current live image is drawn",
+      "pass": true
+    },
+    {
+      "name": "verified guide tells user to start game",
+      "pass": true
+    },
+    {
+      "name": "verified overlay enables camera game",
+      "pass": true
+    },
+    {
+      "name": "server disconnect disables camera-game start",
+      "pass": true
+    },
+    {
+      "name": "server disconnect disables score controls",
+      "pass": true
+    },
+    {
+      "name": "stopped synthetic feed disables camera-game start",
+      "pass": true
+    },
+    {
+      "name": "phone route shows rear-camera controls",
+      "pass": true
+    },
+    {
+      "name": "phone route has no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "width": 390,
+        "content": 390,
+        "layoutWidth": 390
+      }
+    },
+    {
+      "name": "no uncaught application browser errors",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,27 @@
+// Independent QA. Isolated ephemeral HTTP server, fresh Chrome profile, no real media.
+const fs=require('fs'),path=require('path'),net=require('net'),{spawn}=require('child_process');
+const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const root=path.resolve(__dirname,'..'),token='presentation-qa-only',delay=ms=>new Promise(r=>setTimeout(r,ms));
+const result={checks:[],screenshots:[],errors:[]};
+function assert(v,m){if(!v)throw Error(m)}
+async function until(fn,ms=6000){let end=Date.now()+ms;while(Date.now()<end){if(await fn())return;await delay(40)}throw Error('Timed out: '+String(fn).slice(0,140))}
+let child,browser,context,origin;
+async function api(action,body,auth=token){let r=await fetch(origin+'/api/'+action,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json()}}
+async function state(){return(await api('state')).data}
+async function begin(start=301,double=false){let r=await api('game',{names:['Ada','Lin'],camera:false,start,double_out:double});assert(r.status===200,'start game');await delay(1200);return r.data}
+async function dart(v,m=1){let s=await state();let r=await api('throw',{value:v,multiplier:m,expected_revision:s.revision});assert(r.status===200,'api throw '+JSON.stringify(r));return r.data}
+async function next(){let s=await state(),r=await api('next',{expected_revision:s.revision});assert(r.status===200,'api next');return r.data}
+async function undo(){let s=await state(),r=await api('undo',{expected_revision:s.revision});assert(r.status===200,'api undo');return r.data}
+async function check(name,fn){await fn();result.checks.push(name);fs.writeFileSync(root+'/qa-artifacts/presentation-results.json',JSON.stringify(result,null,2))}
+(async()=>{try{
+const port=await new Promise(r=>{let s=net.createServer();s.listen(0,'127.0.0.1',()=>{let p=s.address().port;s.close(()=>r(p))})});let startup='',stderr='';
+child=spawn(root+'/.venv/bin/python',['-B','-c','import server;server.app=server.App("'+token+'");server.vision=None;server.vision_error="QA no camera";server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});child.stdout.on('data',d=>startup+=d);child.stderr.on('data',d=>stderr+=d);await until(()=>startup.includes('Computer:'));origin='http://127.0.0.1:'+port;
+browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});context=await browser.newContext({viewport:{width:1280,height:900}});
+await context.addInitScript(()=>{window.mediaCalls=0;Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:()=>{window.mediaCalls++;throw Error('QA forbids camera')}}})});
+context.on('page',p=>p.on('pageerror',e=>result.errors.push(e.message)));
+context.setDefaultTimeout(6000);let host=await context.newPage();host.on('dialog',d=>d.accept());host.on('response',async r=>{if(r.url().includes('/api/')&&r.request().method()==='POST')result.lastPosts=(result.lastPosts||[]).concat([{status:r.status(),body:r.request().postData(),response:await r.text()}]).slice(-8)});await host.goto(origin+'/control?t='+token);await begin();
+let s=await state(),view=s.presentation_path||('/play?t='+token);const spectators=[await context.newPage(),await context.newPage()];const spectatorWrites=[];for(let p of spectators){p.on('request',r=>{if(r.method()!=='GET')spectatorWrites.push(r.url())});await p.goto(origin+view)}
+const spectatorSync=async n=>{for(let p of spectators)await until(async()=>await p.locator('.hero .score').textContent()===String(n))};
+
+for(let route of [view,'/control?t='+token,'/showcase']){let p=await context.newPage();await p.goto(origin+route);await delay(1200);if(!route.startsWith('/control')){await p.evaluate(()=>{document.documentElement.requestFullscreen=()=>Promise.reject(Error('QA denied'))});await p.locator('#fullscreen').click();assert(await p.locator('#fullscreen').textContent()==='Use browser full screen','denied fullscreen feedback '+route);await p.evaluate(()=>{document.documentElement.requestFullscreen=undefined});await p.locator('#fullscreen').click();assert(await p.locator('#fullscreen').textContent()==='Use browser full screen','unsupported fullscreen feedback '+route);result.checks.push('denied and unsupported fullscreen visible fallback '+route.split('?')[0]);}for(let width of [320,736,1280,1920]){await p.setViewportSize({width,height:width===320?900:1080});await delay(100);assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'horizontal overflow '+route+' '+width);let name='presentation-'+(route.startsWith('/play')?'play':route.startsWith('/control')?'control':'showcase')+'-'+width+'.png';await p.screenshot({path:root+'/qa-artifacts/'+name,fullPage:true});result.screenshots.push(name)}await p.close()}result.pass=true;
+}catch(e){result.pass=false;result.failure=e.stack;process.exitCode=1}finally{if(browser)await browser.close();if(child)child.kill('SIGTERM');fs.writeFileSync(root+'/qa-artifacts/presentation-visual-results.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2))}})();

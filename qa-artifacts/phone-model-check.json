@@ -1,0 +1,15 @@
+{
+  "confirmedModel": "Samsung Galaxy S22 (SM-S901U)",
+  "copyPass": true,
+  "phone": {
+    "clientWidth": 390,
+    "scrollWidth": 390
+  },
+  "selector": {
+    "clientWidth": 390,
+    "scrollWidth": 390,
+    "cameraSelectRight": 368,
+    "sectionRight": 378
+  },
+  "pass": true
+}

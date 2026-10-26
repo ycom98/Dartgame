@@ -1,0 +1,16 @@
+{
+  "name": "501-four",
+  "pass": true,
+  "detail": {
+    "fullGame": true,
+    "scores": [
+      0,
+      501,
+      501,
+      501
+    ],
+    "players": 4,
+    "turns": 9
+  },
+  "mediaRequests": 0
+}

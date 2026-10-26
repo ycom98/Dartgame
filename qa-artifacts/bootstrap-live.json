@@ -1,0 +1,30 @@
+{
+  "public_certificate_only": true,
+  "results": [
+    {
+      "route": "/",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/DartRoom-Local-CA.crt",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/fingerprint",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/api/state",
+      "status": 404,
+      "pass": true
+    },
+    {
+      "route": "/.local/pki/ca-key.pem",
+      "status": 404,
+      "pass": true
+    }
+  ]
+}

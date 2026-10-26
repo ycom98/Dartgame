@@ -1,0 +1,33 @@
+{
+  "scope": "NON-camera developer audit; isolated loopback process with vision disabled; no changes to real8443 game",
+  "passed": true,
+  "assertions": 318,
+  "scenarios": [
+    "301/501 start and full-round rotation for2,3,4players with no camera",
+    "complete301 win, winner/bust undo, correction, no play after winner",
+    "complete3-player501 from full starting score",
+    "doubleout remaining1/non-doublezero busts and corrected double finish",
+    "complete501 doubleout game ending on inner bull",
+    "undo/correction across player turn boundary",
+    "invalid darts/games/JSON, unauthorized clients and unknown routes preserve state/history",
+    "concurrent isolated manual submissions respect atomic3dart turn limit"
+  ],
+  "defects": [],
+  "material_defects_found_outside_baseline_and_fixed": [
+    {
+      "issue": "Miss/Bull allowed invalid prior Triple ring",
+      "fix": "Normalize Miss to Single; Bull only Single/Double with explicit reset help",
+      "verification": "Independent browser QA pending"
+    },
+    {
+      "issue": "Non-ASCII bearer token dropped GET/POST connection",
+      "fix": "Reject non-ASCII token before constant-time comparison",
+      "verification": "2 focused HTTP regressions pass"
+    },
+    {
+      "issue": "Recovered server retained stale network banner",
+      "fix": "Clear only connection-source errors after successful current poll",
+      "verification": "2 isolated browser regressions pass; action errors retained"
+    }
+  ]
+}

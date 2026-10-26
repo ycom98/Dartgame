@@ -1,0 +1,13 @@
+{
+  "testOnly": true,
+  "media": "Generated canvas.captureStream returned by mocked getUserMedia; no actual webcam",
+  "network": "Own ephemeral localhost app; no HTTPS trust bypass; live8443 untouched",
+  "results": [
+    {
+      "name": "pending permission shows progress and cancellation cleans a late stream",
+      "pass": false,
+      "error": "Error: Pending permission must replace the misleading Camera off status\n    at check (project/tests/qa_camera_startup.cjs:9:41)\n    at project/tests/qa_camera_startup.cjs:119:7\n    at async run (project/tests/qa_camera_startup.cjs:77:20)\n    at async project/tests/qa_camera_startup.cjs:114:3"
+    }
+  ],
+  "errors": []
+}

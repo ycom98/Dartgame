@@ -1,0 +1,42 @@
+{
+  "checks": [
+    "named turn entrance and three per-dart drains settle to121 remaining180 banked",
+    "unchanged renders and live polls do not recreate nodes or restart score andstage motion",
+    "next-player entrance and undo handoff retain authoritative scores",
+    "bust restores reservoir andbankedpoints; undo andwinningcheckout settle correctly",
+    "501 reservoir uses501 denominator andfast updates settle latest authority",
+    "reduced motion resolves exact state immediately andsuppresses staged overlays",
+    "showcase natural maximum180 andhandoff; Pause andRestart remain isolated",
+    "host repeatedpaint preserves in-flight score andnever covers scoring controls",
+    "revised scoreinstrument andstages fit phone tablet andTV without horizontal overflow"
+  ],
+  "screenshots": [
+    "presentation-animation-kapil-entrance-1920.png",
+    "presentation-animation-first-hit-1920.png",
+    "presentation-animation-maximum180-1920.png",
+    "presentation-animation-settled180-1920.png",
+    "presentation-animation-settled180-320.png",
+    "presentation-animation-maya-handoff-1920.png",
+    "presentation-animation-bust-restore-1920.png",
+    "presentation-animation-victory-1920.png",
+    "presentation-animation-501-reservoir-1920.png",
+    "presentation-animation-showcase-maximum180.png",
+    "presentation-animation-showcase-handoff.png",
+    "presentation-animation-play-320.png",
+    "presentation-animation-play-1920.png",
+    "presentation-animation-control-320.png",
+    "presentation-animation-control-1920.png",
+    "presentation-animation-showcase-320.png",
+    "presentation-animation-showcase-1920.png"
+  ],
+  "errors": [],
+  "video": "Not recorded: optional Playwright ffmpeg binary unavailable; no dependency installed.",
+  "lastPosts": [
+    {
+      "status": 200,
+      "body": "{\"value\":20,\"multiplier\":3,\"expected_revision\":30}",
+      "response": "{\"game\": {\"names\": [\"Kapil\", \"Maya\"], \"scores\": [241, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 20, \"multiplier\": 3, \"score\": 60}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 31, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    }
+  ],
+  "pass": true
+}

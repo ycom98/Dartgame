@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dart Room · local prototype</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui;background:#101715;color:#eff5f0}body{max-width:1100px;margin:auto;padding:24px}h1{font-size:32px;margin:0}h2{font-size:20px}.muted{color:#a8beb1}header{display:flex;justify-content:space-between;align-items:center;gap:12px}section{background:#19241f;border:1px solid #344b3e;border-radius:14px;padding:20px;margin:18px 0}button,input,select{font:inherit;padding:10px;border-radius:7px;border:1px solid #526b5b;margin:4px;background:#213a2c;color:white}button{cursor:pointer}button.primary{background:#c6ed88;color:#14230e;border:0;font-weight:700}button:disabled{opacity:.4;cursor:default}label{display:inline-block;margin:5px;max-width:100%;box-sizing:border-box}input,select{max-width:100%;box-sizing:border-box}input[type=file]{display:block;width:100%;margin:8px 0}#cameraChoice{display:block;width:min(100%,500px)}#cameraSelect{width:100%;margin-left:0}.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.player{padding:15px;border:1px solid #3c5044;border-radius:10px}.active{border:2px solid #c6ed88}.score{font-size:48px;font-weight:700}.warning{color:#f4cf80}#error{position:sticky;top:0;background:#6c2323;color:#fff;padding:12px;display:none;z-index:2}canvas,video{width:100%;max-width:760px;touch-action:manipulation;background:#0b100d;border-radius:10px}#board{cursor:crosshair}small{display:block;color:#abc0b2;margin:8px 0}[hidden]{display:none!important}a{color:#c6ed88}.setup-status{border-left:4px solid #f4cf80;padding:12px 16px;background:#142019;margin:14px 0}.setup-status.ready{border-color:#c6ed88}.setup-status strong{display:block;font-size:20px}#setupDetail{margin:6px 0 0}#setupSteps{padding-left:22px;color:#abc0b2}#setupSteps li{margin:7px 0}@media(max-width:550px){body{padding:12px}header{align-items:flex-start;flex-direction:column}section{padding:14px}button{max-width:100%}}
+</style>
+<header><div><h1>Dart Room</h1><div class="muted">Winmau · 301 / 501 · local prototype</div></div><span id="connection" role="status">Connecting…</span></header>
+<div id="error" role="alert"></div>
+<div id="desktop">
+<section><h2>1 · Connect and calibrate</h2>
+<div id="setupStatus" class="setup-status" role="status" aria-live="polite"><strong id="setupTitle">Connect your phone</strong><p id="setupDetail">Open the phone link printed in Terminal, then start the rear camera.</p></div>
+<ol id="setupSteps"><li>Connect the Galaxy S22 (SM-S901U) rear camera. Keep the whole empty board visible.</li><li>Freeze an image and select four points: 20, 6, 3, 11.</li><li>Check the markers on the live image and verify. Then start a game.</li></ol>
+<p class="muted">Calibration target: 1–5 minutes after the camera connects. First-time installation is separate.</p>
+<p id="visionStatus">Waiting for phone camera</p>
+<canvas id="board" width="960" height="720" aria-label="Camera image; select four calibration points"></canvas>
+<div class="row"><button id="calibrate">Set four points</button><button id="cancelCalibration" hidden>Cancel calibration</button><button id="align">Check / realign board</button><button id="verify" class="primary" hidden>Markers correct · Ready to play</button><button id="baseline">Board clear · reset image</button></div>
+<p id="guide" class="warning">Mount phone securely with the full board visible. Keep the 20 at the top.</p>
+<small>Select the OUTER edge of the double ring at the centre of 20 (top), 6 (right), 3 (bottom), then 11 (left). Numbers must be upright. Check the markers on the live image before verifying.</small>
+<small>Phone link: open the second URL printed in Terminal. Keep the phone page visible and the camera running. If the phone or board moves, check alignment and verify again.</small></section>
+<section><h2>2 · Start a game</h2><div class="row"><label>Players <select id="count"><option>2</option><option>3</option><option>4</option></select></label><label>Game <select id="start"><option>301</option><option>501</option></select></label><label><input type="checkbox" id="doubleOut"> Double out</label><label><input type="checkbox" id="cameraGame" checked> Camera game</label></div><div id="names"></div><button id="newGame" class="primary">Start game</button><small>Straight in / straight out unless Double out is selected. Remove darts before advancing to the next player. Uncheck Camera game to test rules with manual input.</small></section>
+<section><h2>3 · Play</h2><div class="players" id="players"></div><p id="turnStatus">Start a game to play.</p><div id="candidate" class="warning">No dart proposal.</div><button id="confirm" class="primary" disabled>Confirm proposed score</button><small>Camera suggestions are experimental. Check the physical dart tip. For a miss, hidden tip, or wrong proposal, enter the score below.</small><div class="row"><label>Value <select id="value"><option value="0">Miss</option></select></label><label>Ring <select id="multiplier"><option value="1">Single</option><option value="2">Double</option><option value="3">Triple</option></select></label><button id="manual">Record manual score</button><button id="undo">Undo last action</button><button id="next">Darts removed · Next player</button></div><small id="manualScoreHelp">Choose a value and ring.</small><small>To correct a throw: Undo, then record the correct value. Undo can restore the previous player's turn. Record bounce-outs as Miss.</small></section>
+</div>
+<div id="phone" hidden><section><h2>Phone camera</h2><p>Mount the Galaxy S22 (SM-S901U) in landscape with the entire board visible. Start with the main rear camera at 1× zoom and even lighting.</p><video id="video" autoplay muted playsinline></video><div class="row"><button id="startCamera" class="primary">Start rear camera</button><button id="stopCamera">Stop camera</button></div><label id="cameraChoice" hidden>Camera <select id="cameraSelect"></select></label><p id="phoneStatus" role="status" aria-live="polite">Camera off. Images stay on your local network.</p><p id="cameraName" class="muted"></p><p id="contextStatus" class="muted"></p><small>Rear camera is requested automatically. If the preview uses the wrong lens, select a different camera above. Camera labels and lens control depend on the browser.</small><label>Setup photo <input id="photo" type="file" accept="image/*" capture="environment"></label><small>A photo is for setup/debugging. Keep a live camera running for gameplay.</small></section></div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const token=new URLSearchParams(location.search).get('t')||'', isPhone=location.pathname==='/phone';
+$('desktop').hidden=isPhone; $('phone').hidden=!isPhone;
+if(isPhone)$('contextStatus').textContent='Connection trusted for camera: '+(window.isSecureContext?'Yes':'No')+' · Camera access API: '+(navigator.mediaDevices?.getUserMedia?'Available':'Unavailable')+'.';
+let state=null, points=[], selecting=false, calibrationBusy=false, snapshotId=null, frozenImage=null;
+let lastImage=null, stream=null, sendTimer=null, frameBusy=false, pollBusy=false, actionBusy=false, stateEpoch=0, scoreLockUntil=0, serverConnected=false, displayedVersion=null;
+let cameraStarting=false, cameraAttempt=0, cameraAbort=null, frameOwner=null;
+let errorSource=null;
+const error=(message,source='action')=>{ errorSource=message?source:null; $('error').textContent=message; $('error').style.display=message?'block':'none'; };
+async function requestJson(url,options={},signal){
+  const controller=new AbortController();let timedOut=false;
+  const cancel=()=>controller.abort();
+  if(signal?.aborted)controller.abort();else signal?.addEventListener('abort',cancel,{once:true});
+  const timer=setTimeout(()=>{timedOut=true;controller.abort();},8000);
+  try{const response=await fetch(url,{...options,signal:controller.signal}),data=await response.json();if(!response.ok)throw Error(data.error||'Request failed ('+response.status+')');return data;}
+  catch(e){if(timedOut)throw Error('The Mac did not respond within 8 seconds. Check Wi-Fi and that Dart Room is running, then retry.');throw e;}
+  finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
+}
+async function api(path,body,signal){
+  const options={headers:{Authorization:'Bearer '+token}};
+  if(body!==undefined){stateEpoch++;options.method='POST';options.headers['Content-Type']='application/json';options.body=JSON.stringify(body);}
+  const data=await requestJson('/api/'+path,options,signal);
+  if(body!==undefined&&data.vision){state=data;serverConnected=true;}
+  return data;
+}
+function within(promise,milliseconds,message,signal){
+  return new Promise((resolve,reject)=>{
+    const finish=(fn,value)=>{clearTimeout(timer);signal?.removeEventListener('abort',cancel);fn(value);};
+    const cancel=()=>finish(reject,new DOMException('Camera start cancelled','AbortError'));
+    const timer=setTimeout(()=>finish(reject,Error(message)),milliseconds);
+    if(signal?.aborted)cancel();else signal?.addEventListener('abort',cancel,{once:true});
+    Promise.resolve(promise).then(value=>finish(resolve,value),error=>finish(reject,error));
+  });
+}
+function controls(){
+  const v=state?.vision||{},g=state?.game,finished=!g||g.winner!==null||g.bust||g.darts.length>=3;
+  const blocked=actionBusy||calibrationBusy||!serverConnected, scoreBlocked=blocked||performance.now()<scoreLockUntil;
+  $('calibrate').disabled=blocked||!v.fresh;
+  $('align').disabled=blocked||selecting||!v.fresh||['waiting_camera','ready_to_calibrate'].includes(v.phase);
+  $('baseline').disabled=blocked||selecting||!v.aligned;
+  $('verify').hidden=v.phase!=='review_overlay'||selecting;
+  $('verify').disabled=blocked||!v.fresh||displayedVersion!==v.version;
+  $('cancelCalibration').hidden=!selecting;
+  $('cancelCalibration').disabled=blocked;
+  $('newGame').disabled=blocked||selecting||($('cameraGame').checked&&!v.verified);
+  $('confirm').disabled=scoreBlocked||selecting||!v.proposal||!v.aligned||finished||(state?.camera_game&&!v.verified);
+  $('manual').disabled=scoreBlocked||selecting||finished;
+  $('undo').disabled=scoreBlocked||selecting||!g;
+  $('next').disabled=scoreBlocked||selecting||!g||g.winner!==null||(!g.bust&&g.darts.length<3)||(state?.camera_game&&!v.verified);
+  $('startCamera').disabled=actionBusy||cameraStarting||!!stream;
+  $('startCamera').textContent=cameraStarting?'Starting rear camera…':stream?'Rear camera running':'Start rear camera';
+  $('stopCamera').disabled=!cameraStarting&&!stream;
+  $('stopCamera').textContent=cameraStarting?'Cancel camera start':'Stop camera';
+  $('cameraSelect').disabled=actionBusy||cameraStarting||!stream;
+  $('photo').disabled=cameraStarting;
+}
+function act(id,fn){
+  $(id).onclick=async event=>{
+    const scoring=['confirm','manual','undo','next'].includes(id);
+    if(actionBusy||calibrationBusy||(scoring&&!serverConnected)||(scoring&&(performance.now()<scoreLockUntil||event.detail>1)))return;
+    if(scoring){scoreLockUntil=performance.now()+600;setTimeout(controls,610);}
+    actionBusy=true; controls();
+    try{error('');await fn();}catch(e){error(e.message);}
+    finally{actionBusy=false;await refresh();controls();}
+  };
+}
+function names(){
+  const count=+$('count').value;$('names').replaceChildren();
+  for(let i=0;i<count;i++){const input=document.createElement('input');input.id='name'+i;input.value='Player '+(i+1);input.maxLength=30;input.setAttribute('aria-label','Player '+(i+1)+' name');$('names').append(input);}
+}
+$('count').onchange=names;names();$('cameraGame').onchange=controls;
+for(let i=1;i<=20;i++)$('value').add(new Option(String(i),String(i)));$('value').add(new Option('Bull (25 / 50)',25));
+function manualRingChoices(){
+  const value=+$('value').value,ring=$('multiplier'),prior=+ring.value;
+  for(const option of ring.options)option.disabled=(value===0&&option.value!=='1')||(value===25&&option.value==='3');
+  const corrected=value===0||ring.selectedOptions[0]?.disabled;
+  if(corrected)ring.value='1';
+  ring.disabled=value===0;
+  $('manualScoreHelp').textContent=value===0?'Miss records 0 points and counts as one dart.':value===25?(prior===3?'Bull has no triple. Ring reset to Single (25); choose Double for 50.':'Bull: Single = outer bull (25), Double = inner bull (50).'):'Choose Single, Double or Triple for the selected number.';
+}
+$('value').onchange=manualRingChoices;manualRingChoices();
+
+function setupStatus(){
+  const v=state?.vision||{},phase=v.phase;
+  const phases={
+    waiting_camera:['Connect your phone','Open the phone link in Chrome, then press Start rear camera.'],
+    camera_disconnected:['Camera disconnected','Keep the phone page visible. Restart the rear camera, then realign and verify.'],
+    ready_to_calibrate:['Ready to calibrate','Empty the board and press Set four points.'],
+    calibrating:['Select four points','The image is frozen. Keep the live camera running while you select the four markers.'],
+    needs_alignment:['Check alignment','Empty the board, then Check / realign board. If that fails, set four points again.'],
+    review_overlay:['Check the live markers','All four markers must land on the selected outer double-ring positions. Then press Markers correct.'],
+    ready:['Ready to play','Camera connected and overlay verified. Choose a game below.'],
+    unavailable:['Camera setup unavailable',v.message||'Install camera dependencies using start-mac.command.']
+  };
+  let [title,detail]=phases[phase]||['Connecting…','Checking the local server.'];
+  if(calibrationBusy){title='Checking calibration…';detail='Matching the frozen reference to the live image. Please wait.';}
+  else if(selecting&&v.fresh){title='Calibrating · '+points.length+'/4 points';detail='Frozen image · '+(v.calibration_elapsed||0)+'s elapsed. Keep the phone and board still.';}
+  $('setupTitle').textContent=title;$('setupDetail').textContent=detail;
+  $('setupStatus').classList.toggle('ready',phase==='ready'&&!selecting&&!calibrationBusy);
+}
+function draw(){
+  const image=selecting?frozenImage:lastImage;if(!image)return;
+  const c=$('board'),ctx=c.getContext('2d');c.width=image.width;c.height=image.height;ctx.drawImage(image,0,0);
+  const overlay=selecting?points:(state?.vision?.overlay||[]);if(!selecting)displayedVersion=state?.vision?.version;
+  overlay.forEach((p,i)=>{ctx.beginPath();ctx.arc(p[0],p[1],8,0,Math.PI*2);ctx.strokeStyle='#ceff75';ctx.lineWidth=3;ctx.stroke();ctx.font='bold 24px system-ui';ctx.fillStyle='#ceff75';ctx.fillText(String(i+1),p[0]+12,p[1]+5);});
+}
+async function loadImage(path){
+  const res=await fetch('/api/'+path,{headers:{Authorization:'Bearer '+token}});
+  if(!res.ok){const result=await res.json();throw Error(result.error||'Could not load camera image');}
+  const url=URL.createObjectURL(await res.blob()),img=new Image();
+  try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('Could not display camera image'));img.src=url;});return img;}
+  finally{URL.revokeObjectURL(url);}
+}
+async function refresh(){
+  if(pollBusy||actionBusy||calibrationBusy)return;pollBusy=true;const epoch=stateEpoch;
+  try{
+    const incoming=await api('state');if(epoch!==stateEpoch)return;state=incoming;serverConnected=true;if(errorSource==='connection')error('');$('connection').textContent=state.vision.fresh?'Camera connected':'Camera offline';
+    if(isPhone){if($('phoneStatus').dataset.source==='connection'&&!cameraStarting&&!stream){setPhoneStatus(cameraAccessIssue()||'Mac connected. Press Start rear camera.');delete $('phoneStatus').dataset.source;}controls();return;}
+    if(selecting&&!state.vision.calibration_active){selecting=false;snapshotId=null;frozenImage=null;error('Calibration image expired or was replaced. Select Set four points again.');}
+    $('visionStatus').textContent=state.vision.message+(state.vision.age_seconds!=null?' · frame '+state.vision.age_seconds+'s old':'');
+    const g=state.game;$('players').replaceChildren();
+    if(g){g.names.forEach((name,i)=>{const card=document.createElement('div');card.className='player'+(g.player===i?' active':'');const n=document.createElement('div');n.textContent=name;const s=document.createElement('div');s.className='score';s.textContent=g.scores[i];card.append(n,s);$('players').append(card);});$('turnStatus').textContent=g.winner!==null?g.names[g.winner]+' wins!':g.names[g.player]+"'s turn · "+g.darts.length+'/3 darts'+(g.bust?' · BUST — score restored':'')+' · Throws: '+(g.darts.map(d=>d.score).join(', ')||'none');}
+    const p=state.vision.proposal;$('candidate').textContent=p?'Suggested '+p.label+' = '+p.score+(p.near_wire?' · Near wire; check carefully':'')+' · '+p.note:'No dart proposal.';
+    setupStatus();controls();
+    if(state.vision.fresh&&!selecting&&!calibrationBusy){const image=await loadImage('image');if(epoch===stateEpoch&&!selecting&&!calibrationBusy){lastImage=image;draw();controls();}}
+  }catch(e){if(epoch!==stateEpoch)return;serverConnected=false;$('connection').textContent='Disconnected';error(e.message,'connection');if(state)state={...state,vision:{...state.vision,fresh:false,aligned:false,verified:false}};controls();if(isPhone&&!cameraStarting&&!stream){setPhoneStatus(cameraAccessIssue()||phoneConnectionError(e),true);$('phoneStatus').dataset.source='connection';}if(!isPhone){$('setupTitle').textContent='Server disconnected';$('setupDetail').textContent='Check that Dart Room is still running in Terminal.';}}
+  finally{pollBusy=false;}
+}
+act('calibrate',async()=>{
+  const result=await api('calibration/start',{});state=result;snapshotId=result.snapshot.snapshot_id;
+  frozenImage=await loadImage('calibration/image?id='+encodeURIComponent(snapshotId));
+  points=[];selecting=true;$('guide').textContent='Frozen image: click 1 · TOP centre of 20';draw();setupStatus();
+});
+act('cancelCalibration',async()=>{await api('calibration/cancel',{});selecting=false;snapshotId=null;frozenImage=null;points=[];$('guide').textContent='Calibration cancelled. Empty the board and try again.';});
+$('board').onclick=async e=>{
+  if(!selecting||!frozenImage||actionBusy||calibrationBusy||!state?.vision?.fresh)return;
+  const rect=$('board').getBoundingClientRect();points.push([(e.clientX-rect.left)*$('board').width/rect.width,(e.clientY-rect.top)*$('board').height/rect.height]);draw();setupStatus();
+  const steps=['TOP centre of 20','RIGHT centre of 6','BOTTOM centre of 3','LEFT centre of 11'];
+  if(points.length<4){$('guide').textContent='Frozen image: click '+(points.length+1)+' · '+steps[points.length];return;}
+  calibrationBusy=true;controls();setupStatus();
+  try{await api('calibrate',{points,snapshot_id:snapshotId});$('guide').textContent='Check all four markers on the live image. If correct, press Markers correct · Ready to play.';}
+  catch(e){error(e.message);$('guide').textContent='Calibration needs attention. Check alignment or select Set four points again.';}
+  finally{selecting=false;snapshotId=null;frozenImage=null;calibrationBusy=false;await refresh();controls();}
+};
+act('align',async()=>{await api('align',{});$('guide').textContent='Check all four markers on the live image, then press Markers correct · Ready to play.';});act('verify',async()=>{await api('verify',{version:state.vision.version});$('guide').textContent='Calibration verified. Choose a game and press Start game. After phone or board movement, check alignment and verify again.';});act('baseline',()=>api('baseline',{}));
+act('newGame',async()=>{if(state?.game&&state.game.winner===null&&!confirm('Replace the current game?'))return;await api('game',{names:Array.from({length:+$('count').value},(_,i)=>$('name'+i).value),start:+$('start').value,double_out:$('doubleOut').checked,camera:$('cameraGame').checked});});
+act('confirm',()=>api('throw',{proposal:true}));act('manual',()=>api('throw',{value:+$('value').value,multiplier:+$('multiplier').value}));act('undo',()=>api('undo',{}));act('next',()=>api('next',{}));
+function setPhoneStatus(message,failed=false){$('phoneStatus').textContent=message;$('phoneStatus').classList.toggle('warning',failed);delete $('phoneStatus').dataset.source;}
+function cameraAccessIssue(){
+  if(!window.isSecureContext)return 'Camera blocked: this connection is not trusted for camera access. Use the full HTTPS Phone link in Chrome and complete the Mac local-certificate setup. Camera permission cannot be requested until this is trusted.';
+  if(!navigator.mediaDevices?.getUserMedia)return 'Camera API unavailable in this browser. Open the complete HTTPS Phone link in Chrome and check the trusted-connection and camera settings.';
+  return '';
+}
+function phoneConnectionError(e){
+  if(!token||/pairing|unauthorized|complete pairing/i.test(e.message))return 'Pairing link missing or expired. Open the complete current Phone link printed in the Mac Terminal, including ?t=…, then retry.';
+  if(e instanceof TypeError)return 'Cannot reach the Mac. Check that both devices use the same Wi-Fi and Dart Room is running. If Chrome reports a certificate problem, complete the local-certificate setup first.';
+  return e.message||'Cannot reach the Mac. Check Wi-Fi and the complete HTTPS Phone link, then retry.';
+}
+function cameraError(e,stage){
+  if(stage==='connection')return phoneConnectionError(e);
+  const messages={NotAllowedError:'Camera permission was denied or blocked. In Chrome site settings, allow Camera for this local address, then retry.',NotFoundError:'No camera was found. Close other camera apps and check this device has a rear camera.',NotReadableError:'The camera is busy or unavailable. Close other camera apps, then retry.',OverconstrainedError:'This camera mode is unavailable. Choose another camera and retry.',SecurityError:'Camera access is blocked. Check the trusted HTTPS connection and Chrome camera permissions.'};
+  return messages[e.name]||e.message||'Could not start the camera. Check camera permission and the HTTPS Phone link.';
+}
+async function upload(blob,signal){return requestJson('/api/frame',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'image/jpeg'},body:blob},signal);}
+async function sendFrame(attempt=cameraAttempt){
+  if(!stream||attempt!==cameraAttempt||frameOwner?.attempt===attempt)return;
+  const owner={attempt},activeStream=stream,signal=cameraAbort?.signal;frameOwner=owner;
+  try{
+    const v=$('video');if(!v.videoWidth)return;
+    const c=document.createElement('canvas'),scale=Math.min(1,960/Math.max(v.videoWidth,v.videoHeight));c.width=Math.round(v.videoWidth*scale);c.height=Math.round(v.videoHeight*scale);c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',.8));
+    if(blob&&attempt===cameraAttempt&&stream===activeStream){await upload(blob,signal);if(attempt===cameraAttempt&&stream===activeStream)setPhoneStatus('Streaming locally · '+c.width+' × '+c.height);}
+  }catch(e){if(attempt===cameraAttempt&&stream===activeStream)setPhoneStatus('Camera is open, but upload failed. '+phoneConnectionError(e)+' Upload will retry automatically.',true);}
+  finally{if(frameOwner===owner)frameOwner=null;}
+}
+function releaseStream(){clearInterval(sendTimer);sendTimer=null;stream?.getTracks().forEach(track=>track.stop());stream=null;$('video').srcObject=null;}
+function stopCamera(notify=false,message){
+  const wasActive=cameraStarting||!!stream;cameraAttempt++;cameraAbort?.abort();cameraAbort=null;cameraStarting=false;releaseStream();$('cameraName').textContent='';
+  setPhoneStatus(message||'Camera stopped. Press Start rear camera to reconnect.');controls();
+  if(notify&&wasActive)fetch('/api/camera/reset',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}',keepalive:true}).catch(()=>{});
+}
+async function startCamera(deviceId){
+  const attempt=++cameraAttempt;cameraAbort?.abort();releaseStream();
+  const controller=new AbortController();cameraAbort=controller;cameraStarting=true;let stage='access';
+  error('');$('cameraName').textContent='';setPhoneStatus('Checking camera access…');controls();
+  try{
+    const issue=cameraAccessIssue();if(issue)throw Error(issue);
+    if(!token)throw Error('Pairing link missing. Open the complete current Phone link printed in the Mac Terminal, including ?t=….');
+    stage='connection';setPhoneStatus('Checking connection to the Mac… You can cancel below.');
+    await api('camera/reset',{},controller.signal);if(attempt!==cameraAttempt)return;
+    stage='permission';setPhoneStatus('Waiting for camera permission… Tap Allow in Chrome, or Cancel camera start below.');
+    const video={width:{ideal:1280},height:{ideal:720}};if(deviceId)video.deviceId={exact:deviceId};else video.facingMode={ideal:'environment'};
+    const permission=navigator.mediaDevices.getUserMedia({video,audio:false});
+    // Browser permission prompts cannot be programmatically cancelled. Stop any late stream from an abandoned attempt.
+    permission.then(candidate=>{if(attempt!==cameraAttempt)candidate.getTracks().forEach(track=>track.stop());},()=>{});
+    const candidate=await within(permission,30000,'Camera permission did not finish within 30 seconds. Check Chrome camera permission, then press Start rear camera to retry.',controller.signal);
+    if(attempt!==cameraAttempt){candidate.getTracks().forEach(track=>track.stop());return;}
+    stream=candidate;const track=candidate.getVideoTracks()[0];
+    track.addEventListener('ended',()=>{if(attempt===cameraAttempt&&stream===candidate)stopCamera(true,'Camera disconnected. Press Start rear camera to reconnect.');});
+    stage='preview';setPhoneStatus('Camera allowed. Starting the live preview…');$('video').srcObject=candidate;
+    await within($('video').play(),10000,'The camera opened but its preview did not start. Cancel, close other camera apps, then retry.',controller.signal);
+    if(attempt!==cameraAttempt)return;
+    const settings=track.getSettings();$('cameraName').textContent='Using '+(track.label||'selected camera')+(settings.width?' · '+settings.width+' × '+settings.height:'');
+    cameraStarting=false;controls();setPhoneStatus('Camera preview ready. Sending the first frame to the Mac…');
+    within(navigator.mediaDevices.enumerateDevices(),5000,'Camera list unavailable',controller.signal).then(devices=>{
+      if(attempt!==cameraAttempt||stream!==candidate)return;
+      const cameras=devices.filter(d=>d.kind==='videoinput');$('cameraSelect').replaceChildren();cameras.forEach((d,i)=>$('cameraSelect').add(new Option(d.label||'Camera '+(i+1),d.deviceId)));$('cameraSelect').value=settings.deviceId||'';$('cameraChoice').hidden=cameras.length<2;
+    }).catch(()=>{if(attempt===cameraAttempt)$('cameraChoice').hidden=true;});
+    sendTimer=setInterval(()=>sendFrame(attempt),700);await sendFrame(attempt);
+  }catch(e){
+    if(attempt!==cameraAttempt)return;
+    cameraAttempt++;controller.abort();cameraAbort=null;cameraStarting=false;releaseStream();
+    const message=cameraError(e,stage);setPhoneStatus(message,true);error(message);
+  }finally{if(attempt===cameraAttempt)cameraStarting=false;controls();}
+}
+$('startCamera').onclick=()=>{if(!cameraStarting&&!stream)startCamera();};
+$('stopCamera').onclick=()=>stopCamera(true,cameraStarting?'Camera start cancelled. You can retry; any late permission result will be discarded.':'Camera stopped. Press Start rear camera to reconnect.');
+$('cameraSelect').onchange=()=>{if(!cameraStarting)startCamera($('cameraSelect').value);};
+$('photo').onchange=async()=>{try{const file=$('photo').files[0];if(!file)return;const img=await createImageBitmap(file),c=document.createElement('canvas'),scale=Math.min(1,960/Math.max(img.width,img.height));c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);img.close();const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',.85));if(!blob)throw Error('Could not read photo');await upload(blob);$('phoneStatus').textContent='Photo sent for setup. Start the live rear camera for gameplay.';}catch(e){error(e.message);}};
+if(isPhone&&cameraAccessIssue())setPhoneStatus(cameraAccessIssue(),true);
+controls();setInterval(refresh,1000);refresh();window.addEventListener('pagehide',()=>stopCamera(true));
+</script></html>

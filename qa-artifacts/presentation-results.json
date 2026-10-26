@@ -1,0 +1,66 @@
+{
+  "checks": [
+    "manual host + two read-only spectators propagate scores and turn guides",
+    "bust, undo, winning checkout, winner gates",
+    "automatic four second handoff can pause and Undo cancels timer",
+    "new match cancels pending auto handoff",
+    "offline cancels auto handoff; failure keeps correct score and recovers",
+    "controller stale timer and simultaneous score conflicts prevent duplicate mutations",
+    "presenter read-only credentials enforce server authorization",
+    "showcase automatically hands off and wins; Pause/Restart stay isolated",
+    "responsive presenter/control/showcase, reduced motion, fullscreen fallback"
+  ],
+  "screenshots": [
+    "presentation-showcase-win.png",
+    "presentation-play-320.png",
+    "presentation-play-1920.png",
+    "presentation-control-320.png",
+    "presentation-control-1920.png",
+    "presentation-showcase-320.png",
+    "presentation-showcase-1920.png"
+  ],
+  "errors": [],
+  "lastPosts": [
+    {
+      "status": 200,
+      "body": "{\"expected_revision\":29}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [301, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 30, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 200,
+      "body": "{\"value\":0,\"multiplier\":1,\"expected_revision\":33}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [301, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 34, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 200,
+      "body": "{\"names\":[\"Ada\",\"Lin\"],\"start\":301,\"double_out\":false,\"camera\":false}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [301, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 35, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 200,
+      "body": "{\"value\":0,\"multiplier\":1,\"expected_revision\":38}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [301, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 39, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 500,
+      "body": "{\"value\":20,\"multiplier\":1,\"expected_revision\":40}",
+      "response": "{\"error\":\"QA simulated failure\"}"
+    },
+    {
+      "status": 200,
+      "body": "{\"value\":20,\"multiplier\":1,\"expected_revision\":40}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [281, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 20, \"multiplier\": 1, \"score\": 20}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 41, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 200,
+      "body": "{\"value\":0,\"multiplier\":1,\"expected_revision\":44}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [301, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}, {\"value\": 0, \"multiplier\": 1, \"score\": 0}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 45, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    },
+    {
+      "status": 409,
+      "body": "{\"value\":20,\"multiplier\":1,\"expected_revision\":47}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [281, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 20, \"multiplier\": 1, \"score\": 20}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 48, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false, \"error\": \"Match changed on another controller. Review the current turn.\"}"
+    }
+  ],
+  "pass": true
+}

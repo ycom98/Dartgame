@@ -1,0 +1,52 @@
+{
+  "testOnly": true,
+  "trustScope": "Python SSLContext only; no system or phone trust changes",
+  "caSha256Fingerprint": "D4:F0:F4:AD:B9:6A:66:C6:89:A1:D6:19:49:E4:17:F1:A1:E4:34:A0:23:82:25:63:E3:E0:A6:28:43:9F:5D:D5",
+  "results": [
+    {
+      "name": "CA has critical CA basic constraints and signing key usage",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "server certificate includes local and actual LAN subject alternative names",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "server certificate verifies against project public CA",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "exported public CA is exactly the trusted CA certificate",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "exported public CA contains no private key",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "TLS verifies certificate chain and hostname for localhost",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "TLS verifies certificate chain and hostname for 127.0.0.1",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "TLS verifies certificate chain and hostname for 192.168.1.123",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "TLS rejects an unrelated hostname",
+      "pass": true,
+      "detail": null
+    }
+  ]
+}

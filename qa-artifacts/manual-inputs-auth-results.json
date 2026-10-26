@@ -1,0 +1,42 @@
+{
+  "name": "inputs-auth",
+  "pass": true,
+  "detail": {
+    "missAfterTriple": true,
+    "bullAfterTriple": true,
+    "authRequests": [
+      {
+        "method": "GET",
+        "status": 401,
+        "kind": "missing"
+      },
+      {
+        "method": "GET",
+        "status": 401,
+        "kind": "ASCII"
+      },
+      {
+        "method": "GET",
+        "status": 401,
+        "kind": "Latin1"
+      },
+      {
+        "method": "POST",
+        "status": 401,
+        "kind": "missing"
+      },
+      {
+        "method": "POST",
+        "status": 401,
+        "kind": "ASCII"
+      },
+      {
+        "method": "POST",
+        "status": 401,
+        "kind": "Latin1"
+      }
+    ],
+    "correctLinkRecovers": true
+  },
+  "mediaRequests": 0
+}

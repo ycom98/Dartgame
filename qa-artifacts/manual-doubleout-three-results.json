@@ -1,0 +1,17 @@
+{
+  "name": "doubleout-three",
+  "pass": true,
+  "detail": {
+    "fullGame": true,
+    "scores": [
+      0,
+      301,
+      301
+    ],
+    "players": 3,
+    "illegalZeroBust": true,
+    "remainingOneBust": true,
+    "bullFinish": true
+  },
+  "mediaRequests": 0
+}

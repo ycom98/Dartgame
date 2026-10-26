@@ -1,0 +1,56 @@
+{
+  "actual_port": 8444,
+  "tls_chain_hostname_verified": true,
+  "no_live_game_mutations": true,
+  "legacy_8443_active_match_preserved": true,
+  "results": [
+    {
+      "route": "/showcase",
+      "method": "GET",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/play",
+      "method": "GET",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/control",
+      "method": "GET",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/static/presentation.js",
+      "method": "GET",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/api/state",
+      "method": "GET",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/api/state",
+      "method": "GET",
+      "status": 200,
+      "pass": true
+    },
+    {
+      "route": "/api/throw",
+      "method": "POST",
+      "status": 401,
+      "pass": true
+    },
+    {
+      "route": "/api/image",
+      "method": "GET",
+      "status": 401,
+      "pass": true
+    }
+  ]
+}

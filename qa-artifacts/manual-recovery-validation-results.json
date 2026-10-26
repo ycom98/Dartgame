@@ -1,0 +1,14 @@
+{
+  "name": "recovery-validation",
+  "pass": true,
+  "detail": {
+    "reconnectBannerCleared": true,
+    "validationRetained": true,
+    "replacementCancel": true,
+    "blankDuplicateNamesRejected": true,
+    "replacementAccepted": true,
+    "retryOnce": true,
+    "lostResponseCommittedOnce": true
+  },
+  "mediaRequests": 0
+}

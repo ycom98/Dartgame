@@ -1,0 +1,16 @@
+{
+  "name": "301",
+  "pass": true,
+  "detail": {
+    "scores": [
+      0,
+      301
+    ],
+    "winner": "QA Player 1",
+    "fullGame": true,
+    "bustUndo": true,
+    "winUndo": true,
+    "playerUndo": true
+  },
+  "mediaRequests": 0
+}

@@ -1,0 +1,22 @@
+{
+  "isolated": true,
+  "results": [
+    {
+      "name": "full manual301 succeeds without camera; winner disables further throws",
+      "pass": true
+    },
+    {
+      "name": "T20 followed by Miss records zero with Single automatically",
+      "pass": true
+    },
+    {
+      "name": "Bull disables Triple, explains Single reset and records25",
+      "pass": true
+    },
+    {
+      "name": "Bull Double records50",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

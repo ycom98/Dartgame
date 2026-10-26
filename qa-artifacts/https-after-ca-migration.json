@@ -1,0 +1,68 @@
+{
+  "tls_validation": "Project CA only; hostname and chain checks enabled; no global trust changes",
+  "sha256_fingerprint": "D4:F0:F4:AD:B9:6A:66:C6:89:A1:D6:19:49:E4:17:F1:A1:E4:34:A0:23:82:25:63:E3:E0:A6:28:43:9F:5D:D5",
+  "results": [
+    {
+      "host": "localhost",
+      "route": "/",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "localhost",
+      "route": "/phone",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "localhost",
+      "route": "/api/state",
+      "authenticated": false,
+      "status": 401,
+      "pass": true
+    },
+    {
+      "host": "localhost",
+      "route": "/api/state",
+      "authenticated": true,
+      "status": 200,
+      "pass": true,
+      "phase": "waiting_camera",
+      "game_started": false,
+      "fresh": false
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/phone",
+      "authenticated": false,
+      "status": 200,
+      "pass": true
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/api/state",
+      "authenticated": false,
+      "status": 401,
+      "pass": true
+    },
+    {
+      "host": "192.168.1.123",
+      "route": "/api/state",
+      "authenticated": true,
+      "status": 200,
+      "pass": true,
+      "phase": "waiting_camera",
+      "game_started": false,
+      "fresh": false
+    }
+  ]
+}

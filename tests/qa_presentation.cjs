@@ -1,0 +1,74 @@
+// Independent QA. Isolated ephemeral HTTP server, fresh Chrome profile, no real media.
+const fs=require('fs'),path=require('path'),net=require('net'),{spawn}=require('child_process');
+const {chromium}=require('/Users/kapilgandhi/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const root=path.resolve(__dirname,'..'),token='presentation-qa-only',delay=ms=>new Promise(r=>setTimeout(r,ms));
+const result={checks:[],screenshots:[],errors:[]};
+function assert(v,m){if(!v)throw Error(m)}
+async function until(fn,ms=6000){let end=Date.now()+ms;while(Date.now()<end){if(await fn())return;await delay(40)}throw Error('Timed out: '+String(fn).slice(0,140))}
+let child,browser,context,origin;
+async function api(action,body,auth=token){let r=await fetch(origin+'/api/'+action,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json()}}
+async function state(){return(await api('state')).data}
+async function begin(start=301,double=false){let r=await api('game',{names:['Ada','Lin'],camera:false,start,double_out:double});assert(r.status===200,'start game');await delay(1200);return r.data}
+async function dart(v,m=1){let s=await state();let r=await api('throw',{value:v,multiplier:m,expected_revision:s.revision});assert(r.status===200,'api throw '+JSON.stringify(r));return r.data}
+async function next(){let s=await state(),r=await api('next',{expected_revision:s.revision});assert(r.status===200,'api next');return r.data}
+async function undo(){let s=await state(),r=await api('undo',{expected_revision:s.revision});assert(r.status===200,'api undo');return r.data}
+async function check(name,fn){await fn();result.checks.push(name);fs.writeFileSync(root+'/qa-artifacts/presentation-results.json',JSON.stringify(result,null,2))}
+(async()=>{try{
+const port=await new Promise(r=>{let s=net.createServer();s.listen(0,'127.0.0.1',()=>{let p=s.address().port;s.close(()=>r(p))})});let startup='',stderr='';
+child=spawn(root+'/.venv/bin/python',['-B','-c','import server;server.app=server.App("'+token+'");server.vision=None;server.vision_error="QA no camera";server.main()','--http','--host','127.0.0.1','--port',String(port)],{cwd:root,stdio:['ignore','pipe','pipe']});child.stdout.on('data',d=>startup+=d);child.stderr.on('data',d=>stderr+=d);await until(()=>startup.includes('Computer:'));origin='http://127.0.0.1:'+port;
+browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});context=await browser.newContext({viewport:{width:1280,height:900}});
+await context.addInitScript(()=>{window.mediaCalls=0;Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:()=>{window.mediaCalls++;throw Error('QA forbids camera')}}})});
+context.on('page',p=>p.on('pageerror',e=>result.errors.push(e.message)));
+context.setDefaultTimeout(6000);let host=await context.newPage();host.on('dialog',d=>d.accept());host.on('response',async r=>{if(r.url().includes('/api/')&&r.request().method()==='POST')result.lastPosts=(result.lastPosts||[]).concat([{status:r.status(),body:r.request().postData(),response:await r.text()}]).slice(-8)});await host.goto(origin+'/control?t='+token);await begin();
+let s=await state(),view=s.presentation_path||('/play?t='+token);const spectators=[await context.newPage(),await context.newPage()];const spectatorWrites=[];for(let p of spectators){p.on('request',r=>{if(r.method()!=='GET')spectatorWrites.push(r.url())});await p.goto(origin+view)}
+const spectatorSync=async n=>{for(let p of spectators)await until(async()=>await p.locator('.hero .score').textContent()===String(n))};
+// Further checks appended below once DOM contract is complete.
+
+await check('manual host + two read-only spectators propagate scores and turn guides',async()=>{
+ await until(async()=>await host.locator('#entry').isVisible());await host.locator('#auto').uncheck();
+ await spectatorSync(301);
+ await host.locator('#value').selectOption('20');await host.locator('[data-ring="3"]').click();await host.locator('#record').click();await spectatorSync(241);
+ assert((await state()).game.darts.length===1,'one click creates one dart');
+ for(let p of spectators){assert((await p.locator('.dart.filled').count())===1,'one entered dart');assert((await p.locator('.cue').textContent()).includes('2 of 3'),'dart guide');assert(await p.locator('button').count()===1,'only fullscreen presenter control')}
+ await host.locator('#record').click();await spectatorSync(181);await host.locator('#record').click();await spectatorSync(121);
+ assert(await host.locator('#record').isDisabled(),'fourth dart blocked');await host.locator('#next').click();await spectatorSync(301);
+ assert((await state()).game.player===1,'turn propagates');for(let p of spectators)assert((await p.locator('.hero h1').textContent()).includes('Lin'),'next player name');
+});
+await check('bust, undo, winning checkout, winner gates',async()=>{
+ await begin(301,true);await dart(20,3);await dart(20,3);await dart(20,3);await next();for(let i=0;i<3;i++)await dart(0);await next();await dart(20,3);await dart(20,3);
+ await spectatorSync(121);for(let p of spectators)assert((await p.locator('.cue').textContent()).includes('Bust'),'bust message');
+ await undo();await spectatorSync(61);await dart(11);await dart(25,2);await spectatorSync(0);
+ for(let p of spectators)assert((await p.locator('.cue').textContent()).includes('takes the match'),'winner cue');
+ await until(async()=>await host.locator('#record').isDisabled());assert(await host.locator('#next').isDisabled(),'win blocks handoff');await undo();await spectatorSync(50);
+});
+await check('automatic four second handoff can pause and Undo cancels timer',async()=>{
+ await begin();await until(async()=>await host.locator('#record').isEnabled());await host.locator('#auto').check();
+ await dart(20);await dart(20);await until(async()=>await host.locator('.dart.filled').count()===2);await host.locator('#value').selectOption('20');await host.locator('[data-ring="1"]').click();
+ let t=Date.now();await host.locator('#record').click();await until(async()=>await host.locator('#cancel').isVisible()).catch(async e=>{result.timerFailure={state:await state(),ui:await host.locator('#entry').innerText(),auto:await host.locator('#auto').isChecked()};throw e});await delay(1500);assert((await state()).game.player===0,'no early handoff');await until(async()=>(await state()).game.player===1,5000);assert(Date.now()-t>=3800,'handoff waits 4 seconds');
+ await begin();await until(async()=>await host.locator('.dart.filled').count()===0);await dart(0);await dart(0);await until(async()=>await host.locator('.dart.filled').count()===2);await host.locator('#value').selectOption('0');await host.locator('#record').click();await until(async()=>await host.locator('#cancel').isVisible());await host.locator('#cancel').click();await delay(4300);assert((await state()).game.player===0,'cancel timer');await host.locator('#undo').click();await delay(4300);assert((await state()).game.darts.length===2,'undo timer canceled');
+});
+await check('new match cancels pending auto handoff',async()=>{
+ await begin();await until(async()=>await host.locator('.dart.filled').count()===0);await dart(0);await dart(0);await until(async()=>await host.locator('.dart.filled').count()===2);await host.locator('#record').click();await until(async()=>await host.locator('#cancel').isVisible());await host.locator('#new-game').click();await delay(4300);assert((await state()).game.player===0,'new setup cancels timer');
+ await host.locator('#names input').nth(0).fill('Ada');await host.locator('#names input').nth(1).fill('Lin');await host.locator('#setup button[type="submit"]').click();await until(async()=>(await state()).game.darts.length===0);
+});
+await check('offline cancels auto handoff; failure keeps correct score and recovers',async()=>{
+ await begin();await until(async()=>await host.locator('#entry').isVisible());await dart(0);await dart(0);await until(async()=>await host.locator('.dart.filled').count()===2);await host.locator('#record').click();await until(async()=>await host.locator('#cancel').isVisible());await context.setOffline(true);await delay(4500);assert((await state()).game.player===0,'offline no auto handoff');await context.setOffline(false);await delay(1500);assert((await state()).game.player===0,'reconnect does not replay handoff');
+ await begin();await until(async()=>await host.locator('#record').isEnabled());await host.route('**/api/throw',r=>r.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'QA simulated failure'})}));await host.locator('#value').selectOption('20');await host.locator('#record').click();await delay(300);assert((await state()).game.scores[0]===301,'failed throw no local mutation');assert((await host.locator('#notice').textContent()).includes('QA simulated failure'),'visible failure');await host.unroute('**/api/throw');await host.locator('#record').click();await until(async()=>(await state()).game.scores[0]===281);
+});
+await check('controller stale timer and simultaneous score conflicts prevent duplicate mutations',async()=>{
+ await begin();await until(async()=>await host.locator('.dart.filled').count()===0);let other=await context.newPage();other.on('dialog',d=>d.accept());await other.goto(origin+'/control?t='+token);await until(async()=>await other.locator('#record').isEnabled());await host.locator('#auto').check();await other.locator('#auto').check();
+ await dart(0);await dart(0);await until(async()=>await host.locator('.dart.filled').count()===2);await host.locator('#value').selectOption('0');await host.locator('#record').click();await until(async()=>await host.locator('#cancel').isVisible());await until(async()=>await other.locator('#next').isEnabled());await other.locator('#next').click();await delay(4500);assert((await state()).game.turn===2,'only one next on multiple controllers');
+ await begin();await delay(1200);await host.locator('#auto').uncheck();await other.locator('#auto').uncheck();await host.locator('#value').selectOption('20');await other.locator('#value').selectOption('20');await host.locator('[data-ring="1"]').click();await other.locator('[data-ring="1"]').click();
+ let rev=(await state()).revision;await Promise.all([host.locator('#record').click(),other.locator('#record').click()]);await delay(300);let s=await state();assert(s.revision===rev+1&&s.game.darts.length===1,'simultaneous controllers exactly one dart');await other.close();
+});
+await check('presenter read-only credentials enforce server authorization',async()=>{
+ let s=await state();assert(s.presentation_path,'display link supplied');let viewtoken=new URL('http://qa'+s.presentation_path).searchParams.get('t');assert(viewtoken&&viewtoken!==token,'distinct spectator credential');assert(!JSON.stringify(s).includes(token),'master credential not in state');assert((await api('state',undefined,viewtoken)).status===200,'view reads');let before=await state();for(let action of ['throw','next','undo','game'])assert((await api(action,{value:20,names:['C','D'],camera:false},viewtoken)).status===401,'view mutation forbidden '+action);assert((await state()).revision===before.revision,'denied writes no revision change');assert(spectatorWrites.length===0,'spectators issue zero mutation requests');
+});
+await check('showcase automatically hands off and wins; Pause/Restart stay isolated',async()=>{
+ let before=await state(),demo=await context.newPage(),demoWrites=[],demoReads=[];demo.on('request',r=>{if(r.url().includes('/api/'))(r.method()==='GET'?demoReads:demoWrites).push(r.url())});await demo.goto(origin+'/showcase');await until(async()=>await demo.locator('.hero .score').count()===1);await demo.locator('#pause').click();let paused=await demo.locator('#match').innerText();await delay(2200);assert(await demo.locator('#match').innerText()===paused,'pause holds state');await demo.locator('#restart').click();assert(await demo.locator('.hero .score').textContent()==='301','restart returns opening score');if(await demo.locator('#pause').textContent()==='Play')await demo.locator('#pause').click();await until(async()=>await demo.locator('.hero h1').textContent().then(t=>t.includes('Maya')),30000);await until(async()=>await demo.locator('.winner').count()===1,45000);await demo.screenshot({path:root+'/qa-artifacts/presentation-showcase-win.png',fullPage:true});result.screenshots.push('presentation-showcase-win.png');assert(demoWrites.length===0&&demoReads.length===0,'showcase zero API traffic');assert((await state()).revision===before.revision,'showcase live revision unaffected');await demo.close();
+});
+await check('responsive presenter/control/showcase, reduced motion, fullscreen fallback',async()=>{
+ for(let route of [view,'/control?t='+token,'/showcase']){let p=await context.newPage();await p.goto(origin+route);for(let width of [320,736,1280,1920]){await p.setViewportSize({width,height:width===320?900:1080});await delay(150);assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'horizontal overflow '+route+' '+width);if(width===320||width===1920){let name='presentation-'+(route.startsWith('/play')?'play':route.startsWith('/control')?'control':'showcase')+'-'+width+'.png';await p.screenshot({path:root+'/qa-artifacts/'+name,fullPage:true});result.screenshots.push(name)}}if(route.startsWith('/play')){await p.emulateMedia({reducedMotion:'reduce'});assert(await p.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches),'reduced motion active');await p.evaluate(()=>{document.documentElement.requestFullscreen=()=>Promise.reject(Error('QA denied'))});await p.locator('#fullscreen').click();await delay(100);assert(await p.locator('.hero .score').isVisible(),'fullscreen denied page remains usable')}await p.close()}
+});
+for(let p of context.pages())assert(await p.evaluate(()=>window.mediaCalls)===0,'no camera calls');assert(result.errors.length===0,'browser errors '+JSON.stringify(result.errors));assert(!stderr,'server stderr '+stderr);result.pass=true;
+}catch(e){result.pass=false;result.failure=e.stack;process.exitCode=1}finally{if(browser)await browser.close();if(child)child.kill('SIGTERM');fs.writeFileSync(root+'/qa-artifacts/presentation-results.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2))}})();

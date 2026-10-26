@@ -1,0 +1,13 @@
+{
+  "isolated": true,
+  "results": [
+    {
+      "name": "successful recovery clears network error and reenables manual controls",
+      "pass": true
+    },
+    {
+      "name": "successful heartbeat preserves score validation error",
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "delayed old poll cannot roll controller back after successful score",
+    "lost mutation acknowledgement reconciles once without repeating dart",
+    "501 four long names layouts and real reduced-motion animation suppression"
+  ],
+  "screenshots": [],
+  "errors": [],
+  "lastPosts": [
+    {
+      "status": 200,
+      "body": "{\"value\":20,\"multiplier\":1,\"expected_revision\":1}",
+      "response": "{\"game\": {\"names\": [\"Ada\", \"Lin\"], \"scores\": [281, 301], \"start\": 301, \"double_out\": false, \"player\": 0, \"turn_start\": 301, \"darts\": [{\"value\": 20, \"multiplier\": 1, \"score\": 20}], \"bust\": false, \"winner\": null, \"turn\": 1}, \"revision\": 2, \"presentation_path\": \"/play?t=REDACTED_CREDENTIAL\", \"vision\": {\"fresh\": false, \"aligned\": false, \"verified\": false, \"phase\": \"unavailable\", \"message\": \"QA no camera\"}, \"camera_game\": false}"
+    }
+  ],
+  "pass": true
+}
