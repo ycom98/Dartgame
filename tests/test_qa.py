@@ -151,6 +151,78 @@ class VisionQA(unittest.TestCase):
         for _ in range(10):vision.ingest(jpeg.tobytes())
         self.assertIsNone(vision.proposal)
 
+class TipRuleQA(unittest.TestCase):
+    """M1-05 foot-point tip rule (synthetic scenes; not real-board evidence)."""
+
+    @staticmethod
+    def detect(mount, dart, rule):
+        from sim import camera_for_mount
+        from sim.scene import calibration_points, render_clean
+        camera = camera_for_mount(mount)
+        vision = Vision()
+        vision.rule = rule
+        empty = cv2.imencode('.bmp', render_clean(camera, []))[1].tobytes()
+        vision.ingest(empty)
+        vision.calibrate(calibration_points(camera).tolist())
+        for _ in range(3): vision.ingest(empty)
+        vision.reset_base()
+        scene = cv2.imencode('.bmp', render_clean(camera, [dart]))[1].tobytes()
+        for _ in range(4): vision.ingest(scene)
+        return vision.proposal
+
+    def test_foot_rule_scores_darts_the_centre_rule_gets_wrong(self):
+        from sim.scene import Dart
+        cases = [
+            ('top', Dart(x=-50.427, y=-142.954, length=112.85, tilt=20.40, azimuth=-42.58, spin=15.42,
+                         barrel_colour=(70, 70, 76), shaft_colour=(40, 40, 170), flight_colour=(30, 30, 200))),
+            ('left', Dart(x=-48.508, y=129.524, length=122.19, tilt=25.35, azimuth=21.90, spin=15.03,
+                          barrel_colour=(70, 70, 76), shaft_colour=(220, 220, 220), flight_colour=(30, 30, 200))),
+        ]
+        for mount, dart in cases:
+            with self.subTest(mount=mount):
+                truth = score_point(dart.x, dart.y)['label']
+                foot = self.detect(mount, dart, 'foot')
+                self.assertEqual((foot['label'], foot['rule'], foot['confidence']), (truth, 'foot', 'high'))
+                self.assertLess(math.hypot(foot['x'] - dart.x, foot['y'] - dart.y), 2.0)
+                centre = self.detect(mount, dart, 'centre')
+                self.assertEqual(centre['rule'], 'centre')
+                self.assertNotEqual(centre['label'], truth)
+
+    def round_blob_vision(self, rule):
+        vision = VisionQA().fresh_vision()
+        vision.rule = rule
+        ok, empty = cv2.imencode('.png', vision.frame)
+        vision.ingest(empty.tobytes()); vision.reset_base()
+        blob = vision.frame.copy()
+        cv2.circle(blob, (470, 330), 11, (255, 255, 255), -1)
+        ok, data = cv2.imencode('.png', blob)
+        for _ in range(4): vision.ingest(data.tobytes())
+        return vision
+
+    def test_round_blob_gets_low_confidence_nearest_point_with_foot_rule(self):
+        vision = self.round_blob_vision('foot')
+        proposal = vision.proposal
+        self.assertIsNotNone(proposal)
+        self.assertEqual((proposal['confidence'], proposal['rule']), ('low', 'foot'))
+        foot = np.asarray(vision.foot_point())
+        tip = np.array([proposal['x'], proposal['y']])
+        # The chosen pixel is on the blob boundary facing the foot point.
+        centre_mm = (np.array(cv2.perspectiveTransform(np.float32([[[470, 330]]]), vision.H)[0, 0]) - 350) / 1.7
+        self.assertLess(np.linalg.norm(tip - foot), np.linalg.norm(centre_mm - foot))
+
+    def test_round_blob_is_still_rejected_by_centre_rule(self):
+        vision = self.round_blob_vision('centre')
+        self.assertIsNone(vision.proposal)
+        self.assertIn('not dart-shaped', vision.message)
+
+    def test_default_rule_and_bias_are_configurable(self):
+        import vision as vision_module
+        self.assertEqual(vision_module.DEFAULT_RULE, 'foot')
+        self.assertEqual(Vision().rule, 'foot')
+        self.assertIn('centre', vision_module.TIP_RULES)
+        self.assertEqual(Vision().tip_bias_mm, vision_module.TIP_BIAS_MM)
+
+
 class ApiQA(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

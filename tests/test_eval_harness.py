@@ -43,6 +43,16 @@ class HarnessSmoke(unittest.TestCase):
         second = eval_detection.run(['top'], 5, 9, 'realistic')
         self.assertEqual(first['mounts']['top']['trials'], second['mounts']['top']['trials'])
 
+    def test_rule_flag_and_vision_factory(self):
+        from tools.diag_segmentation import UnionSegmentationVision
+        centre = eval_detection.run(['left'], 3, 5, 'ideal', rule='centre')
+        self.assertEqual(centre['settings']['rule'], 'centre')
+        for trial in centre['mounts']['left']['trials']:
+            if 'rule' in trial:
+                self.assertEqual(trial['rule'], 'centre')
+        union = eval_detection.run(['left'], 3, 5, 'ideal', rule='foot', vision_factory=UnionSegmentationVision)
+        self.assertEqual(len(union['mounts']['left']['trials']), 3)
+
     def test_recording_is_stubbed(self):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
             self.assertEqual(eval_detection.main(['--recording', 'nowhere']), 2)

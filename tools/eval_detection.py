@@ -111,12 +111,14 @@ class FrameFeeder:
                 self.ingest_seconds.append(time.perf_counter() - started)
 
 
-def make_vision(rule=None):
-    vision = vision_module.Vision()
+def make_vision(rule=None, tip_bias=None, factory=None):
+    vision = (factory or vision_module.Vision)()
     if rule is not None:
         if not hasattr(vision, 'rule'):
             raise SystemExit('This vision.py has no selectable tip rule; omit --rule')
         vision.rule = rule
+    if tip_bias is not None:
+        vision.tip_bias_mm = tip_bias
     return vision
 
 
@@ -132,7 +134,8 @@ def calibrate(vision, camera, degradation, feeder, empty, brightness, click_rng,
     return points
 
 
-def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_frames=3, rule=None):
+def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_frames=3, rule=None,
+                   tip_bias=None, vision_factory=None):
     mount_index = list(MOUNTS).index(mount)
     dart_rng = np.random.default_rng([seed, mount_index, 0])
     noise_rng = np.random.default_rng([seed, mount_index, 1])
@@ -140,7 +143,7 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
     exposure_rng = np.random.default_rng([seed, mount_index, 3])
 
     camera = camera_for_mount(mount)
-    vision = make_vision(rule)
+    vision = make_vision(rule, tip_bias, vision_factory)
     feeder = FrameFeeder(vision, degradation, noise_rng)
     empty = render_clean(camera, [])
     session_brightness = degradation.brightness
@@ -250,7 +253,8 @@ def git_commit():
         return None
 
 
-def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=None, progress=None):
+def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=None, progress=None,
+        tip_bias=None, vision_factory=None):
     degradation = PROFILES[profile]
     if shadow:
         degradation = degradation.with_options(shadow=DEFAULT_LIGHT)
@@ -258,7 +262,8 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
     results = {}
     for mount in mounts:
         mount_started = time.perf_counter()
-        results[mount] = evaluate_mount(mount, darts, seed, degradation, frames_per_trial, rule=rule)
+        results[mount] = evaluate_mount(mount, darts, seed, degradation, frames_per_trial, rule=rule,
+                                        tip_bias=tip_bias, vision_factory=vision_factory)
         results[mount]['wall_seconds'] = round(time.perf_counter() - mount_started, 2)
         if progress:
             progress(results[mount])
@@ -274,7 +279,7 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
             'seed': seed,
             'frames_per_trial': frames_per_trial,
             'rule': rule or getattr(vision_module, 'DEFAULT_RULE', 'centre (only rule in this vision.py)'),
-            'tip_bias_mm': getattr(vision_module, 'TIP_BIAS_MM', None),
+            'tip_bias_mm': tip_bias if tip_bias is not None else getattr(vision_module, 'TIP_BIAS_MM', None),
             'camera': {'width': 1920, 'height': 1080, 'hfov_deg': 70, 'look_at': 'bull'},
             'dart_tips': 'uniform by area within r <= 170 mm (all darts stay in the board)',
             'exposure': 'brightness drawn once per trial (base and dart frames share it); '
@@ -311,6 +316,9 @@ def main(argv=None):
     parser.add_argument('--profile', default='ideal', choices=sorted(PROFILES))
     parser.add_argument('--shadow', action='store_true', help='render hard dart shadows (default light)')
     parser.add_argument('--frames', type=int, default=4, help='frames ingested per dart (>= 4)')
+    parser.add_argument('--rule', choices=getattr(vision_module, 'TIP_RULES', None),
+                        help='tip rule (default: vision.DEFAULT_RULE)')
+    parser.add_argument('--tip-bias', type=float, help='override vision.TIP_BIAS_MM (mm)')
     parser.add_argument('--recording', metavar='DIR', help='replay recorded real footage (M1-14)')
     parser.add_argument('--out', help='write the JSON report here')
     parser.add_argument('--quiet', action='store_true')
@@ -329,7 +337,8 @@ def main(argv=None):
         parser.error('--frames must be >= 4 so the stability gate can pass')
 
     progress = None if args.quiet else (lambda result: print(summary_line(result), flush=True))
-    report = run(mounts, args.darts, args.seed, args.profile, args.shadow, args.frames, progress=progress)
+    report = run(mounts, args.darts, args.seed, args.profile, args.shadow, args.frames, rule=args.rule,
+                 progress=progress, tip_bias=args.tip_bias)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)

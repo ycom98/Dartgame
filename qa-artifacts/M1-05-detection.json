@@ -1,0 +1,6009 @@
+{
+ "ticket": "M1-05",
+ "disclaimer": "Synthetic rendered scenes only (sim/). Not evidence of real-board accuracy; the physical trial is the real gate.",
+ "commands": {
+  "shipped": {
+   "ideal-foot": "python tools/eval_detection.py --profile ideal --rule foot --darts 200 --seed 1",
+   "ideal-centre": "python tools/eval_detection.py --profile ideal --rule centre --darts 200 --seed 1",
+   "ideal-foot-shadow": "python tools/eval_detection.py --profile ideal --rule foot --shadow --darts 200 --seed 1",
+   "realistic-foot": "python tools/eval_detection.py --profile realistic --rule foot --darts 200 --seed 1",
+   "realistic-centre": "python tools/eval_detection.py --profile realistic --rule centre --darts 200 --seed 1"
+  },
+  "diagnostic": {
+   "ideal-foot": "python tools/diag_segmentation.py --profile ideal --rule foot --darts 200 --seed 1",
+   "ideal-centre": "python tools/diag_segmentation.py --profile ideal --rule centre --darts 200 --seed 1",
+   "ideal-foot-shadow": "python tools/diag_segmentation.py --profile ideal --rule foot --shadow --darts 200 --seed 1",
+   "realistic-foot": "python tools/diag_segmentation.py --profile realistic --rule foot --darts 200 --seed 1",
+   "realistic-centre": "python tools/diag_segmentation.py --profile realistic --rule centre --darts 200 --seed 1"
+  }
+ },
+ "gate_mounts": [
+  "top",
+  "bottom",
+  "left",
+  "right",
+  "steep-topleft"
+ ],
+ "gate_shipped_pipeline": {
+  "top": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.185,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.17,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.02,
+     false
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.931,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     7.081,
+     false
+    ]
+   },
+   "pass": false
+  },
+  "bottom": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.15,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.155,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.02,
+     false
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     1.423,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     15.956,
+     false
+    ]
+   },
+   "pass": false
+  },
+  "left": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.165,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.125,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.02,
+     false
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.989,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     7.389,
+     false
+    ]
+   },
+   "pass": false
+  },
+  "right": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.17,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.17,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.015,
+     false
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.999,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     10.831,
+     false
+    ]
+   },
+   "pass": false
+  },
+  "steep-topleft": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.135,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.155,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.005,
+     false
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     1.326,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     9.377,
+     false
+    ]
+   },
+   "pass": false
+  }
+ },
+ "gate_shipped_pipeline_pass": false,
+ "diagnostic_gate_union_segmentation": {
+  "top": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.92,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.9,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.23,
+     true
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.843,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     1.617,
+     true
+    ]
+   },
+   "pass": false
+  },
+  "bottom": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.93,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.91,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.13,
+     true
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.952,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     1.611,
+     true
+    ]
+   },
+   "pass": false
+  },
+  "left": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.945,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.93,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.195,
+     true
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.817,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     1.604,
+     true
+    ]
+   },
+   "pass": false
+  },
+  "right": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.92,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.895,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.17,
+     true
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.901,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     1.882,
+     true
+    ]
+   },
+   "pass": false
+  },
+  "steep-topleft": {
+   "checks": {
+    "1_ideal_exact_ge_99pct": [
+     0.905,
+     false
+    ],
+    "2a_realistic_exact_ge_95pct": [
+     0.9,
+     false
+    ],
+    "2b_realistic_ge_centre_plus_10pts": [
+     0.06,
+     false
+    ],
+    "3a_ideal_tip_median_le_2mm": [
+     0.962,
+     true
+    ],
+    "3b_ideal_tip_p95_le_5mm": [
+     1.817,
+     true
+    ]
+   },
+   "pass": false
+  }
+ },
+ "diagnostic_note": "tools/diag_segmentation.py re-segments with a colour difference and treats every changed pixel as one dart. Valid only for one-dart trials: an optimistic upper bound for the tip rule, not the shipped pipeline and not a gate result.",
+ "summary_shipped": {
+  "ideal-foot": {
+   "top": {
+    "exact_accuracy": 0.185,
+    "wrong_sector_rate": 0.04,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.74,
+    "exact_given_proposal": 0.7115,
+    "tip_error_mm": {
+     "median": 0.931,
+     "p95": 7.081,
+     "mean": 2.398,
+     "n": 52
+    },
+    "near_wire": 0.1053,
+    "not_near_wire": 0.2037
+   },
+   "bottom": {
+    "exact_accuracy": 0.15,
+    "wrong_sector_rate": 0.065,
+    "wrong_ring_rate": 0.065,
+    "no_proposal_rate": 0.72,
+    "exact_given_proposal": 0.5357,
+    "tip_error_mm": {
+     "median": 1.423,
+     "p95": 15.956,
+     "mean": 4.145,
+     "n": 56
+    },
+    "near_wire": 0.175,
+    "not_near_wire": 0.1437
+   },
+   "left": {
+    "exact_accuracy": 0.165,
+    "wrong_sector_rate": 0.035,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.77,
+    "exact_given_proposal": 0.7174,
+    "tip_error_mm": {
+     "median": 0.989,
+     "p95": 7.389,
+     "mean": 2.544,
+     "n": 46
+    },
+    "near_wire": 0.125,
+    "not_near_wire": 0.1726
+   },
+   "right": {
+    "exact_accuracy": 0.17,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.04,
+    "no_proposal_rate": 0.76,
+    "exact_given_proposal": 0.7083,
+    "tip_error_mm": {
+     "median": 0.999,
+     "p95": 10.831,
+     "mean": 2.434,
+     "n": 48
+    },
+    "near_wire": 0.125,
+    "not_near_wire": 0.1812
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.135,
+    "wrong_sector_rate": 0.04,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.81,
+    "exact_given_proposal": 0.7105,
+    "tip_error_mm": {
+     "median": 1.326,
+     "p95": 9.377,
+     "mean": 7.105,
+     "n": 38
+    },
+    "near_wire": 0.093,
+    "not_near_wire": 0.1465
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.26,
+    "wrong_sector_rate": 0.105,
+    "wrong_ring_rate": 0.06,
+    "no_proposal_rate": 0.575,
+    "exact_given_proposal": 0.6118,
+    "tip_error_mm": {
+     "median": 10.644,
+     "p95": 52.246,
+     "mean": 17.628,
+     "n": 85
+    },
+    "near_wire": 0.1579,
+    "not_near_wire": 0.284
+   }
+  },
+  "ideal-centre": {
+   "top": {
+    "exact_accuracy": 0.16,
+    "wrong_sector_rate": 0.055,
+    "wrong_ring_rate": 0.04,
+    "no_proposal_rate": 0.745,
+    "exact_given_proposal": 0.6275,
+    "tip_error_mm": {
+     "median": 0.913,
+     "p95": 77.417,
+     "mean": 10.01,
+     "n": 51
+    },
+    "near_wire": 0.0789,
+    "not_near_wire": 0.179
+   },
+   "bottom": {
+    "exact_accuracy": 0.14,
+    "wrong_sector_rate": 0.065,
+    "wrong_ring_rate": 0.06,
+    "no_proposal_rate": 0.735,
+    "exact_given_proposal": 0.5283,
+    "tip_error_mm": {
+     "median": 2.066,
+     "p95": 31.105,
+     "mean": 7.69,
+     "n": 53
+    },
+    "near_wire": 0.175,
+    "not_near_wire": 0.1313
+   },
+   "left": {
+    "exact_accuracy": 0.13,
+    "wrong_sector_rate": 0.06,
+    "wrong_ring_rate": 0.025,
+    "no_proposal_rate": 0.785,
+    "exact_given_proposal": 0.6047,
+    "tip_error_mm": {
+     "median": 0.928,
+     "p95": 93.737,
+     "mean": 14.417,
+     "n": 43
+    },
+    "near_wire": 0.0938,
+    "not_near_wire": 0.1369
+   },
+   "right": {
+    "exact_accuracy": 0.15,
+    "wrong_sector_rate": 0.045,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.77,
+    "exact_given_proposal": 0.6522,
+    "tip_error_mm": {
+     "median": 1.178,
+     "p95": 101.001,
+     "mean": 13.99,
+     "n": 46
+    },
+    "near_wire": 0.1,
+    "not_near_wire": 0.1625
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.13,
+    "wrong_sector_rate": 0.04,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.815,
+    "exact_given_proposal": 0.7027,
+    "tip_error_mm": {
+     "median": 1.193,
+     "p95": 25.737,
+     "mean": 9.641,
+     "n": 37
+    },
+    "near_wire": 0.093,
+    "not_near_wire": 0.1401
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.13,
+    "wrong_sector_rate": 0.015,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.84,
+    "exact_given_proposal": 0.8125,
+    "tip_error_mm": {
+     "median": 1.176,
+     "p95": 38.404,
+     "mean": 8.074,
+     "n": 32
+    },
+    "near_wire": 0.1579,
+    "not_near_wire": 0.1235
+   }
+  },
+  "ideal-foot-shadow": {
+   "top": {
+    "exact_accuracy": 0.105,
+    "wrong_sector_rate": 0.025,
+    "wrong_ring_rate": 0.005,
+    "no_proposal_rate": 0.865,
+    "exact_given_proposal": 0.7778,
+    "tip_error_mm": {
+     "median": 1.038,
+     "p95": 70.542,
+     "mean": 9.9,
+     "n": 27
+    },
+    "near_wire": 0.0263,
+    "not_near_wire": 0.1235
+   },
+   "bottom": {
+    "exact_accuracy": 0.02,
+    "wrong_sector_rate": 0.055,
+    "wrong_ring_rate": 0.02,
+    "no_proposal_rate": 0.905,
+    "exact_given_proposal": 0.2105,
+    "tip_error_mm": {
+     "median": 57.127,
+     "p95": 90.722,
+     "mean": 54.96,
+     "n": 19
+    },
+    "near_wire": 0.05,
+    "not_near_wire": 0.0125
+   },
+   "left": {
+    "exact_accuracy": 0.035,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.0,
+    "no_proposal_rate": 0.935,
+    "exact_given_proposal": 0.5385,
+    "tip_error_mm": {
+     "median": 26.288,
+     "p95": 86.451,
+     "mean": 31.269,
+     "n": 13
+    },
+    "near_wire": 0.0,
+    "not_near_wire": 0.0417
+   },
+   "right": {
+    "exact_accuracy": 0.02,
+    "wrong_sector_rate": 0.025,
+    "wrong_ring_rate": 0.01,
+    "no_proposal_rate": 0.945,
+    "exact_given_proposal": 0.3636,
+    "tip_error_mm": {
+     "median": 58.036,
+     "p95": 92.49,
+     "mean": 49.528,
+     "n": 11
+    },
+    "near_wire": 0.0,
+    "not_near_wire": 0.025
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.15,
+    "wrong_sector_rate": 0.045,
+    "wrong_ring_rate": 0.01,
+    "no_proposal_rate": 0.795,
+    "exact_given_proposal": 0.7317,
+    "tip_error_mm": {
+     "median": 1.418,
+     "p95": 27.488,
+     "mean": 13.938,
+     "n": 41
+    },
+    "near_wire": 0.1395,
+    "not_near_wire": 0.1529
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.085,
+    "wrong_sector_rate": 0.025,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.86,
+    "exact_given_proposal": 0.6071,
+    "tip_error_mm": {
+     "median": 24.776,
+     "p95": 68.664,
+     "mean": 27.12,
+     "n": 28
+    },
+    "near_wire": 0.0526,
+    "not_near_wire": 0.0926
+   }
+  },
+  "realistic-foot": {
+   "top": {
+    "exact_accuracy": 0.17,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.025,
+    "no_proposal_rate": 0.775,
+    "exact_given_proposal": 0.7556,
+    "tip_error_mm": {
+     "median": 1.873,
+     "p95": 24.356,
+     "mean": 5.752,
+     "n": 45
+    },
+    "near_wire": 0.0789,
+    "not_near_wire": 0.1914
+   },
+   "bottom": {
+    "exact_accuracy": 0.155,
+    "wrong_sector_rate": 0.04,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.775,
+    "exact_given_proposal": 0.6889,
+    "tip_error_mm": {
+     "median": 3.782,
+     "p95": 22.013,
+     "mean": 5.775,
+     "n": 45
+    },
+    "near_wire": 0.2,
+    "not_near_wire": 0.1437
+   },
+   "left": {
+    "exact_accuracy": 0.125,
+    "wrong_sector_rate": 0.005,
+    "wrong_ring_rate": 0.04,
+    "no_proposal_rate": 0.83,
+    "exact_given_proposal": 0.7353,
+    "tip_error_mm": {
+     "median": 2.53,
+     "p95": 18.904,
+     "mean": 5.812,
+     "n": 34
+    },
+    "near_wire": 0.0625,
+    "not_near_wire": 0.1369
+   },
+   "right": {
+    "exact_accuracy": 0.17,
+    "wrong_sector_rate": 0.015,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.8,
+    "exact_given_proposal": 0.85,
+    "tip_error_mm": {
+     "median": 4.148,
+     "p95": 20.557,
+     "mean": 7.82,
+     "n": 40
+    },
+    "near_wire": 0.1,
+    "not_near_wire": 0.1875
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.155,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.78,
+    "exact_given_proposal": 0.7045,
+    "tip_error_mm": {
+     "median": 1.87,
+     "p95": 28.959,
+     "mean": 7.754,
+     "n": 44
+    },
+    "near_wire": 0.1395,
+    "not_near_wire": 0.1592
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.175,
+    "wrong_sector_rate": 0.08,
+    "wrong_ring_rate": 0.05,
+    "no_proposal_rate": 0.695,
+    "exact_given_proposal": 0.5738,
+    "tip_error_mm": {
+     "median": 11.681,
+     "p95": 36.457,
+     "mean": 15.287,
+     "n": 61
+    },
+    "near_wire": 0.1316,
+    "not_near_wire": 0.1852
+   }
+  },
+  "realistic-centre": {
+   "top": {
+    "exact_accuracy": 0.15,
+    "wrong_sector_rate": 0.035,
+    "wrong_ring_rate": 0.02,
+    "no_proposal_rate": 0.795,
+    "exact_given_proposal": 0.7317,
+    "tip_error_mm": {
+     "median": 1.697,
+     "p95": 25.861,
+     "mean": 7.38,
+     "n": 41
+    },
+    "near_wire": 0.0789,
+    "not_near_wire": 0.1667
+   },
+   "bottom": {
+    "exact_accuracy": 0.135,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.805,
+    "exact_given_proposal": 0.6923,
+    "tip_error_mm": {
+     "median": 3.599,
+     "p95": 10.923,
+     "mean": 4.611,
+     "n": 39
+    },
+    "near_wire": 0.175,
+    "not_near_wire": 0.125
+   },
+   "left": {
+    "exact_accuracy": 0.105,
+    "wrong_sector_rate": 0.015,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.845,
+    "exact_given_proposal": 0.6774,
+    "tip_error_mm": {
+     "median": 2.439,
+     "p95": 60.84,
+     "mean": 11.04,
+     "n": 31
+    },
+    "near_wire": 0.0938,
+    "not_near_wire": 0.1071
+   },
+   "right": {
+    "exact_accuracy": 0.155,
+    "wrong_sector_rate": 0.015,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.815,
+    "exact_given_proposal": 0.8378,
+    "tip_error_mm": {
+     "median": 3.611,
+     "p95": 22.401,
+     "mean": 9.999,
+     "n": 37
+    },
+    "near_wire": 0.05,
+    "not_near_wire": 0.1812
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.15,
+    "wrong_sector_rate": 0.035,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.785,
+    "exact_given_proposal": 0.6977,
+    "tip_error_mm": {
+     "median": 1.871,
+     "p95": 29.162,
+     "mean": 7.476,
+     "n": 43
+    },
+    "near_wire": 0.1163,
+    "not_near_wire": 0.1592
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.095,
+    "wrong_sector_rate": 0.01,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.865,
+    "exact_given_proposal": 0.7037,
+    "tip_error_mm": {
+     "median": 3.223,
+     "p95": 21.513,
+     "mean": 7.018,
+     "n": 27
+    },
+    "near_wire": 0.1579,
+    "not_near_wire": 0.0802
+   }
+  }
+ },
+ "summary_diagnostic": {
+  "ideal-foot": {
+   "top": {
+    "exact_accuracy": 0.92,
+    "wrong_sector_rate": 0.04,
+    "wrong_ring_rate": 0.02,
+    "no_proposal_rate": 0.02,
+    "exact_given_proposal": 0.9388,
+    "tip_error_mm": {
+     "median": 0.843,
+     "p95": 1.617,
+     "mean": 1.031,
+     "n": 196
+    },
+    "near_wire": 0.7105,
+    "not_near_wire": 0.9691
+   },
+   "bottom": {
+    "exact_accuracy": 0.93,
+    "wrong_sector_rate": 0.02,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.015,
+    "exact_given_proposal": 0.9442,
+    "tip_error_mm": {
+     "median": 0.952,
+     "p95": 1.611,
+     "mean": 1.131,
+     "n": 197
+    },
+    "near_wire": 0.725,
+    "not_near_wire": 0.9812
+   },
+   "left": {
+    "exact_accuracy": 0.945,
+    "wrong_sector_rate": 0.015,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.01,
+    "exact_given_proposal": 0.9545,
+    "tip_error_mm": {
+     "median": 0.817,
+     "p95": 1.604,
+     "mean": 0.931,
+     "n": 198
+    },
+    "near_wire": 0.6875,
+    "not_near_wire": 0.994
+   },
+   "right": {
+    "exact_accuracy": 0.92,
+    "wrong_sector_rate": 0.045,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.005,
+    "exact_given_proposal": 0.9246,
+    "tip_error_mm": {
+     "median": 0.901,
+     "p95": 1.882,
+     "mean": 1.095,
+     "n": 199
+    },
+    "near_wire": 0.6,
+    "not_near_wire": 1.0
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.905,
+    "wrong_sector_rate": 0.05,
+    "wrong_ring_rate": 0.025,
+    "no_proposal_rate": 0.02,
+    "exact_given_proposal": 0.9235,
+    "tip_error_mm": {
+     "median": 0.962,
+     "p95": 1.817,
+     "mean": 1.007,
+     "n": 196
+    },
+    "near_wire": 0.5581,
+    "not_near_wire": 1.0
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.515,
+    "wrong_sector_rate": 0.39,
+    "wrong_ring_rate": 0.08,
+    "no_proposal_rate": 0.015,
+    "exact_given_proposal": 0.5228,
+    "tip_error_mm": {
+     "median": 16.2,
+     "p95": 56.378,
+     "mean": 20.004,
+     "n": 197
+    },
+    "near_wire": 0.4737,
+    "not_near_wire": 0.5247
+   }
+  },
+  "ideal-centre": {
+   "top": {
+    "exact_accuracy": 0.685,
+    "wrong_sector_rate": 0.19,
+    "wrong_ring_rate": 0.0,
+    "no_proposal_rate": 0.125,
+    "exact_given_proposal": 0.7829,
+    "tip_error_mm": {
+     "median": 0.845,
+     "p95": 141.13,
+     "mean": 22.159,
+     "n": 175
+    },
+    "near_wire": 0.4737,
+    "not_near_wire": 0.7346
+   },
+   "bottom": {
+    "exact_accuracy": 0.8,
+    "wrong_sector_rate": 0.13,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.04,
+    "exact_given_proposal": 0.8333,
+    "tip_error_mm": {
+     "median": 0.894,
+     "p95": 166.006,
+     "mean": 20.516,
+     "n": 192
+    },
+    "near_wire": 0.625,
+    "not_near_wire": 0.8438
+   },
+   "left": {
+    "exact_accuracy": 0.76,
+    "wrong_sector_rate": 0.185,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.04,
+    "exact_given_proposal": 0.7917,
+    "tip_error_mm": {
+     "median": 0.799,
+     "p95": 142.491,
+     "mean": 23.508,
+     "n": 192
+    },
+    "near_wire": 0.5938,
+    "not_near_wire": 0.7917
+   },
+   "right": {
+    "exact_accuracy": 0.735,
+    "wrong_sector_rate": 0.22,
+    "wrong_ring_rate": 0.02,
+    "no_proposal_rate": 0.025,
+    "exact_given_proposal": 0.7538,
+    "tip_error_mm": {
+     "median": 0.869,
+     "p95": 142.291,
+     "mean": 27.131,
+     "n": 195
+    },
+    "near_wire": 0.45,
+    "not_near_wire": 0.8063
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.85,
+    "wrong_sector_rate": 0.105,
+    "wrong_ring_rate": 0.025,
+    "no_proposal_rate": 0.02,
+    "exact_given_proposal": 0.8673,
+    "tip_error_mm": {
+     "median": 0.841,
+     "p95": 146.978,
+     "mean": 11.852,
+     "n": 196
+    },
+    "near_wire": 0.4884,
+    "not_near_wire": 0.949
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.26,
+    "wrong_sector_rate": 0.025,
+    "wrong_ring_rate": 0.01,
+    "no_proposal_rate": 0.705,
+    "exact_given_proposal": 0.8814,
+    "tip_error_mm": {
+     "median": 1.126,
+     "p95": 26.905,
+     "mean": 5.745,
+     "n": 59
+    },
+    "near_wire": 0.2632,
+    "not_near_wire": 0.2593
+   }
+  },
+  "ideal-foot-shadow": {
+   "top": {
+    "exact_accuracy": 0.795,
+    "wrong_sector_rate": 0.16,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.015,
+    "exact_given_proposal": 0.8071,
+    "tip_error_mm": {
+     "median": 1.277,
+     "p95": 49.499,
+     "mean": 9.298,
+     "n": 197
+    },
+    "near_wire": 0.6316,
+    "not_near_wire": 0.8333
+   },
+   "bottom": {
+    "exact_accuracy": 0.125,
+    "wrong_sector_rate": 0.79,
+    "wrong_ring_rate": 0.085,
+    "no_proposal_rate": 0.0,
+    "exact_given_proposal": 0.125,
+    "tip_error_mm": {
+     "median": 62.21,
+     "p95": 101.725,
+     "mean": 59.712,
+     "n": 200
+    },
+    "near_wire": 0.125,
+    "not_near_wire": 0.125
+   },
+   "left": {
+    "exact_accuracy": 0.565,
+    "wrong_sector_rate": 0.37,
+    "wrong_ring_rate": 0.065,
+    "no_proposal_rate": 0.0,
+    "exact_given_proposal": 0.565,
+    "tip_error_mm": {
+     "median": 9.24,
+     "p95": 72.886,
+     "mean": 22.824,
+     "n": 200
+    },
+    "near_wire": 0.4375,
+    "not_near_wire": 0.5893
+   },
+   "right": {
+    "exact_accuracy": 0.11,
+    "wrong_sector_rate": 0.815,
+    "wrong_ring_rate": 0.07,
+    "no_proposal_rate": 0.005,
+    "exact_given_proposal": 0.1106,
+    "tip_error_mm": {
+     "median": 61.65,
+     "p95": 106.498,
+     "mean": 58.587,
+     "n": 199
+    },
+    "near_wire": 0.05,
+    "not_near_wire": 0.125
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.87,
+    "wrong_sector_rate": 0.085,
+    "wrong_ring_rate": 0.03,
+    "no_proposal_rate": 0.015,
+    "exact_given_proposal": 0.8832,
+    "tip_error_mm": {
+     "median": 1.17,
+     "p95": 17.282,
+     "mean": 2.968,
+     "n": 197
+    },
+    "near_wire": 0.5814,
+    "not_near_wire": 0.949
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.285,
+    "wrong_sector_rate": 0.62,
+    "wrong_ring_rate": 0.085,
+    "no_proposal_rate": 0.01,
+    "exact_given_proposal": 0.2879,
+    "tip_error_mm": {
+     "median": 40.497,
+     "p95": 81.64,
+     "mean": 40.233,
+     "n": 198
+    },
+    "near_wire": 0.1842,
+    "not_near_wire": 0.3086
+   }
+  },
+  "realistic-foot": {
+   "top": {
+    "exact_accuracy": 0.9,
+    "wrong_sector_rate": 0.06,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.005,
+    "exact_given_proposal": 0.9045,
+    "tip_error_mm": {
+     "median": 1.39,
+     "p95": 2.534,
+     "mean": 1.547,
+     "n": 199
+    },
+    "near_wire": 0.6579,
+    "not_near_wire": 0.9568
+   },
+   "bottom": {
+    "exact_accuracy": 0.91,
+    "wrong_sector_rate": 0.035,
+    "wrong_ring_rate": 0.055,
+    "no_proposal_rate": 0.0,
+    "exact_given_proposal": 0.91,
+    "tip_error_mm": {
+     "median": 1.387,
+     "p95": 4.256,
+     "mean": 1.872,
+     "n": 200
+    },
+    "near_wire": 0.675,
+    "not_near_wire": 0.9688
+   },
+   "left": {
+    "exact_accuracy": 0.93,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.035,
+    "no_proposal_rate": 0.005,
+    "exact_given_proposal": 0.9347,
+    "tip_error_mm": {
+     "median": 1.563,
+     "p95": 2.825,
+     "mean": 1.697,
+     "n": 199
+    },
+    "near_wire": 0.625,
+    "not_near_wire": 0.9881
+   },
+   "right": {
+    "exact_accuracy": 0.895,
+    "wrong_sector_rate": 0.055,
+    "wrong_ring_rate": 0.05,
+    "no_proposal_rate": 0.0,
+    "exact_given_proposal": 0.895,
+    "tip_error_mm": {
+     "median": 1.83,
+     "p95": 3.508,
+     "mean": 2.114,
+     "n": 200
+    },
+    "near_wire": 0.575,
+    "not_near_wire": 0.975
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.9,
+    "wrong_sector_rate": 0.065,
+    "wrong_ring_rate": 0.025,
+    "no_proposal_rate": 0.01,
+    "exact_given_proposal": 0.9091,
+    "tip_error_mm": {
+     "median": 1.243,
+     "p95": 3.816,
+     "mean": 1.628,
+     "n": 198
+    },
+    "near_wire": 0.6047,
+    "not_near_wire": 0.9809
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.48,
+    "wrong_sector_rate": 0.435,
+    "wrong_ring_rate": 0.08,
+    "no_proposal_rate": 0.005,
+    "exact_given_proposal": 0.4824,
+    "tip_error_mm": {
+     "median": 17.571,
+     "p95": 56.122,
+     "mean": 21.078,
+     "n": 199
+    },
+    "near_wire": 0.4211,
+    "not_near_wire": 0.4938
+   }
+  },
+  "realistic-centre": {
+   "top": {
+    "exact_accuracy": 0.67,
+    "wrong_sector_rate": 0.205,
+    "wrong_ring_rate": 0.01,
+    "no_proposal_rate": 0.115,
+    "exact_given_proposal": 0.7571,
+    "tip_error_mm": {
+     "median": 1.38,
+     "p95": 141.411,
+     "mean": 22.351,
+     "n": 177
+    },
+    "near_wire": 0.4211,
+    "not_near_wire": 0.7284
+   },
+   "bottom": {
+    "exact_accuracy": 0.78,
+    "wrong_sector_rate": 0.155,
+    "wrong_ring_rate": 0.04,
+    "no_proposal_rate": 0.025,
+    "exact_given_proposal": 0.8,
+    "tip_error_mm": {
+     "median": 1.644,
+     "p95": 165.275,
+     "mean": 21.775,
+     "n": 195
+    },
+    "near_wire": 0.55,
+    "not_near_wire": 0.8375
+   },
+   "left": {
+    "exact_accuracy": 0.735,
+    "wrong_sector_rate": 0.205,
+    "wrong_ring_rate": 0.02,
+    "no_proposal_rate": 0.04,
+    "exact_given_proposal": 0.7656,
+    "tip_error_mm": {
+     "median": 1.814,
+     "p95": 145.082,
+     "mean": 24.296,
+     "n": 192
+    },
+    "near_wire": 0.5312,
+    "not_near_wire": 0.7738
+   },
+   "right": {
+    "exact_accuracy": 0.725,
+    "wrong_sector_rate": 0.24,
+    "wrong_ring_rate": 0.015,
+    "no_proposal_rate": 0.02,
+    "exact_given_proposal": 0.7398,
+    "tip_error_mm": {
+     "median": 2.152,
+     "p95": 140.985,
+     "mean": 28.932,
+     "n": 196
+    },
+    "near_wire": 0.425,
+    "not_near_wire": 0.8
+   },
+   "steep-topleft": {
+    "exact_accuracy": 0.84,
+    "wrong_sector_rate": 0.12,
+    "wrong_ring_rate": 0.02,
+    "no_proposal_rate": 0.02,
+    "exact_given_proposal": 0.8571,
+    "tip_error_mm": {
+     "median": 1.503,
+     "p95": 156.907,
+     "mean": 12.97,
+     "n": 196
+    },
+    "near_wire": 0.5349,
+    "not_near_wire": 0.9236
+   },
+   "near-frontal": {
+    "exact_accuracy": 0.26,
+    "wrong_sector_rate": 0.03,
+    "wrong_ring_rate": 0.01,
+    "no_proposal_rate": 0.7,
+    "exact_given_proposal": 0.8667,
+    "tip_error_mm": {
+     "median": 1.814,
+     "p95": 13.865,
+     "mean": 5.98,
+     "n": 60
+    },
+    "near_wire": 0.3421,
+    "not_near_wire": 0.2407
+   }
+  }
+ },
+ "settings": {
+  "profile": "ideal",
+  "degradation": {
+   "noise_sigma": 0.0,
+   "blur_sigma": 0.0,
+   "jpeg_quality": null,
+   "brightness": 1.0,
+   "contrast": 1.0,
+   "brightness_jitter": 0.0,
+   "shadow": null,
+   "shadow_strength": 0.45,
+   "click_noise": 0.0
+  },
+  "shadow": false,
+  "darts_per_mount": 200,
+  "seed": 1,
+  "frames_per_trial": 4,
+  "rule": "foot",
+  "tip_bias_mm": 0.2,
+  "camera": {
+   "width": 1920,
+   "height": 1080,
+   "hfov_deg": 70,
+   "look_at": "bull"
+  },
+  "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+  "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame"
+ },
+ "runs_shipped": {
+  "ideal-foot": {
+   "tool": "tools/eval_detection.py",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "ideal",
+    "degradation": {
+     "noise_sigma": 0.0,
+     "blur_sigma": 0.0,
+     "jpeg_quality": null,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.0,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 0.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "foot",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 170.75,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.185,
+     "wrong_sector_rate": 0.04,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.74,
+     "exact_given_proposal": 0.7115,
+     "counts": {
+      "no_proposal": 148,
+      "exact": 37,
+      "wrong_ring": 7,
+      "wrong_sector": 8
+     },
+     "tip_error_mm": {
+      "median": 0.931,
+      "p95": 7.081,
+      "mean": 2.398,
+      "n": 52
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.247,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.1053
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.2037
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.3889
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.1796
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 142,
+      "Ready": 6
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 11.397,
+      "p95": 18.184,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 24.37
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.15,
+     "wrong_sector_rate": 0.065,
+     "wrong_ring_rate": 0.065,
+     "no_proposal_rate": 0.72,
+     "exact_given_proposal": 0.5357,
+     "counts": {
+      "no_proposal": 144,
+      "wrong_ring": 13,
+      "wrong_sector": 13,
+      "exact": 30
+     },
+     "tip_error_mm": {
+      "median": 1.423,
+      "p95": 15.956,
+      "mean": 4.145,
+      "n": 56
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.218,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.175
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1437
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.3158
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.1345
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.1
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 134,
+      "Ready": 10
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 15.28,
+      "p95": 26.324,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 28.73
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.165,
+     "wrong_sector_rate": 0.035,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.77,
+     "exact_given_proposal": 0.7174,
+     "counts": {
+      "wrong_sector": 7,
+      "no_proposal": 154,
+      "exact": 33,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 0.989,
+      "p95": 7.389,
+      "mean": 2.544,
+      "n": 46
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.022,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.125
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.1726
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.3125
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.1647
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 149,
+      "Ready": 5
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 17.667,
+      "p95": 29.546,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 32.69
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.17,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.04,
+     "no_proposal_rate": 0.76,
+     "exact_given_proposal": 0.7083,
+     "counts": {
+      "no_proposal": 152,
+      "exact": 34,
+      "wrong_sector": 6,
+      "wrong_ring": 8
+     },
+     "tip_error_mm": {
+      "median": 0.999,
+      "p95": 10.831,
+      "mean": 2.434,
+      "n": 48
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.021,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.125
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1812
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.3333
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.1697
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 149,
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.073,
+      "p95": 45.543,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 37.83
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.135,
+     "wrong_sector_rate": 0.04,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.81,
+     "exact_given_proposal": 0.7105,
+     "counts": {
+      "no_proposal": 162,
+      "exact": 27,
+      "wrong_ring": 3,
+      "wrong_sector": 8
+     },
+     "tip_error_mm": {
+      "median": 1.326,
+      "p95": 9.377,
+      "mean": 7.105,
+      "n": 38
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.232,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.093
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.1465
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.2083
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.1341
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 151,
+      "Ready": 11
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 12.3,
+      "p95": 22.695,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 23.03
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.26,
+     "wrong_sector_rate": 0.105,
+     "wrong_ring_rate": 0.06,
+     "no_proposal_rate": 0.575,
+     "exact_given_proposal": 0.6118,
+     "counts": {
+      "no_proposal": 115,
+      "exact": 52,
+      "wrong_sector": 21,
+      "wrong_ring": 12
+     },
+     "tip_error_mm": {
+      "median": 10.644,
+      "p95": 52.246,
+      "mean": 17.628,
+      "n": 85
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -5.136,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.1579
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.284
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.24
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.284
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 104,
+      "Ready": 11
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 12.902,
+      "p95": 26.674,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 24.09
+    }
+   }
+  },
+  "ideal-centre": {
+   "tool": "tools/eval_detection.py",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "ideal",
+    "degradation": {
+     "noise_sigma": 0.0,
+     "blur_sigma": 0.0,
+     "jpeg_quality": null,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.0,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 0.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "centre",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 147.7,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.16,
+     "wrong_sector_rate": 0.055,
+     "wrong_ring_rate": 0.04,
+     "no_proposal_rate": 0.745,
+     "exact_given_proposal": 0.6275,
+     "counts": {
+      "no_proposal": 149,
+      "wrong_ring": 8,
+      "exact": 32,
+      "wrong_sector": 11
+     },
+     "tip_error_mm": {
+      "median": 0.913,
+      "p95": 77.417,
+      "mean": 10.01,
+      "n": 51
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.307,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.0789
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.179
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.3889
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.1497
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 142,
+      "Change is not dart-shaped; use manual scoring": 1,
+      "Ready": 6
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 11.65,
+      "p95": 21.936,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 24.84
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.14,
+     "wrong_sector_rate": 0.065,
+     "wrong_ring_rate": 0.06,
+     "no_proposal_rate": 0.735,
+     "exact_given_proposal": 0.5283,
+     "counts": {
+      "no_proposal": 147,
+      "wrong_ring": 12,
+      "wrong_sector": 13,
+      "exact": 28
+     },
+     "tip_error_mm": {
+      "median": 2.066,
+      "p95": 31.105,
+      "mean": 7.69,
+      "n": 53
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 2.025,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.175
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1313
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.3158
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.1228
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.1
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 134,
+      "Ready": 10,
+      "Change is not dart-shaped; use manual scoring": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 12.326,
+      "p95": 23.783,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 22.82
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.13,
+     "wrong_sector_rate": 0.06,
+     "wrong_ring_rate": 0.025,
+     "no_proposal_rate": 0.785,
+     "exact_given_proposal": 0.6047,
+     "counts": {
+      "wrong_sector": 12,
+      "no_proposal": 157,
+      "exact": 26,
+      "wrong_ring": 5
+     },
+     "tip_error_mm": {
+      "median": 0.928,
+      "p95": 93.737,
+      "mean": 14.417,
+      "n": 43
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.356,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.0938
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.1369
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.25
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.1294
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 149,
+      "Ready": 5,
+      "Change is not dart-shaped; use manual scoring": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 16.532,
+      "p95": 26.862,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 30.94
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.15,
+     "wrong_sector_rate": 0.045,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.77,
+     "exact_given_proposal": 0.6522,
+     "counts": {
+      "no_proposal": 154,
+      "exact": 30,
+      "wrong_sector": 9,
+      "wrong_ring": 7
+     },
+     "tip_error_mm": {
+      "median": 1.178,
+      "p95": 101.001,
+      "mean": 13.99,
+      "n": 46
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.527,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.1
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1625
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.3333
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.1455
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 149,
+      "Change is not dart-shaped; use manual scoring": 2,
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 15.782,
+      "p95": 33.283,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 29.4
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.13,
+     "wrong_sector_rate": 0.04,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.815,
+     "exact_given_proposal": 0.7027,
+     "counts": {
+      "no_proposal": 163,
+      "exact": 26,
+      "wrong_sector": 8,
+      "wrong_ring": 3
+     },
+     "tip_error_mm": {
+      "median": 1.193,
+      "p95": 25.737,
+      "mean": 9.641,
+      "n": 37
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.114,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.093
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.1401
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.2083
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.128
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 151,
+      "Ready": 11,
+      "Change is not dart-shaped; use manual scoring": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 9.893,
+      "p95": 17.305,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 18.85
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.13,
+     "wrong_sector_rate": 0.015,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.84,
+     "exact_given_proposal": 0.8125,
+     "counts": {
+      "no_proposal": 168,
+      "exact": 26,
+      "wrong_sector": 3,
+      "wrong_ring": 3
+     },
+     "tip_error_mm": {
+      "median": 1.176,
+      "p95": 38.404,
+      "mean": 8.074,
+      "n": 32
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.022,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.1579
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.1235
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.16
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.1358
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 104,
+      "Change is not dart-shaped; use manual scoring": 53,
+      "Ready": 11
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 10.818,
+      "p95": 20.521,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 20.83
+    }
+   }
+  },
+  "ideal-foot-shadow": {
+   "tool": "tools/eval_detection.py",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "ideal",
+    "degradation": {
+     "noise_sigma": 0.0,
+     "blur_sigma": 0.0,
+     "jpeg_quality": null,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.0,
+     "shadow": [
+      0.25,
+      0.55,
+      -1.0
+     ],
+     "shadow_strength": 0.45,
+     "click_noise": 0.0
+    },
+    "shadow": true,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "foot",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 247.88,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.105,
+     "wrong_sector_rate": 0.025,
+     "wrong_ring_rate": 0.005,
+     "no_proposal_rate": 0.865,
+     "exact_given_proposal": 0.7778,
+     "counts": {
+      "no_proposal": 173,
+      "exact": 21,
+      "wrong_sector": 5,
+      "wrong_ring": 1
+     },
+     "tip_error_mm": {
+      "median": 1.038,
+      "p95": 70.542,
+      "mean": 9.9,
+      "n": 27
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.254,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.0263
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.1235
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.0556
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.1198
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 166,
+      "Ready": 7
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 12.071,
+      "p95": 26.568,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 45.08
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.02,
+     "wrong_sector_rate": 0.055,
+     "wrong_ring_rate": 0.02,
+     "no_proposal_rate": 0.905,
+     "exact_given_proposal": 0.2105,
+     "counts": {
+      "no_proposal": 181,
+      "wrong_sector": 11,
+      "exact": 4,
+      "wrong_ring": 4
+     },
+     "tip_error_mm": {
+      "median": 57.127,
+      "p95": 90.722,
+      "mean": 54.96,
+      "n": 19
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -42.934,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.05
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.0125
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.1053
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.0117
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 180,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 10.569,
+      "p95": 17.666,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 34.28
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.035,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.0,
+     "no_proposal_rate": 0.935,
+     "exact_given_proposal": 0.5385,
+     "counts": {
+      "no_proposal": 187,
+      "exact": 7,
+      "wrong_sector": 6
+     },
+     "tip_error_mm": {
+      "median": 26.288,
+      "p95": 86.451,
+      "mean": 31.269,
+      "n": 13
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.696,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.0
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.0417
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.125
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.0294
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 186,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 14.82,
+      "p95": 27.657,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 50.9
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.02,
+     "wrong_sector_rate": 0.025,
+     "wrong_ring_rate": 0.01,
+     "no_proposal_rate": 0.945,
+     "exact_given_proposal": 0.3636,
+     "counts": {
+      "no_proposal": 189,
+      "wrong_ring": 2,
+      "exact": 4,
+      "wrong_sector": 5
+     },
+     "tip_error_mm": {
+      "median": 58.036,
+      "p95": 92.49,
+      "mean": 49.528,
+      "n": 11
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -22.576,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.0
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.025
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.0556
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.0182
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 188,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 12.286,
+      "p95": 23.891,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 40.74
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.15,
+     "wrong_sector_rate": 0.045,
+     "wrong_ring_rate": 0.01,
+     "no_proposal_rate": 0.795,
+     "exact_given_proposal": 0.7317,
+     "counts": {
+      "no_proposal": 159,
+      "exact": 30,
+      "wrong_sector": 9,
+      "wrong_ring": 2
+     },
+     "tip_error_mm": {
+      "median": 1.418,
+      "p95": 27.488,
+      "mean": 13.938,
+      "n": 41
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.708,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.1395
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.1529
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.25
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.1402
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.1111
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 152,
+      "Ready": 7
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 14.162,
+      "p95": 24.89,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 45.08
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.085,
+     "wrong_sector_rate": 0.025,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.86,
+     "exact_given_proposal": 0.6071,
+     "counts": {
+      "no_proposal": 172,
+      "wrong_sector": 5,
+      "exact": 17,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 24.776,
+      "p95": 68.664,
+      "mean": 27.12,
+      "n": 28
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -2.98,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.0526
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.0926
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.12
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.0864
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 167,
+      "Ready": 5
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 10.59,
+      "p95": 17.367,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 31.78
+    }
+   }
+  },
+  "realistic-foot": {
+   "tool": "tools/eval_detection.py",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "realistic",
+    "degradation": {
+     "noise_sigma": 4.0,
+     "blur_sigma": 1.0,
+     "jpeg_quality": 80,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.15,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 2.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "foot",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 752.3,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.17,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.025,
+     "no_proposal_rate": 0.775,
+     "exact_given_proposal": 0.7556,
+     "counts": {
+      "no_proposal": 155,
+      "exact": 34,
+      "wrong_sector": 6,
+      "wrong_ring": 5
+     },
+     "tip_error_mm": {
+      "median": 1.873,
+      "p95": 24.356,
+      "mean": 5.752,
+      "n": 45
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.973,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.0789
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.1914
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.4444
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.1557
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 151,
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.376,
+      "p95": 37.858,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 154.56
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.155,
+     "wrong_sector_rate": 0.04,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.775,
+     "exact_given_proposal": 0.6889,
+     "counts": {
+      "no_proposal": 155,
+      "exact": 31,
+      "wrong_sector": 8,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 3.782,
+      "p95": 22.013,
+      "mean": 5.775,
+      "n": 45
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.819,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.2
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1437
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.3684
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.1404
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 152,
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.488,
+      "p95": 40.924,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 145.55
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.125,
+     "wrong_sector_rate": 0.005,
+     "wrong_ring_rate": 0.04,
+     "no_proposal_rate": 0.83,
+     "exact_given_proposal": 0.7353,
+     "counts": {
+      "no_proposal": 166,
+      "wrong_ring": 8,
+      "exact": 25,
+      "wrong_sector": 1
+     },
+     "tip_error_mm": {
+      "median": 2.53,
+      "p95": 18.904,
+      "mean": 5.812,
+      "n": 34
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -1.003,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.0625
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.1369
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.1875
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.1294
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 163,
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 17.044,
+      "p95": 24.321,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 108.76
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.17,
+     "wrong_sector_rate": 0.015,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.8,
+     "exact_given_proposal": 0.85,
+     "counts": {
+      "no_proposal": 160,
+      "exact": 34,
+      "wrong_sector": 3,
+      "wrong_ring": 3
+     },
+     "tip_error_mm": {
+      "median": 4.148,
+      "p95": 20.557,
+      "mean": 7.82,
+      "n": 40
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 3.422,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.1
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1875
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.2222
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.1818
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 156,
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 17.213,
+      "p95": 24.623,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 116.42
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.155,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.78,
+     "exact_given_proposal": 0.7045,
+     "counts": {
+      "no_proposal": 156,
+      "exact": 31,
+      "wrong_ring": 7,
+      "wrong_sector": 6
+     },
+     "tip_error_mm": {
+      "median": 1.87,
+      "p95": 28.959,
+      "mean": 7.754,
+      "n": 44
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 1.024,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.1395
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.1592
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.4167
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.128
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 148,
+      "Ready": 8
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 17.659,
+      "p95": 26.231,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 123.78
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.175,
+     "wrong_sector_rate": 0.08,
+     "wrong_ring_rate": 0.05,
+     "no_proposal_rate": 0.695,
+     "exact_given_proposal": 0.5738,
+     "counts": {
+      "no_proposal": 139,
+      "exact": 35,
+      "wrong_sector": 16,
+      "wrong_ring": 10
+     },
+     "tip_error_mm": {
+      "median": 11.681,
+      "p95": 36.457,
+      "mean": 15.287,
+      "n": 61
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -4.858,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.1316
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.1852
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.16
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.1914
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 133,
+      "Ready": 6
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 15.126,
+      "p95": 21.562,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 103.22
+    }
+   }
+  },
+  "realistic-centre": {
+   "tool": "tools/eval_detection.py",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "realistic",
+    "degradation": {
+     "noise_sigma": 4.0,
+     "blur_sigma": 1.0,
+     "jpeg_quality": 80,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.15,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 2.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "centre",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 756.59,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.15,
+     "wrong_sector_rate": 0.035,
+     "wrong_ring_rate": 0.02,
+     "no_proposal_rate": 0.795,
+     "exact_given_proposal": 0.7317,
+     "counts": {
+      "no_proposal": 159,
+      "exact": 30,
+      "wrong_sector": 7,
+      "wrong_ring": 4
+     },
+     "tip_error_mm": {
+      "median": 1.697,
+      "p95": 25.861,
+      "mean": 7.38,
+      "n": 41
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.727,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.0789
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.1667
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.4444
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.1317
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 151,
+      "Ready": 4,
+      "Change is not dart-shaped; use manual scoring": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 21.899,
+      "p95": 38.897,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 166.82
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.135,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.805,
+     "exact_given_proposal": 0.6923,
+     "counts": {
+      "no_proposal": 161,
+      "exact": 27,
+      "wrong_sector": 6,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 3.599,
+      "p95": 10.923,
+      "mean": 4.611,
+      "n": 39
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.624,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.175
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.125
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.3158
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.1228
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 152,
+      "Ready": 3,
+      "Change is not dart-shaped; use manual scoring": 6
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.557,
+      "p95": 38.78,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 139.81
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.105,
+     "wrong_sector_rate": 0.015,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.845,
+     "exact_given_proposal": 0.6774,
+     "counts": {
+      "no_proposal": 169,
+      "exact": 21,
+      "wrong_ring": 7,
+      "wrong_sector": 3
+     },
+     "tip_error_mm": {
+      "median": 2.439,
+      "p95": 60.84,
+      "mean": 11.04,
+      "n": 31
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.971,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.0938
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.1071
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.25
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.1
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 163,
+      "Change is not dart-shaped; use manual scoring": 3,
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 16.861,
+      "p95": 24.032,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 113.1
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.155,
+     "wrong_sector_rate": 0.015,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.815,
+     "exact_given_proposal": 0.8378,
+     "counts": {
+      "no_proposal": 163,
+      "exact": 31,
+      "wrong_sector": 3,
+      "wrong_ring": 3
+     },
+     "tip_error_mm": {
+      "median": 3.611,
+      "p95": 22.401,
+      "mean": 9.999,
+      "n": 37
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 3.228,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.05
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.1812
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.2222
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.1636
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 156,
+      "Change is not dart-shaped; use manual scoring": 3,
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 17.52,
+      "p95": 25.481,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 117.68
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.15,
+     "wrong_sector_rate": 0.035,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.785,
+     "exact_given_proposal": 0.6977,
+     "counts": {
+      "no_proposal": 157,
+      "exact": 30,
+      "wrong_ring": 6,
+      "wrong_sector": 7
+     },
+     "tip_error_mm": {
+      "median": 1.871,
+      "p95": 29.162,
+      "mean": 7.476,
+      "n": 43
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 1.205,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.1163
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.1592
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.375
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.128
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 148,
+      "Ready": 8,
+      "Change is not dart-shaped; use manual scoring": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 17.037,
+      "p95": 24.894,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 116.39
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.095,
+     "wrong_sector_rate": 0.01,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.865,
+     "exact_given_proposal": 0.7037,
+     "counts": {
+      "no_proposal": 173,
+      "exact": 19,
+      "wrong_ring": 6,
+      "wrong_sector": 2
+     },
+     "tip_error_mm": {
+      "median": 3.223,
+      "p95": 21.513,
+      "mean": 7.018,
+      "n": 27
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.118,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.1579
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.0802
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.28
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.0741
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ambiguous change; enter score manually": 133,
+      "Change is not dart-shaped; use manual scoring": 34,
+      "Ready": 6
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 15.135,
+      "p95": 22.028,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 102.79
+    }
+   }
+  }
+ },
+ "runs_diagnostic": {
+  "ideal-foot": {
+   "tool": "tools/diag_segmentation.py (DIAGNOSTIC upper bound; not the shipped pipeline)",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "ideal",
+    "degradation": {
+     "noise_sigma": 0.0,
+     "blur_sigma": 0.0,
+     "jpeg_quality": null,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.0,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 0.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "foot",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame",
+    "segmentation": "per-channel colour diff > 35, 3x3 open, all changed pixels in r<=172 mm treated as one dart (valid only because each trial has one dart)"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 414.26,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.92,
+     "wrong_sector_rate": 0.04,
+     "wrong_ring_rate": 0.02,
+     "no_proposal_rate": 0.02,
+     "exact_given_proposal": 0.9388,
+     "counts": {
+      "exact": 184,
+      "wrong_ring": 4,
+      "no_proposal": 4,
+      "wrong_sector": 8
+     },
+     "tip_error_mm": {
+      "median": 0.843,
+      "p95": 1.617,
+      "mean": 1.031,
+      "n": 196
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.434,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.7105
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.9691
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.6667
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.9461
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.9167
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 40.121,
+      "p95": 113.773,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 62.95
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.93,
+     "wrong_sector_rate": 0.02,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.015,
+     "exact_given_proposal": 0.9442,
+     "counts": {
+      "exact": 186,
+      "no_proposal": 3,
+      "wrong_ring": 7,
+      "wrong_sector": 4
+     },
+     "tip_error_mm": {
+      "median": 0.952,
+      "p95": 1.611,
+      "mean": 1.131,
+      "n": 197
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.432,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.725
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.9812
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.8421
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.9532
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.7
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 37.363,
+      "p95": 115.058,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 56.58
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.945,
+     "wrong_sector_rate": 0.015,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.01,
+     "exact_given_proposal": 0.9545,
+     "counts": {
+      "exact": 189,
+      "wrong_sector": 3,
+      "no_proposal": 2,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 0.817,
+      "p95": 1.604,
+      "mean": 0.931,
+      "n": 198
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.435,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.6875
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.994
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.75
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.9647
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.9167
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 2
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 45.245,
+      "p95": 135.136,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 67.14
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.92,
+     "wrong_sector_rate": 0.045,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.005,
+     "exact_given_proposal": 0.9246,
+     "counts": {
+      "wrong_sector": 9,
+      "exact": 184,
+      "wrong_ring": 6,
+      "no_proposal": 1
+     },
+     "tip_error_mm": {
+      "median": 0.901,
+      "p95": 1.882,
+      "mean": 1.095,
+      "n": 199
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.401,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.6
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 1.0
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.7778
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.9333
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.9231
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 49.934,
+      "p95": 138.727,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 75.07
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.905,
+     "wrong_sector_rate": 0.05,
+     "wrong_ring_rate": 0.025,
+     "no_proposal_rate": 0.02,
+     "exact_given_proposal": 0.9235,
+     "counts": {
+      "exact": 181,
+      "no_proposal": 4,
+      "wrong_sector": 10,
+      "wrong_ring": 5
+     },
+     "tip_error_mm": {
+      "median": 0.962,
+      "p95": 1.817,
+      "mean": 1.007,
+      "n": 196
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.677,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.5581
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 1.0
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.75
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.9451
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.6667
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 50.629,
+      "p95": 143.74,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 75.76
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.515,
+     "wrong_sector_rate": 0.39,
+     "wrong_ring_rate": 0.08,
+     "no_proposal_rate": 0.015,
+     "exact_given_proposal": 0.5228,
+     "counts": {
+      "exact": 103,
+      "wrong_ring": 16,
+      "wrong_sector": 78,
+      "no_proposal": 3
+     },
+     "tip_error_mm": {
+      "median": 16.2,
+      "p95": 56.378,
+      "mean": 20.004,
+      "n": 197
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -5.267,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.4737
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.5247
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.44
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.5
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.537
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.3636
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 48.088,
+      "p95": 137.463,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 76.75
+    }
+   }
+  },
+  "ideal-centre": {
+   "tool": "tools/diag_segmentation.py (DIAGNOSTIC upper bound; not the shipped pipeline)",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "ideal",
+    "degradation": {
+     "noise_sigma": 0.0,
+     "blur_sigma": 0.0,
+     "jpeg_quality": null,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.0,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 0.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "centre",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame",
+    "segmentation": "per-channel colour diff > 35, 3x3 open, all changed pixels in r<=172 mm treated as one dart (valid only because each trial has one dart)"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 340.51,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.685,
+     "wrong_sector_rate": 0.19,
+     "wrong_ring_rate": 0.0,
+     "no_proposal_rate": 0.125,
+     "exact_given_proposal": 0.7829,
+     "counts": {
+      "wrong_sector": 38,
+      "exact": 137,
+      "no_proposal": 25
+     },
+     "tip_error_mm": {
+      "median": 0.845,
+      "p95": 141.13,
+      "mean": 22.159,
+      "n": 175
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.163,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.4737
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.7346
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.5
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.7006
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.6667
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 21,
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 40.281,
+      "p95": 128.877,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 63.81
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.8,
+     "wrong_sector_rate": 0.13,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.04,
+     "exact_given_proposal": 0.8333,
+     "counts": {
+      "exact": 160,
+      "wrong_sector": 26,
+      "no_proposal": 8,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 0.894,
+      "p95": 166.006,
+      "mean": 20.516,
+      "n": 192
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.198,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.625
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.8438
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.6316
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.8363
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.5
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 3,
+      "Change is not dart-shaped; use manual scoring": 5
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 42.715,
+      "p95": 124.082,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 64.56
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.76,
+     "wrong_sector_rate": 0.185,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.04,
+     "exact_given_proposal": 0.7917,
+     "counts": {
+      "exact": 152,
+      "no_proposal": 8,
+      "wrong_sector": 37,
+      "wrong_ring": 3
+     },
+     "tip_error_mm": {
+      "median": 0.799,
+      "p95": 142.491,
+      "mean": 23.508,
+      "n": 192
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.127,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.5938
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.7917
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.5625
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.7647
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.9167
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 6,
+      "Ready": 2
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 39.382,
+      "p95": 120.197,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 58.46
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.735,
+     "wrong_sector_rate": 0.22,
+     "wrong_ring_rate": 0.02,
+     "no_proposal_rate": 0.025,
+     "exact_given_proposal": 0.7538,
+     "counts": {
+      "wrong_sector": 44,
+      "exact": 147,
+      "wrong_ring": 4,
+      "no_proposal": 5
+     },
+     "tip_error_mm": {
+      "median": 0.869,
+      "p95": 142.291,
+      "mean": 27.131,
+      "n": 195
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.091,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.45
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.8063
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.4444
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.7515
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.8462
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 4,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 33.718,
+      "p95": 97.765,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 49.45
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.85,
+     "wrong_sector_rate": 0.105,
+     "wrong_ring_rate": 0.025,
+     "no_proposal_rate": 0.02,
+     "exact_given_proposal": 0.8673,
+     "counts": {
+      "exact": 170,
+      "no_proposal": 4,
+      "wrong_sector": 21,
+      "wrong_ring": 5
+     },
+     "tip_error_mm": {
+      "median": 0.841,
+      "p95": 146.978,
+      "mean": 11.852,
+      "n": 196
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.456,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.4884
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.949
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.625
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.8963
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.6667
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 31.943,
+      "p95": 100.725,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 47.62
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.26,
+     "wrong_sector_rate": 0.025,
+     "wrong_ring_rate": 0.01,
+     "no_proposal_rate": 0.705,
+     "exact_given_proposal": 0.8814,
+     "counts": {
+      "no_proposal": 141,
+      "exact": 52,
+      "wrong_sector": 5,
+      "wrong_ring": 2
+     },
+     "tip_error_mm": {
+      "median": 1.126,
+      "p95": 26.905,
+      "mean": 5.745,
+      "n": 59
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.253,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.2632
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.2593
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.24
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.2778
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0909
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 138,
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 35.536,
+      "p95": 105.031,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 56.59
+    }
+   }
+  },
+  "ideal-foot-shadow": {
+   "tool": "tools/diag_segmentation.py (DIAGNOSTIC upper bound; not the shipped pipeline)",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "ideal",
+    "degradation": {
+     "noise_sigma": 0.0,
+     "blur_sigma": 0.0,
+     "jpeg_quality": null,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.0,
+     "shadow": [
+      0.25,
+      0.55,
+      -1.0
+     ],
+     "shadow_strength": 0.45,
+     "click_noise": 0.0
+    },
+    "shadow": true,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "foot",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame",
+    "segmentation": "per-channel colour diff > 35, 3x3 open, all changed pixels in r<=172 mm treated as one dart (valid only because each trial has one dart)"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 545.83,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.795,
+     "wrong_sector_rate": 0.16,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.015,
+     "exact_given_proposal": 0.8071,
+     "counts": {
+      "exact": 159,
+      "wrong_sector": 32,
+      "wrong_ring": 6,
+      "no_proposal": 3
+     },
+     "tip_error_mm": {
+      "median": 1.277,
+      "p95": 49.499,
+      "mean": 9.298,
+      "n": 197
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.516,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.6316
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.8333
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.6667
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.8084
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.75
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 41.922,
+      "p95": 124.264,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 100.54
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.125,
+     "wrong_sector_rate": 0.79,
+     "wrong_ring_rate": 0.085,
+     "no_proposal_rate": 0.0,
+     "exact_given_proposal": 0.125,
+     "counts": {
+      "wrong_sector": 158,
+      "wrong_ring": 17,
+      "exact": 25
+     },
+     "tip_error_mm": {
+      "median": 62.21,
+      "p95": 101.725,
+      "mean": 59.712,
+      "n": 200
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -43.921,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.125
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.125
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.2105
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.1228
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {},
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 50.085,
+      "p95": 137.91,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 123.06
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.565,
+     "wrong_sector_rate": 0.37,
+     "wrong_ring_rate": 0.065,
+     "no_proposal_rate": 0.0,
+     "exact_given_proposal": 0.565,
+     "counts": {
+      "exact": 113,
+      "wrong_ring": 13,
+      "wrong_sector": 74
+     },
+     "tip_error_mm": {
+      "median": 9.24,
+      "p95": 72.886,
+      "mean": 22.824,
+      "n": 200
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.324,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.4375
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.5893
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.75
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.5471
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.5833
+      }
+     },
+     "no_proposal_reasons": {},
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 46.861,
+      "p95": 141.032,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 113.86
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.11,
+     "wrong_sector_rate": 0.815,
+     "wrong_ring_rate": 0.07,
+     "no_proposal_rate": 0.005,
+     "exact_given_proposal": 0.1106,
+     "counts": {
+      "wrong_sector": 163,
+      "exact": 22,
+      "wrong_ring": 14,
+      "no_proposal": 1
+     },
+     "tip_error_mm": {
+      "median": 61.65,
+      "p95": 106.498,
+      "mean": 58.587,
+      "n": 199
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -30.744,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.05
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.125
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.1667
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.1152
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 38.096,
+      "p95": 115.336,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 83.71
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.87,
+     "wrong_sector_rate": 0.085,
+     "wrong_ring_rate": 0.03,
+     "no_proposal_rate": 0.015,
+     "exact_given_proposal": 0.8832,
+     "counts": {
+      "exact": 174,
+      "wrong_sector": 17,
+      "no_proposal": 3,
+      "wrong_ring": 6
+     },
+     "tip_error_mm": {
+      "median": 1.17,
+      "p95": 17.282,
+      "mean": 2.968,
+      "n": 197
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.976,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.5814
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.949
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 0.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.7083
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.9146
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.5556
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 3
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 29.396,
+      "p95": 88.634,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 65.9
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.285,
+     "wrong_sector_rate": 0.62,
+     "wrong_ring_rate": 0.085,
+     "no_proposal_rate": 0.01,
+     "exact_given_proposal": 0.2879,
+     "counts": {
+      "wrong_sector": 124,
+      "wrong_ring": 17,
+      "exact": 57,
+      "no_proposal": 2
+     },
+     "tip_error_mm": {
+      "median": 40.497,
+      "p95": 81.64,
+      "mean": 40.233,
+      "n": 198
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.711,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.1842
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.3086
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.44
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.284
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 2
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 25.47,
+      "p95": 70.449,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 58.74
+    }
+   }
+  },
+  "realistic-foot": {
+   "tool": "tools/diag_segmentation.py (DIAGNOSTIC upper bound; not the shipped pipeline)",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "realistic",
+    "degradation": {
+     "noise_sigma": 4.0,
+     "blur_sigma": 1.0,
+     "jpeg_quality": 80,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.15,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 2.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "foot",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame",
+    "segmentation": "per-channel colour diff > 35, 3x3 open, all changed pixels in r<=172 mm treated as one dart (valid only because each trial has one dart)"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 923.39,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.9,
+     "wrong_sector_rate": 0.06,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.005,
+     "exact_given_proposal": 0.9045,
+     "counts": {
+      "exact": 180,
+      "wrong_ring": 7,
+      "wrong_sector": 12,
+      "no_proposal": 1
+     },
+     "tip_error_mm": {
+      "median": 1.39,
+      "p95": 2.534,
+      "mean": 1.547,
+      "n": 199
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -1.09,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.6579
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.9568
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.7222
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.9281
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.75
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 49.752,
+      "p95": 136.936,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 278.64
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.91,
+     "wrong_sector_rate": 0.035,
+     "wrong_ring_rate": 0.055,
+     "no_proposal_rate": 0.0,
+     "exact_given_proposal": 0.91,
+     "counts": {
+      "exact": 182,
+      "wrong_ring": 11,
+      "wrong_sector": 7
+     },
+     "tip_error_mm": {
+      "median": 1.387,
+      "p95": 4.256,
+      "mean": 1.872,
+      "n": 200
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.761,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.675
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.9688
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.7368
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.9474
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.6
+      }
+     },
+     "no_proposal_reasons": {},
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 40.537,
+      "p95": 106.285,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 213.47
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.93,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.035,
+     "no_proposal_rate": 0.005,
+     "exact_given_proposal": 0.9347,
+     "counts": {
+      "exact": 186,
+      "wrong_ring": 7,
+      "wrong_sector": 6,
+      "no_proposal": 1
+     },
+     "tip_error_mm": {
+      "median": 1.563,
+      "p95": 2.825,
+      "mean": 1.697,
+      "n": 199
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.992,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.625
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.9881
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.625
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.9588
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.9167
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 22.985,
+      "p95": 52.288,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 118.53
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.895,
+     "wrong_sector_rate": 0.055,
+     "wrong_ring_rate": 0.05,
+     "no_proposal_rate": 0.0,
+     "exact_given_proposal": 0.895,
+     "counts": {
+      "exact": 179,
+      "wrong_sector": 11,
+      "wrong_ring": 10
+     },
+     "tip_error_mm": {
+      "median": 1.83,
+      "p95": 3.508,
+      "mean": 2.114,
+      "n": 200
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.998,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.575
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.975
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.7222
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.75
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.9273
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.7692
+      }
+     },
+     "no_proposal_reasons": {},
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 19.07,
+      "p95": 40.753,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 102.43
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.9,
+     "wrong_sector_rate": 0.065,
+     "wrong_ring_rate": 0.025,
+     "no_proposal_rate": 0.01,
+     "exact_given_proposal": 0.9091,
+     "counts": {
+      "wrong_ring": 5,
+      "exact": 180,
+      "no_proposal": 2,
+      "wrong_sector": 13
+     },
+     "tip_error_mm": {
+      "median": 1.243,
+      "p95": 3.816,
+      "mean": 1.628,
+      "n": 198
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.456,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.6047
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.9809
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.8333
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.9207
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.6667
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 2
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 19.339,
+      "p95": 43.82,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 104.39
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.48,
+     "wrong_sector_rate": 0.435,
+     "wrong_ring_rate": 0.08,
+     "no_proposal_rate": 0.005,
+     "exact_given_proposal": 0.4824,
+     "counts": {
+      "exact": 96,
+      "wrong_ring": 16,
+      "wrong_sector": 87,
+      "no_proposal": 1
+     },
+     "tip_error_mm": {
+      "median": 17.571,
+      "p95": 56.122,
+      "mean": 21.078,
+      "n": 199
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -5.18,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.4211
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.4938
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.32
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.5185
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.3636
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.597,
+      "p95": 46.205,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 105.92
+    }
+   }
+  },
+  "realistic-centre": {
+   "tool": "tools/diag_segmentation.py (DIAGNOSTIC upper bound; not the shipped pipeline)",
+   "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
+   "git_commit": "f3cb7be",
+   "settings": {
+    "profile": "realistic",
+    "degradation": {
+     "noise_sigma": 4.0,
+     "blur_sigma": 1.0,
+     "jpeg_quality": 80,
+     "brightness": 1.0,
+     "contrast": 1.0,
+     "brightness_jitter": 0.15,
+     "shadow": null,
+     "shadow_strength": 0.45,
+     "click_noise": 2.0
+    },
+    "shadow": false,
+    "darts_per_mount": 200,
+    "seed": 1,
+    "frames_per_trial": 4,
+    "rule": "centre",
+    "tip_bias_mm": 0.2,
+    "camera": {
+     "width": 1920,
+     "height": 1080,
+     "hfov_deg": 70,
+     "look_at": "bull"
+    },
+    "dart_tips": "uniform by area within r <= 170 mm (all darts stay in the board)",
+    "exposure": "brightness drawn once per trial (base and dart frames share it); noise is independent per frame",
+    "segmentation": "per-channel colour diff > 35, 3x3 open, all changed pixels in r<=172 mm treated as one dart (valid only because each trial has one dart)"
+   },
+   "environment": {
+    "python": "3.13.17",
+    "numpy": "2.5.4",
+    "opencv": "4.14.0",
+    "machine": "x86_64"
+   },
+   "total_wall_seconds": 958.9,
+   "mounts": {
+    "top": {
+     "mount": "top",
+     "camera_position_mm": [
+      0.0,
+      -450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      -450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.67,
+     "wrong_sector_rate": 0.205,
+     "wrong_ring_rate": 0.01,
+     "no_proposal_rate": 0.115,
+     "exact_given_proposal": 0.7571,
+     "counts": {
+      "wrong_sector": 41,
+      "exact": 134,
+      "no_proposal": 23,
+      "wrong_ring": 2
+     },
+     "tip_error_mm": {
+      "median": 1.38,
+      "p95": 141.411,
+      "mean": 22.351,
+      "n": 177
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.292,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.4211
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.7284
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.5
+      },
+      "outer_bull": {
+       "n": 3,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 167,
+       "exact_accuracy": 0.6886
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.5833
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 22,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 64.408,
+      "p95": 154.49,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 352.51
+    },
+    "bottom": {
+     "mount": "bottom",
+     "camera_position_mm": [
+      0.0,
+      450.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      0.0,
+      450.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.78,
+     "wrong_sector_rate": 0.155,
+     "wrong_ring_rate": 0.04,
+     "no_proposal_rate": 0.025,
+     "exact_given_proposal": 0.8,
+     "counts": {
+      "exact": 156,
+      "wrong_sector": 31,
+      "no_proposal": 5,
+      "wrong_ring": 8
+     },
+     "tip_error_mm": {
+      "median": 1.644,
+      "p95": 165.275,
+      "mean": 21.775,
+      "n": 195
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.521,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.55
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.8375
+     },
+     "by_ring": {
+      "double": {
+       "n": 19,
+       "exact_accuracy": 0.4737
+      },
+      "single": {
+       "n": 171,
+       "exact_accuracy": 0.8363
+      },
+      "treble": {
+       "n": 10,
+       "exact_accuracy": 0.4
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 5
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 36.728,
+      "p95": 98.732,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 186.64
+    },
+    "left": {
+     "mount": "left",
+     "camera_position_mm": [
+      -450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      -450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.735,
+     "wrong_sector_rate": 0.205,
+     "wrong_ring_rate": 0.02,
+     "no_proposal_rate": 0.04,
+     "exact_given_proposal": 0.7656,
+     "counts": {
+      "exact": 147,
+      "wrong_ring": 4,
+      "no_proposal": 8,
+      "wrong_sector": 41
+     },
+     "tip_error_mm": {
+      "median": 1.814,
+      "p95": 145.082,
+      "mean": 24.296,
+      "n": 192
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.679,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 32,
+      "exact_accuracy": 0.5312
+     },
+     "not_near_wire": {
+      "n": 168,
+      "exact_accuracy": 0.7738
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "double": {
+       "n": 16,
+       "exact_accuracy": 0.375
+      },
+      "outer_bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 170,
+       "exact_accuracy": 0.7529
+      },
+      "treble": {
+       "n": 12,
+       "exact_accuracy": 0.9167
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 7,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.128,
+      "p95": 40.79,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 104.55
+    },
+    "right": {
+     "mount": "right",
+     "camera_position_mm": [
+      450.0,
+      0.0,
+      500.0
+     ],
+     "foot_point_mm": [
+      450.0,
+      0.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.725,
+     "wrong_sector_rate": 0.24,
+     "wrong_ring_rate": 0.015,
+     "no_proposal_rate": 0.02,
+     "exact_given_proposal": 0.7398,
+     "counts": {
+      "exact": 145,
+      "wrong_sector": 48,
+      "no_proposal": 4,
+      "wrong_ring": 3
+     },
+     "tip_error_mm": {
+      "median": 2.152,
+      "p95": 140.985,
+      "mean": 28.932,
+      "n": 196
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": -0.574,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 40,
+      "exact_accuracy": 0.425
+     },
+     "not_near_wire": {
+      "n": 160,
+      "exact_accuracy": 0.8
+     },
+     "by_ring": {
+      "double": {
+       "n": 18,
+       "exact_accuracy": 0.3889
+      },
+      "outer_bull": {
+       "n": 4,
+       "exact_accuracy": 0.75
+      },
+      "single": {
+       "n": 165,
+       "exact_accuracy": 0.7636
+      },
+      "treble": {
+       "n": 13,
+       "exact_accuracy": 0.6923
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 4
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 18.79,
+      "p95": 38.895,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 102.15
+    },
+    "steep-topleft": {
+     "mount": "steep-topleft",
+     "camera_position_mm": [
+      -300.0,
+      -500.0,
+      350.0
+     ],
+     "foot_point_mm": [
+      -300.0,
+      -500.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.84,
+     "wrong_sector_rate": 0.12,
+     "wrong_ring_rate": 0.02,
+     "no_proposal_rate": 0.02,
+     "exact_given_proposal": 0.8571,
+     "counts": {
+      "exact": 168,
+      "no_proposal": 4,
+      "wrong_sector": 24,
+      "wrong_ring": 4
+     },
+     "tip_error_mm": {
+      "median": 1.503,
+      "p95": 156.907,
+      "mean": 12.97,
+      "n": 196
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.932,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 43,
+      "exact_accuracy": 0.5349
+     },
+     "not_near_wire": {
+      "n": 157,
+      "exact_accuracy": 0.9236
+     },
+     "by_ring": {
+      "bull": {
+       "n": 1,
+       "exact_accuracy": 1.0
+      },
+      "double": {
+       "n": 24,
+       "exact_accuracy": 0.625
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 1.0
+      },
+      "single": {
+       "n": 164,
+       "exact_accuracy": 0.872
+      },
+      "treble": {
+       "n": 9,
+       "exact_accuracy": 0.7778
+      }
+     },
+     "no_proposal_reasons": {
+      "Ready": 2,
+      "Change is not dart-shaped; use manual scoring": 2
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 19.369,
+      "p95": 45.204,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 105.5
+    },
+    "near-frontal": {
+     "mount": "near-frontal",
+     "camera_position_mm": [
+      150.0,
+      -200.0,
+      1200.0
+     ],
+     "foot_point_mm": [
+      150.0,
+      -200.0
+     ],
+     "darts": 200,
+     "exact_accuracy": 0.26,
+     "wrong_sector_rate": 0.03,
+     "wrong_ring_rate": 0.01,
+     "no_proposal_rate": 0.7,
+     "exact_given_proposal": 0.8667,
+     "counts": {
+      "no_proposal": 140,
+      "exact": 52,
+      "wrong_sector": 6,
+      "wrong_ring": 2
+     },
+     "tip_error_mm": {
+      "median": 1.814,
+      "p95": 13.865,
+      "mean": 5.98,
+      "n": 60
+     },
+     "tip_signed_error_toward_foot_mm": {
+      "median": 0.58,
+      "note": "Projection of (true tip - detected tip) onto the unit vector from the detected tip toward the true camera foot point. Positive = the true tip lies further toward the foot."
+     },
+     "near_wire": {
+      "n": 38,
+      "exact_accuracy": 0.3421
+     },
+     "not_near_wire": {
+      "n": 162,
+      "exact_accuracy": 0.2407
+     },
+     "by_ring": {
+      "double": {
+       "n": 25,
+       "exact_accuracy": 0.36
+      },
+      "outer_bull": {
+       "n": 2,
+       "exact_accuracy": 0.0
+      },
+      "single": {
+       "n": 162,
+       "exact_accuracy": 0.2654
+      },
+      "treble": {
+       "n": 11,
+       "exact_accuracy": 0.0
+      }
+     },
+     "no_proposal_reasons": {
+      "Change is not dart-shaped; use manual scoring": 139,
+      "Ready": 1
+     },
+     "calibration_invalidations": 0,
+     "time_per_frame_ms": {
+      "mean": 20.685,
+      "p95": 46.984,
+      "frames": 800,
+      "measures": "wall-clock Vision.ingest() per frame (decode + warp + detection)"
+     },
+     "wall_seconds": 107.55
+    }
+   }
+  }
+ }
+}

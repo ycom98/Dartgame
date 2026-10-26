@@ -12,6 +12,18 @@ CENTER = SIZE / 2
 TARGETS = np.float32([[0, -170], [170, 0], [0, 170], [-170, 0]]) * SCALE + CENTER
 CALIBRATION_SECONDS = 300
 
+# Tip rules (M1-05). 'foot': the tip is the blob end nearer the camera's foot point
+# (off-plane dart parts project away from it). 'centre': legacy "end nearer the bull" rule,
+# kept selectable for the evaluation harness.
+TIP_RULES = ('foot', 'centre')
+DEFAULT_RULE = 'foot'
+# Extension of the chosen endpoint along the blob axis toward the foot point, in mm.
+# Default from the harness median signed error (true tip minus detected tip, toward the foot point),
+# pooled over the top/bottom/left/right/steep-topleft mounts (240 proposals):
+#   python tools/eval_detection.py --profile ideal --darts 200 --seed 1 --tip-bias 0   (commit f3cb7be + M1-05 rule)
+#   median +0.22 mm (tips within 5 mm of truth: -0.10 mm). Synthetic only; refit on real footage in M2-03.
+TIP_BIAS_MM = 0.2
+
 class Vision:
     def __init__(self):
         self.frame = None; self.timestamp = 0; self.reference = None; self.H = None
@@ -25,6 +37,8 @@ class Vision:
         self.mount_side = None
         self.solved_pose = None
         self.pose = None
+        self.rule = DEFAULT_RULE
+        self.tip_bias_mm = TIP_BIAS_MM
     def decode(self, data):
         arr = np.frombuffer(data, dtype=np.uint8)
         frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -205,17 +219,52 @@ class Vision:
             self.message = 'Ready' if not contours else 'Ambiguous change; enter score manually'
             return
         contour = contours[0].reshape(-1,2).astype(np.float32)
-        _,vectors,values = cv2.PCACompute2(contour,mean=None)
-        if values[0,0] / max(values[1,0],1) < 3:
+        tip, confidence, rule = self.locate_tip(contour)
+        if tip is None:
             self.proposal = None; self.message = 'Change is not dart-shaped; use manual scoring'; return
-        direction = vectors[0]; proj = contour @ direction
-        ends = [contour[np.argmin(proj)],contour[np.argmax(proj)]]
-        tip = min(ends, key=lambda p: np.linalg.norm(p-CENTER))
         x,y = (tip-CENTER)/SCALE
         self.proposal = {**score_point(float(x),float(y)), 'x':float(x), 'y':float(y),
                          'review_required':True, 'near_wire':near_wire(float(x),float(y)),
+                         'confidence':confidence, 'rule':rule,
                          'note':'Prototype endpoint guess. Verify actual tip; hidden tips can be wrong.'}
         self.message = 'Possible dart found — confirm or correct score'
+
+    def locate_tip(self, contour):
+        """Return (tip warp px, confidence, rule) for one change contour, or (None, None, rule).
+
+        'foot' rule: the end of the blob's principal axis nearer the camera foot point,
+        extended by tip_bias_mm along the axis toward the foot point. A blob that is not
+        elongated (a dart pointing at the lens) uses the contour pixel nearest the foot
+        point with low confidence. Without a pose, the legacy 'centre' rule is used.
+        """
+        foot_mm = self.foot_point()
+        rule = self.rule
+        if rule == 'foot' and foot_mm is None:
+            rule = 'centre'
+        _, vectors, values = cv2.PCACompute2(contour, mean=None)
+        elongated = values[0, 0] / max(values[1, 0], 1) >= 3
+        if rule == 'centre':
+            if not elongated:
+                return None, None, rule
+            direction = vectors[0]
+            projection = contour @ direction
+            ends = [contour[np.argmin(projection)], contour[np.argmax(projection)]]
+            tip = min(ends, key=lambda p: np.linalg.norm(p - CENTER))
+            confidence = 'high' if self.rule == 'centre' else 'low'
+            return tip, confidence, rule
+        foot = np.asarray(foot_mm, dtype=np.float32) * SCALE + CENTER
+        if not elongated:
+            nearest = contour[np.argmin(np.linalg.norm(contour - foot, axis=1))]
+            return nearest, 'low', rule
+        direction = vectors[0].astype(np.float32)
+        projection = contour @ direction
+        ends = [contour[np.argmin(projection)], contour[np.argmax(projection)]]
+        tip = min(ends, key=lambda p: np.linalg.norm(p - foot))
+        if float((foot - tip) @ direction) < 0:
+            direction = -direction
+        tip = tip + direction * (self.tip_bias_mm * SCALE)
+        return tip, 'high', rule
+
     def state(self):
         fresh = self.fresh()
         if not fresh: self.verified_version = None
