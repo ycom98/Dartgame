@@ -4,6 +4,9 @@ Every Vision action (calibrate, align, verify, reset, ingest) runs on this threa
 vision.lock held, and vision.publish() is called afterwards. HTTP handlers queue actions with
 call() and wait on a future, so a slow align() never blocks /api/state or game writes: those
 read vision.current_state(), which needs no lock.
+
+With a frame source attached (camera_source.py, M1-07), the same thread pulls the newest
+frame at up to max_fps and ingests it. Stale frames are skipped, never queued.
 """
 import queue
 import threading
@@ -15,6 +18,8 @@ ACTION_TIMEOUT_SECONDS = 10.0
 # Re-publish the vision state at least this often, so time-based changes (calibration
 # snapshot expiry, a stale camera) show up without a new frame or action.
 PUBLISH_INTERVAL_SECONDS = 0.5
+# The plan's processing rate for pulled frames.
+DEFAULT_MAX_FPS = 15.0
 
 
 class WorkerBusy(Exception):
@@ -22,7 +27,7 @@ class WorkerBusy(Exception):
 
 
 class VisionWorker:
-    def __init__(self, get_vision):
+    def __init__(self, get_vision, max_fps=DEFAULT_MAX_FPS):
         # get_vision is called for every action and frame, so the Vision object can be replaced (tests do).
         self.get_vision = get_vision
         self.jobs = queue.Queue()
@@ -31,6 +36,14 @@ class VisionWorker:
         self.thread_lock = threading.Lock()
         self.stopping = False
         self.last_publish_at = 0.0
+        self.max_fps = max_fps       # 0 = no limit (lockstep replay in tests)
+        self.source = None
+        self.last_source_seq = None
+        self.last_ingest_at = 0.0
+        self.processed = []          # monotonic times of recently ingested source frames
+        self.ingest_errors = 0
+        self.last_ingest_error = None
+        self.on_ingest = None        # test hook: called after each source frame with (frame, seq)
 
     # ---- lifecycle ---------------------------------------------------------------------
     def start(self):
@@ -47,6 +60,7 @@ class VisionWorker:
         thread = self.thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout)
+        self.set_source(None)
 
     # ---- actions -----------------------------------------------------------------------
     def submit(self, action):
@@ -102,10 +116,74 @@ class VisionWorker:
         finally:
             self.last_publish_at = time.monotonic()
 
+    # ---- frame source (M1-07) ----------------------------------------------------------
+    def set_source(self, source):
+        """Attach a frame source (or None) and start it. The previous source is stopped."""
+        previous, self.source = self.source, source
+        self.last_source_seq = None
+        self.processed = []
+        self.last_ingest_error = None
+        if previous is not None and previous is not source:
+            previous.on_frame = None
+            previous.stop()
+        if source is not None:
+            source.on_frame = self.wake.set
+            source.start()
+            self.start()
+        self.wake.set()
+
+    def source_status(self):
+        """Source status for /api/state, read without any lock. None when no source is attached."""
+        source = self.source
+        if source is None:
+            return None
+        status = source.status()
+        now = time.monotonic()
+        status['processed_fps'] = round(len([t for t in self.processed if now - t <= 2.0]) / 2.0, 1)
+        if self.last_ingest_error:
+            status['ingest_error'] = self.last_ingest_error
+        return status
+
+    def process_source_frame(self):
+        """Ingest the source's newest frame if it is new and the rate limit allows.
+
+        Returns how many seconds to wait before a frame is allowed again, or None.
+        Frames that arrive while vision is busy are replaced by newer ones, never queued.
+        """
+        source = self.source
+        if source is None:
+            return None
+        if self.max_fps:
+            wait = self.last_ingest_at + 1.0 / self.max_fps - time.monotonic()
+            if wait > 0:
+                return wait
+        frame, _, seq = source.latest()
+        if frame is None or seq == self.last_source_seq:
+            return None
+        vision = self.get_vision()
+        if vision is None:
+            return None
+        self.last_source_seq = seq
+        self.last_ingest_at = time.monotonic()
+        with vision.lock:
+            try:
+                vision.ingest(frame)
+                self.last_ingest_error = None
+            except ValueError as error:
+                self.ingest_errors += 1
+                self.last_ingest_error = str(error)
+            self.publish(vision)
+        now = time.monotonic()
+        self.processed = [t for t in self.processed if now - t <= 2.0] + [now]
+        if self.on_ingest is not None:
+            self.on_ingest(frame, seq)
+        return None
+
     # ---- thread loop -------------------------------------------------------------------
     def run(self):
+        timeout = PUBLISH_INTERVAL_SECONDS
         while not self.stopping:
-            self.wake.wait(PUBLISH_INTERVAL_SECONDS)
+            self.wake.wait(timeout)
             self.wake.clear()
             while not self.stopping:
                 try:
@@ -115,6 +193,13 @@ class VisionWorker:
                 self.run_job(action, future)
             if self.stopping:
                 break
+            try:
+                wait = self.process_source_frame()
+            except Exception as error:  # one bad frame must not stop the worker
+                self.last_ingest_error = f'Frame processing failed ({type(error).__name__})'
+                wait = None
+            # Rate limited: come back when the next frame is allowed.
+            timeout = min(wait, PUBLISH_INTERVAL_SECONDS) if wait else PUBLISH_INTERVAL_SECONDS
             if time.monotonic() - self.last_publish_at >= PUBLISH_INTERVAL_SECONDS:
                 vision = self.get_vision()
                 if vision is not None:

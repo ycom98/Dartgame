@@ -23,6 +23,10 @@ except ImportError:
     vision = None
     vision_error = 'Camera vision unavailable: install requirements.txt. Manual game still works.'
 from vision_worker import VisionWorker, WorkerBusy
+try:
+    import camera_source
+except ImportError:  # OpenCV missing: manual games still work
+    camera_source = None
 
 # All Vision work runs on this one thread (M1-06). It looks up the module-level `vision` each time.
 worker = VisionWorker(lambda: vision)
@@ -36,7 +40,23 @@ def vision_state():
     """Latest vision state without waiting for the vision lock."""
     if vision is None:
         return {'fresh':False,'aligned':False,'verified':False,'phase':'unavailable','message':vision_error}
-    return vision.current_state()
+    return {**vision.current_state(), 'source':worker.source_status()}
+
+def set_camera_source(uri):
+    """Pull frames from uri (see camera_source.py), or stop pulling when uri is None. Raises ValueError."""
+    if uri is None:
+        worker.set_source(None); return None
+    if vision is None or camera_source is None: raise ValueError(vision_error)
+    source = camera_source.make_source(uri)
+    def source_changed(v):
+        # A new source may be a different camera or view: keep the calibration, require a fresh alignment check.
+        if v.aligned or v.verified_version is not None:
+            v.invalidate('Camera source changed. Check / realign board, then verify the overlay.')
+        else:
+            v.message = 'Connecting to ' + source.description
+    worker.call(source_changed)
+    worker.set_source(source)
+    return source
 
 class App:
     def __init__(self, token=None):
@@ -113,6 +133,16 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw)
             if not isinstance(body,dict): raise ValueError('Expected a JSON object')
             if path in GAME_PATHS: return self.game_action(path, body)
+            if path == '/api/camera/source':
+                uri = body.get('uri')
+                if uri is not None and not isinstance(uri,str): raise ValueError('uri must be a string or null')
+                expected = body.get('expected_revision')
+                if type(expected) is not int: raise ValueError('expected_revision must be an integer')
+                with app.game_lock:
+                    if expected != app.revision:
+                        return self.reply({**app.state(), 'error':'Match changed on another controller. Review the current turn.'},409)
+                set_camera_source(uri)
+                return self.reply(app.state())
             if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
                 if vision is None: raise ValueError(vision_error)
                 raise ValueError('Select Set four points to capture a calibration image first')
@@ -209,12 +239,21 @@ def main():
     parser.add_argument('--host',default='0.0.0.0'); parser.add_argument('--port',type=int,default=8443)
     parser.add_argument('--http',action='store_true',help='localhost/manual testing only; phone camera requires HTTPS')
     parser.add_argument('--lan-ip',help='Override LAN IP printed and included in local certificate')
+    parser.add_argument('--camera',metavar='URI',
+                        help='pull frames from a camera: http://PHONE:8080/video (IP Webcam), http://PHONE:4747/video '
+                             '(DroidCam), snapshot:http://PHONE:8080/shot.jpg, file:VIDEO, dir:FOLDER, or just the phone IP')
+    parser.add_argument('--camera-fps',type=float,default=15.0,help='maximum frames per second processed (default 15)')
     parser.add_argument('--camera-hfov',type=float,default=70.0,
                         help='assumed horizontal FOV (degrees) when the camera focal length cannot be solved from calibration')
     args=parser.parse_args(); ip=args.lan_ip or local_ip()
     if not 1 <= args.port <= 65535: parser.error('--port must be between 1 and 65535')
     if not 20 <= args.camera_hfov <= 150: parser.error('--camera-hfov must be between 20 and 150 degrees')
     if vision is not None: vision.camera_hfov = args.camera_hfov
+    if not 0 < args.camera_fps <= 60: parser.error('--camera-fps must be between 0 and 60')
+    worker.max_fps = args.camera_fps
+    if args.camera:
+        try: set_camera_source(args.camera)
+        except ValueError as error: parser.error(f'--camera: {error}')
     try: ipaddress.IPv4Address(ip)
     except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
     if args.http and args.host not in ('127.0.0.1','localhost','::1'):
@@ -245,9 +284,11 @@ def main():
         print('Local CA: '+certificate_info['ca_subject'],flush=True)
         print('CA SHA-256: '+certificate_info['sha256_fingerprint'],flush=True)
         print('Phone trust setup: see README. Public CA helper: .venv/bin/python local_https.py serve --lan-ip '+ip,flush=True)
+    if worker.source is not None: print('Camera source: '+worker.source.description,flush=True)
     if vision_error: print(vision_error,flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: pass
-    finally: server.server_close()
+    finally:
+        worker.stop(); server.server_close()
 
 if __name__=='__main__': main()

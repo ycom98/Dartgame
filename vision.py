@@ -263,7 +263,8 @@ class Vision:
         self.base = self.warp(self.frame); self.last_warp = self.base.copy()
         self.stable = 0; self.proposal = None
     def ingest(self, data):
-        frame = self.decode(data)
+        # data: encoded image bytes (/api/frame) or a decoded BGR frame from a camera source (M1-07).
+        frame = data if isinstance(data, np.ndarray) else self.decode(data)
         if self.frame is not None and not self.fresh():
             self.invalidate('Camera reconnected. Check / realign board, then verify the overlay.')
         if self.frame is not None and frame.shape != self.frame.shape:
