@@ -103,7 +103,18 @@ print(json.dumps({'points': calibration_points(camera).tolist()}))
   const play = await browser.newPage({viewport: {width: 1280, height: 800}});
   play.on('pageerror', error => errors.push('play: ' + error.message));
   await play.goto(origin + displayPath);
-  const pendingText = () => page.locator('#pending').textContent();
+  const pendingText = () => page.locator('#camera-panel').textContent();
+  // A phone controller follows the same match: its tap board must never move (QA R1/R2).
+  const phone = await browser.newPage({viewport: {width: 360, height: 740}, isMobile: true, hasTouch: true});
+  phone.on('pageerror', error => errors.push('phone: ' + error.message));
+  await phone.goto(origin + '/control?t=' + token);
+  await phone.waitForSelector('#camera-panel:not([hidden])');
+  const boardTops = [];
+  const phoneTop = async label => {
+    const y = await phone.evaluate(() => document.querySelector('#tap-board svg').getBoundingClientRect().top + scrollY);
+    boardTops.push({label, y});
+  };
+  await phoneTop('start');
   async function tap(key) {
     const point = await page.evaluate(k => {
       const hit = document.querySelector(`#tap-board .hit-region[data-key="${k}"]`);
@@ -126,10 +137,16 @@ print(json.dumps({'points': calibration_points(camera).tolist()}))
     check(await play.locator('.darts .dart.filled').count() === 0, '/play shows no pending dart');
     await page.screenshot({path: path.join(artifacts, 'M1-12-control-pending.png'), fullPage: true});
     check(latency <= 1.5, 'Pending dart appeared after ' + latency + ' s');
+    await phone.waitForFunction(() => document.getElementById('pending').textContent.includes('S18'));
+    await phoneTop('pending shown');
+    await pause(700);
+    await phoneTop('countdown running');
     await waitFor(async () => (await game()).darts.length === 1, 6000);
     const commit = await lastCommit();
     check(commit.source === 'auto' && commit.dart.score === 18, 'Auto commit ' + JSON.stringify(commit));
     await waitFor(async () => (await page.locator('#turn-darts').textContent()).includes('Dart 1: Single 18'));
+    await phone.waitForFunction(() => document.getElementById('turn-darts').textContent.includes('Dart 1'));
+    await phoneTop('dart committed');
     return {pendingVisibleAfterSeconds: latency};
   });
 
@@ -161,6 +178,17 @@ print(json.dumps({'points': calibration_points(camera).tolist()}))
     const g = await game(), commit = await lastCommit();
     check(g.darts[2].score === 20, 'Dart 3 is D10');
     check(commit.source === 'corrected' && commit.proposal.label === 'T10', JSON.stringify(commit));
+    // Live demo: at turn end every committed dart must have a visible correction chip, on a phone too.
+    await phone.waitForFunction(() => document.querySelectorAll('#turn-darts .dart-chip').length === 3);
+    const chips = await phone.evaluate(() => {
+      const row = document.getElementById('turn-darts').getBoundingClientRect();
+      return [...document.querySelectorAll('#turn-darts .dart-chip')].map(c => {
+        const r = c.getBoundingClientRect();
+        return {text: c.textContent, inside: r.left >= row.left - 0.5 && r.right <= row.right + 0.5};
+      });
+    });
+    check(chips.every(c => c.inside), 'Chips cut off on a phone: ' + JSON.stringify(chips));
+    await phoneTop('turn complete');
     await pause(1200);
     check((await api('state')).camera.pending === null, 'Replaced detection does not come back');
     return {ok: true};
@@ -186,6 +214,8 @@ print(json.dumps({'points': calibration_points(camera).tolist()}))
   await run('a turn with undetected darts ends with clearly marked filled-in misses', async () => {
     await page.locator('#next').click();
     await waitFor(async () => (await game()).player === 1);
+    await phone.waitForFunction(() => document.getElementById('prompt').textContent.includes('Cam B'));
+    await phoneTop('next player');
     await waitFor(async () => await page.locator('#end-turn').isVisible());
     await page.locator('#end-turn').click();
     await waitFor(async () => (await game()).darts.length === 3);
@@ -199,6 +229,11 @@ print(json.dumps({'points': calibration_points(camera).tolist()}))
     check(!(await game()).darts[1].filled, 'Corrected miss is no longer marked filled');
     await page.screenshot({path: path.join(artifacts, 'M1-12-control-filled.png'), fullPage: true});
     return {darts: (await game()).darts};
+  });
+  await run('the phone tap board never moved during the camera turn and handoff', async () => {
+    const moved = boardTops.filter(t => Math.abs(t.y - boardTops[0].y) > 0.5);
+    check(moved.length === 0, 'Board moved: ' + JSON.stringify(boardTops));
+    return {checks: boardTops.length};
   });
 })().catch(error => { results.push({name: 'camera controller harness completion', pass: false, error: error.stack}); })
   .finally(async () => {

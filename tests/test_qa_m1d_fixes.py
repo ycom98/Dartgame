@@ -117,10 +117,12 @@ class RecorderNeverBreaksTheGame(ServerCase):  # Q2, Q3
         status, _ = self.request('/api/throw', {'value': 20, 'multiplier': 3}, revision=revision)  # the host's retry
         self.assertEqual(status, 409)
         self.assertEqual(len(self.request('/api/state')[1]['game']['darts']), 1)
-        recording = self.request('/api/state')[1]['recording']
-        self.assertFalse(recording['active'])
-        self.assertIn('could not write events.jsonl', recording['error'])
-        self.assertNotIn(recorder.match_event, server.app.events.listeners)
+        # The recorder writes on its own thread, so it notices the failure a moment later.
+        self.assertTrue(wait_for(lambda: not self.request('/api/state')[1]['recording']['active'], 3))
+        error = self.request('/api/state')[1]['recording']['error']
+        self.assertEqual(error.count('Recording stopped'), 1, error)  # QA R3: no doubled prefix
+        self.assertIn('could not write events.jsonl', error)
+        self.assertTrue(wait_for(lambda: recorder.match_event not in server.app.events.listeners, 6))
         recorder.stop(); recorder.stop()  # idempotent, never raises
 
     def test_auto_commit_with_a_failing_log_commits_a_camera_dart_exactly_once(self):
@@ -133,6 +135,26 @@ class RecorderNeverBreaksTheGame(ServerCase):  # Q2, Q3
         time.sleep(2.5)
         self.assertEqual([d['score'] for d in server.app.game.data['darts']], [60])
         self.assertIsNone(self.request('/api/state')[1]['camera']['pending'])
+
+    def test_a_hanging_drive_never_holds_up_scoring(self):  # QA R4
+        self.request('/api/game', {'names': ['A', 'B'], 'camera': False})
+        self.assertEqual(self.request('/api/record', {'enabled': True})[0], 200)
+
+        class Hanging(DiskFull):
+            def write(self, text):
+                time.sleep(3)
+                raise OSError(errno.EIO, 'Input/output error')
+        server.recorder.files['events.jsonl'] = Hanging()
+        timings = []
+        for value in (20, 19, 18):
+            started = time.monotonic()
+            status, _ = self.request('/api/throw', {'value': value})
+            timings.append(time.monotonic() - started)
+            self.assertEqual(status, 200)
+        self.assertLess(max(timings), 0.5, timings)
+        self.assertEqual(len(server.app.game.data['darts']), 3)
+        self.assertTrue(wait_for(lambda: not server.recorder.active, 6))
+        self.assertIn('Input/output error', server.recorder.status()['error'])
 
     def test_a_listener_error_is_contained(self):
         log = EventLog()
@@ -154,6 +176,7 @@ class RecorderNeverBreaksTheGame(ServerCase):  # Q2, Q3
         recorder.get_source = lambda: Source()
         self.assertTrue(wait_for(lambda: not recorder.active, 3))
         self.assertIn('frame writer failed', recorder.status()['error'])
+        self.assertEqual(recorder.status()['error'].count('Recording stopped'), 1)
         self.assertFalse(self.request('/api/state')[1]['recording']['active'])
 
     def test_disk_guard_stop_unhooks_the_recorder_and_free_space_is_for_the_recording_folder(self):

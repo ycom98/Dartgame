@@ -16,6 +16,7 @@ vision actions through Vision and checks the detections; tools/contact_sheet.py 
 Recording stops by itself when the disk has less than MIN_FREE_BYTES free.
 """
 import json
+import queue
 import shutil
 import threading
 import time
@@ -70,13 +71,15 @@ class Recorder:
         self.notes = {}
         self.order = 0
         self.files = {}
+        self.lines = queue.Queue()           # (file name, JSON line) waiting for the writer thread
+        self.free_cache = None               # free disk bytes, refreshed by the writer each second
         self.on_stop = None                   # called once when recording ends for any reason (server unhooks)
 
     # ---- lifecycle ---------------------------------------------------------------------
     def start(self, vision=None, notes=None):
         if self.active:
             return self
-        free = self.free_bytes()
+        free = self.free_cache = self.free_bytes()
         if free is not None and free < self.min_free_bytes:
             raise ValueError(f'Not recording: only {free / 1024 ** 3:.1f} GB free (needs 5 GB)')
         try:
@@ -109,30 +112,28 @@ class Recorder:
         return self
 
     def stop(self, reason=None):
-        """Stop recording. Safe to call more than once and from any thread; never raises (QA Q2)."""
+        """Stop recording: the writer thread writes what is queued, then closes the files. Safe to call more
+        than once and from any thread; never raises (QA Q2)."""
         with self.lock:
             if not self.active:
                 return
+            self.enqueue('events.jsonl', {'ts': round(time.time(), 3), 'type': 'recording_stopped',
+                                          'after_seq': self.last_processed_seq, 'reason': reason})
             self.active = False
-            try:
-                self.order += 1
-                stopped = {'order': self.order, 'ts': round(time.time(), 3), 'type': 'recording_stopped',
-                           'after_seq': self.last_processed_seq, 'reason': reason}
-                self.files['events.jsonl'].write(json.dumps(json_safe(stopped)) + '\n')
-            except (OSError, ValueError):
-                pass
-            self.close_files()
-        self.finish(reason)
+        self.finish(reason, error=None)
 
     def fail(self, reason):
-        """A write failed (disk full, drive unplugged...): stop at once and report why. Never raises."""
+        """A write failed (disk full, drive unplugged...): stop and report why. Returns at once and never
+        raises: the waiting and cleanup run on their own thread, so no caller (or lock it holds) waits on a
+        hanging drive (QA R4)."""
         with self.lock:
             if not self.active:
                 return
             self.active = False
-            self.close_files()
-        print('Recording stopped: ' + reason, flush=True)
-        self.finish(reason)
+            self.error = 'Recording stopped: ' + reason
+        self.stop_event.set()
+        print(self.error, flush=True)
+        threading.Thread(target=self.finish, args=(reason, self.error), name='recorder-stop', daemon=True).start()
 
     def close_files(self):
         for handle in self.files.values():
@@ -141,14 +142,14 @@ class Recorder:
             except OSError:
                 pass
 
-    def finish(self, reason):
+    def finish(self, reason, error):
         self.stop_event.set()
         if self.thread is not None and self.thread is not threading.current_thread():
             self.thread.join(5)
         self.uninstrument()
         self.stopped_at = time.time()
-        if reason:
-            self.error = reason
+        if error:
+            self.error = error
         try:
             self.write_session()
         except Exception:  # best effort: the recording has already stopped
@@ -174,29 +175,52 @@ class Recorder:
         return {'active': self.active, 'directory': str(self.directory), 'frames': self.frames_written,
                 'skipped_frames': self.frames_skipped, 'bytes': self.bytes_written,
                 'seconds': round(end - self.started_at, 1) if self.started_at else 0,
-                'free_bytes': self.free_bytes(), 'min_free_bytes': self.min_free_bytes, 'error': self.error,
+                'free_bytes': self.free_cache if self.active else self.free_bytes(), 'min_free_bytes': self.min_free_bytes, 'error': self.error,
                 'notes': self.notes}
 
     # ---- files -------------------------------------------------------------------------
     def append(self, name, record):
-        """Write one line. A write error stops the recording; it never reaches the caller (QA Q2)."""
-        failure = None
+        """Queue one line for the writer thread. Never touches the disk and never raises, so callers holding
+        the game or vision lock never wait for a slow or failing drive (QA Q2, R4)."""
         with self.lock:
-            if not self.active:
-                return
+            if self.active:
+                self.enqueue(name, record)
+
+    def enqueue(self, name, record):
+        """Call with self.lock held."""
+        if name == 'events.jsonl':
+            self.order += 1
+            record = {'order': self.order, **record}
+        try:
+            line = json.dumps(json_safe(record), allow_nan=False) + '\n'
+        except (ValueError, TypeError) as error:
+            line = json.dumps({'unserialisable': name, 'error': str(error)}) + '\n'
+        self.lines.put((name, line))
+
+    def write_lines(self):
+        """Writer thread: write every queued line, oldest first. An error stops the recording."""
+        touched = set()
+        while True:
+            try:
+                name, line = self.lines.get_nowait()
+            except queue.Empty:
+                break
             handle = self.files.get(name)
             if handle is None or handle.closed:
-                return
+                continue
             try:
-                if name == 'events.jsonl':
-                    self.order += 1
-                    record = {'order': self.order, **record}
-                handle.write(json.dumps(json_safe(record), allow_nan=False) + '\n')
-                handle.flush()
-            except (OSError, ValueError, TypeError) as error:
-                failure = f'Recording stopped: could not write {name} ({error})'
-        if failure:
-            self.fail(failure)
+                handle.write(line)
+            except (OSError, ValueError) as error:
+                self.fail(f'could not write {name} ({error})')
+                return False
+            touched.add(name)
+        for name in touched:
+            try:
+                self.files[name].flush()
+            except (OSError, ValueError) as error:
+                self.fail(f'could not write {name} ({error})')
+                return False
+        return True
 
     def event(self, kind, **fields):
         self.append('events.jsonl', {'ts': round(time.time(), 3), 'type': kind,
@@ -293,25 +317,29 @@ class Recorder:
 
     # ---- frame writer ------------------------------------------------------------------
     def run(self):
+        """The only thread that touches the recording's files."""
         try:
-            self.write_frames_until_stopped()
+            self.write_until_stopped()
         except Exception as error:  # the writer must not die silently (QA Q3)
-            threading.Thread(target=self.fail, args=(f'Recording stopped: frame writer failed ({error})',),
-                             daemon=True).start()
+            self.fail(f'frame writer failed ({error})')
+        finally:
+            if self.error is None:
+                self.write_lines()  # a normal stop: everything queued, including recording_stopped
+            self.close_files()
 
-    def write_frames_until_stopped(self):
+    def write_until_stopped(self):
         last_disk_check = 0.0
         while not self.stop_event.wait(0.02):
             source = self.get_source()
             if source is not None:
                 self.write_new_frames(source)
+            if not self.write_lines():
+                return
             if time.monotonic() - last_disk_check > 1.0:
                 last_disk_check = time.monotonic()
-                free = self.free_bytes()
-                if free is not None and free < self.min_free_bytes:
-                    threading.Thread(target=self.fail, args=(
-                        f'Recording stopped: less than {self.min_free_bytes / 1024 ** 3:.0f} GB free on the disk',),
-                        daemon=True).start()
+                self.free_cache = self.free_bytes()
+                if self.free_cache is not None and self.free_cache < self.min_free_bytes:
+                    self.fail(f'less than {self.min_free_bytes / 1024 ** 3:.0f} GB free on the disk')
                     return
                 if self.frames_written and self.frames_written % 150 == 0:
                     self.write_session()

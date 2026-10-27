@@ -63,28 +63,36 @@
  $('#end-turn').onclick=()=>{if(!busy)mutate('/api/turn/fill_misses',{});};
  function dartText(d){return d.value===0?(d.filled?'Miss · filled in':'Miss'):DartBoard.label(d.value,d.multiplier);}
  function chip(d,i){
+  // Short visible text so all three chips fit a phone row (demo: dart 3 was off-screen); full text for screen readers.
   const b=document.createElement('button');
   b.type='button';
   b.className='dart-chip'+(correcting===i?' selected':'')+(d.filled?' filled':'');
-  b.textContent='Dart '+(i+1)+': '+dartText(d);
+  const full=document.createElement('span');
+  full.className='visually-hidden';
+  full.textContent='Dart '+(i+1)+': '+dartText(d);
+  b.append((i+1)+' · '+DartRoom.label(d)+(d.filled?'*':''),full);
   b.setAttribute('aria-pressed',String(correcting===i));
   b.onclick=()=>{correcting=correcting===i?null:i;paint();};
   return b;
  }
+ // The camera panel has fixed-height lines (QA R1): a headline and a two-line detail.
  function pendingText(p){
   if(!p){
-   if(state.vision?.verified)return 'Camera: watching for the next dart';
-   return 'Camera: not ready ('+(state.vision?.message||'check the setup page')+')';
+   if(state.vision?.verified)return ['Camera: watching for the next dart',''];
+   return ['Camera: not ready',state.vision?.message||'Check the setup page.'];
   }
-  let text='Camera: '+p.label+' ('+p.score+')';
-  if(p.near_wire)text+=' · near a wire, check it';
-  if(p.label_changes)text+=' · value changed, check it';
-  if(p.turn_over)return text+' · turn is over: Undo, End turn or Next player';
-  if(p.commit_in==null)return text+' · waiting for Accept';
-  const left=Math.max(0,p.commit_in-(performance.now()-polledAt)/1000);
-  return text+' · auto-accept in '+left.toFixed(1)+' s';
+  const notes=[];
+  if(p.near_wire)notes.push('near a wire, check it');
+  if(p.label_changes)notes.push('value changed, check it');
+  if(p.turn_over)notes.push('turn is over: Undo, End turn or Next player');
+  else if(p.commit_in==null)notes.push('waiting for Accept');
+  else notes.push('auto-accept in '+Math.max(0,p.commit_in-(performance.now()-polledAt)/1000).toFixed(1)+' s');
+  return ['Camera: '+p.label+' ('+p.score+')',notes.join(' · ')];
  }
  // Compact match status for phones, where the full scoreboard is hidden (live demo finding).
+ function entryMode(){
+  $('#entry-mode').textContent=state?.camera_game?'CAMERA SCORING · TAP TO CORRECT':'MANUAL SCORE ENTRY';
+ }
  function compactStatus(g){
   const box=$('#compact-status');
   if(!g){box.replaceChildren();return;}
@@ -106,6 +114,7 @@
  }
  function paintCamera(full=true){
   compactStatus(state?.game);
+  entryMode();
   const g=state?.game,p=pending(),camera=!!state?.camera_game;
   // Committed darts of this turn: tap one, then tap the board to correct it.
   const chips=$('#turn-darts'),signature=JSON.stringify([g?.darts,correcting]);
@@ -114,18 +123,20 @@
    chips.replaceChildren(...(g?g.darts.map(chip):[]));
   }
   if(correcting!==null&&(!g||correcting>=g.darts.length))correcting=null;
-  $('#tap-hint').textContent=correcting!==null?'Tap the board (or Miss) to correct dart '+(correcting+1)+'. Tap the chip again to cancel.':
-   p?'Camera dart pending. Tap the board to enter a different value instead.':'Tap where the dart landed.';
+  $('#tap-hint').textContent=correcting!==null?'Tap the board (or Miss) to correct dart '+(correcting+1)+'. Tap its chip to cancel.':
+   p?'Camera dart pending: tap the board for another value.':'Tap where the dart landed.';
   $('#camera-panel').hidden=!camera;
   if(camera){
    const auto=state.camera.auto_commit;
-   $('#pending').textContent=pendingText(p);
+   const [headline,detail]=pendingText(p);
+   $('#pending').textContent=headline;
+   $('#pending-detail').textContent=detail;
    $('#pending').classList.toggle('active',!!p);
-   $('#accept').hidden=!p||p.turn_over;
-   $('#accept').disabled=busy;
+   $('#accept').style.visibility=!p||p.turn_over?'hidden':'visible';  // keeps its space: no layout shift
+   $('#accept').disabled=busy||!p||p.turn_over;
    $('#auto-status').textContent=!auto.enabled?'Auto-accept is off (--auto-commit 0).':
     auto.paused?'Auto-accept paused: camera darts wait for Accept.':'Camera darts auto-accept after '+auto.seconds+' s.';
-   $('#auto-pause').hidden=!auto.enabled;
+   $('#auto-pause').style.visibility=auto.enabled?'visible':'hidden';
    $('#auto-pause').textContent=auto.paused?'Resume auto-accept':'Pause auto-accept';
    $('#auto-pause').disabled=busy;
   }

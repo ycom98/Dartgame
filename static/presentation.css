@@ -37,7 +37,7 @@
 /* QA M1-11: nothing above the tap board changes height during a turn, so the board never moves under a finger. */
 .host .turn-darts{min-height:44px;flex-wrap:nowrap;overflow-x:auto}
 .host .dart-chip{flex:0 0 auto;height:44px;padding:0 12px;line-height:1}
-.host #tap-hint{min-height:2.6em;margin:4px 0}
+.host #tap-hint{height:2.8em;line-height:1.4em;overflow:hidden;margin:4px 0}
 .host #notice{position:fixed;left:0;right:0;bottom:0;z-index:5;margin:0;min-height:0;padding:10px 16px;
   background:#2b1715ee;border-top:1px solid #efb3a955;pointer-events:none;font-size:13px}
 .host #notice:empty{display:none}
@@ -52,3 +52,13 @@
   .host .compact-player strong{font-variant-numeric:tabular-nums}
   .host .compact-darts{margin-top:6px;font-size:13px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
+
+/* QA R1/R2: fixed heights above the tap board, so a camera dart, a changing note or a new turn never moves it. */
+.host .camera-panel{height:154px;overflow:hidden}
+.host .camera-panel .pending{height:1.4em;line-height:1.4em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.host .camera-panel .pending-detail{height:2.8em;line-height:1.4em;overflow:hidden;font-size:13px;color:var(--gold)}
+.host .camera-panel .pending-row{flex-wrap:nowrap;margin:4px 0}
+.host .camera-panel .pending-row button{flex:1;margin:0;min-height:44px;padding:8px}
+.host .camera-panel .auto-status{height:1.6em;line-height:1.6em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.host #prompt{min-height:2.5em;max-height:2.5em;overflow:hidden;line-height:1.25}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
