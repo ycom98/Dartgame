@@ -30,9 +30,10 @@ The full protocol and pass criteria are in `docs/PLAN.md` §3 (M2) and the "conc
 
 - After each dart the controller shows **"Camera: T20 (60) · auto-accept in 3 s"**. If it's right, do nothing (or tap **Accept**). If it's wrong, **tap where the dart really is** on the controller board. That one tap is the correction, and it becomes the "truth" label for tuning.
 - A dart already recorded: tap its chip, then tap the board (2 taps).
-- Missed the board: tap **Miss**. If the camera saw fewer than 3 darts, **End turn · fill misses** records the rest as misses.
+- Missed the board: tap **Miss**. If the camera saw fewer than 3 darts, **End turn · misses** records the rest as misses.
 - **Current limit:** the camera handles **one new dart at a time**. Let each dart get accepted (3 s) before throwing the next, or tap Accept. Multi-dart tracking (M1-08) is next on the list after Thursday's data.
-- Pull the darts, then let the turn hand over (or tap **Next player**).
+- Pull the darts, then let the turn hand over automatically after about 4 s. If it doesn't, tap **Next player →**.
+- **Undo** removes the last dart; the camera won't propose it again, so tap where it really is.
 
 ## Throw script (≈130 throws, ≈75 min)
 
@@ -49,8 +50,8 @@ Record continuously. Do these in order and note the time each block starts (or s
 | 7 | People in frame | during 1–2 | Second person walks past, thrower leans in, someone stands in front for 5 s |
 | 8 | Pulling darts | every turn | Normal pull; once, pull only 1 of 3 darts mid-turn |
 | 9 | Phone bump | 3 | Tap the mount lightly; nudge ~1 cm; rotate slightly. The app should ask to re-check or recalibrate, never score silently on a moved board |
-| 10 | Wi-Fi drop | 2 | Phone Wi-Fi off for 10 s; lock the phone screen for 10 s |
-| 11 | Restart | 1 | Close Terminal mid-turn, restart with the same command: the match should come back exactly |
+| 10 | Wi-Fi drop | 2 | Phone Wi-Fi off for 10 s; lock the phone screen for 10 s. When the picture is back, if the Setup page asks for a board check: press **Check / realign board**, look at the overlay, then **Markers correct · Ready to play** |
+| 11 | Restart | 1 | Close Terminal mid-turn and start it again, but with a **new recording folder** (e.g. `--record ~/dart-trial/session1-restart`). The match should come back exactly. If the controller or TV says **PAIRING LINK REQUIRED**, open the new Controller and Presentation links printed in Terminal. On the Setup page press **Markers correct · Ready to play** after checking the overlay |
 | 12 | Calibration timing | 3 | Three cold calibrations with a stopwatch |
 
 If time is short, do blocks **1, 2, 3, 4, 9, 11** — they matter most.
@@ -60,6 +61,13 @@ Optional if the mount allows: 15 normal throws at **2 ft from the wall** to comp
 ## Wrap-up (≈15 min)
 
 - [ ] Stop recording on the Setup page.
+- [ ] Optional, in Terminal in the `Dartgame` folder (one line per session folder):
+  ```sh
+  .venv/bin/python tools/make_labels.py ~/dart-trial/session1
+  .venv/bin/python tools/replay_recording.py ~/dart-trial/session1
+  .venv/bin/python tools/contact_sheet.py ~/dart-trial/session1
+  ```
+  This makes the labels, replays the footage through the detector with an accuracy summary, and a contact sheet image of every dart.
 - [ ] Note anything odd (messages that confused you, darts it missed, how calibration felt).
 - [ ] Tell Claude the session is done. The footage stays on your Mac (`~/dart-trial/`); we'll decide together what, if anything, to share for tuning (for example running the replay tools locally and sharing only the numbers or a few frames).
 
