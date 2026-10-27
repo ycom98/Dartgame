@@ -26,7 +26,9 @@ DEFAULT_RULE = 'foot'
 # QA measured slightly lower tip error with 0.0 and identical exact scores.
 TIP_BIAS_MM = 0.0
 # Change detection covers the board and most of the number ring (mm): a dart body near the
-# double ring often projects outside the scoring area.
+# double ring often projects outside the scoring area. This disc is also the denominator of
+# vision_segment.LARGE_CHANGE_FRACTION: 12% of it (about 15,100 mm2) changed means the camera or
+# board moved. (M1-05 used 172 mm, where 12% was about 11,200 mm2.)
 BOARD_CHANGE_RADIUS_MM = 200.0
 # Pixels within this distance of the chosen blob end refine the tip along the point's own axis (mm).
 TIP_REFINE_MM = 12.0
@@ -39,6 +41,7 @@ SEGMENTATION_MESSAGES = {
     'none': 'Ready',
     'multiple': 'More than one new dart; enter scores manually',
     'too_large': 'Change is too large for one dart; enter score manually',
+    'noisy': 'Too many small changes (noise, debris or a moving shadow); enter score manually',
 }
 
 
@@ -63,7 +66,7 @@ def refine_tip(points, tip, direction, difference=None):
     along = (near - mean) @ axis
     across = (near - mean) @ normal
     end = float(along.max())
-    centre = float(np.median(across[along >= end - 1.5]))
+    centre = float(np.median(across[along >= end - 1.5]))  # last 1.5 warp px (~0.9 mm) of the point
     tip = mean + axis * end + normal * centre
     if difference is not None:
         tip = half_contrast_end(difference, tip, axis)
@@ -128,6 +131,7 @@ class Vision:
         # The pose belongs to the geometry just invalidated; a successful calibrate()/align() re-solves it.
         # mount_side is kept on purpose: it describes where the phone is mounted, not this calibration.
         self.solved_pose = None; self.pose = None
+        self.segmentation = None
     def reset_camera(self):
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.timestamp = 0
@@ -275,7 +279,7 @@ class Vision:
     def reset_base(self):
         if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
         self.base = self.warp(self.frame); self.last_warp = self.base.copy()
-        self.stable = 0; self.proposal = None
+        self.stable = 0; self.proposal = None; self.segmentation = None
     def ingest(self, data):
         frame = self.decode(data)
         if self.frame is not None and not self.fresh():

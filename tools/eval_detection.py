@@ -8,9 +8,10 @@ For each mount:
   3. For each trial: ingest empty frames at the trial's exposure and reset the
      base, render one dart, ingest N frames (so the stability gate passes),
      read vision.proposal and compare it with the truth.
-  4. Optionally (--empty-trials, --pair-trials): trials with no new dart and an
-     exposure drift (false proposals), and trials where two new darts appear
-     in one frame.
+  4. Optionally (--empty-trials, --pair-trials, --speckle-trials): trials with no
+     new dart and an exposure drift (false proposals), trials where two new darts
+     appear in one frame, and trials with no dart but 5-40 small specks (0.8-2 mm radius)
+     on the board (false proposals from chained specks).
 
 Profiles come from sim.PROFILES ('ideal', 'realistic').
 
@@ -44,6 +45,7 @@ from sim.camera import MOUNTS, camera_for_mount  # noqa: E402
 from sim.scene import (  # noqa: E402
     DEFAULT_LIGHT,
     PROFILES,
+    add_speckles,
     calibration_points,
     photometric,
     random_dart,
@@ -204,7 +206,8 @@ def camera_settings(camera):
 
 
 def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_frames=3, rule=None,
-                   tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0, refine=None):
+                   tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0, refine=None,
+                   speckle_trials=0):
     # Random streams are keyed by the mount's name, so adding or reordering mounts leaves the others' darts unchanged.
     mount_key = mount_stream_key(mount)
     dart_rng = np.random.default_rng([seed, mount_key, 0])
@@ -322,6 +325,9 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
     if pair_trials:
         pair_rng = np.random.default_rng([seed, mount_key, 5])
         result['two_darts'] = session.pair_trials(pair_trials, pair_rng)
+    if speckle_trials:
+        speckle_rng = np.random.default_rng([seed, mount_key, 6])
+        result['speckle_false_proposals'] = session.speckle_trials(speckle_trials, speckle_rng)
     result['calibration_invalidations'] += session.invalidations
     result['calibration'] = calibration_summary(calibrations)
     return result
@@ -380,6 +386,24 @@ class TrialSession:
                 'exposure_drift': EMPTY_TRIAL_EXPOSURE_DRIFT, 'messages': dict(reasons),
                 'note': 'Empty board; base and frame exposure differ by up to +/- exposure_drift.'}
 
+    def speckle_trials(self, count, rng):
+        """No dart; 5-40 small specks appear on the board (debris, flecks). Any proposal is false."""
+        proposals = 0
+        reasons = collections.Counter()
+        for _ in range(count):
+            brightness = self.degradation.brightness
+            self.rebase(brightness)
+            scene = self.empty.copy()
+            add_speckles(scene, self.camera, rng, int(rng.integers(5, 41)))
+            self.feeder.ingest(scene, brightness, self.frames_per_trial, timed=False)
+            if self.vision.proposal is not None:
+                proposals += 1
+            else:
+                reasons[self.vision.message] += 1
+        return {'n': count, 'false_proposals': proposals, 'false_proposal_rate': rounded(proposals / count, 4),
+                'messages': dict(reasons),
+                'note': 'Empty board plus 5-40 specks of radius 0.8-2 mm in random colours (no dart).'}
+
     def pair_trials(self, count, rng):
         """Two new darts appear in the same frame. A single proposal here is at best half right.
 
@@ -416,7 +440,7 @@ def git_commit():
 
 
 def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=None, progress=None,
-        tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0, refine=None):
+        tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0, refine=None, speckle_trials=0):
     degradation = PROFILES[profile]
     if shadow:
         degradation = degradation.with_options(shadow=DEFAULT_LIGHT)
@@ -426,7 +450,8 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
         mount_started = time.perf_counter()
         results[mount] = evaluate_mount(mount, darts, seed, degradation, frames_per_trial, rule=rule,
                                         tip_bias=tip_bias, vision_factory=vision_factory,
-                                        empty_trials=empty_trials, pair_trials=pair_trials, refine=refine)
+                                        empty_trials=empty_trials, pair_trials=pair_trials, refine=refine,
+                                        speckle_trials=speckle_trials)
         results[mount]['wall_seconds'] = round(time.perf_counter() - mount_started, 2)
         if progress:
             progress(results[mount])
@@ -441,6 +466,7 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
             'darts_per_mount': darts,
             'empty_trials_per_mount': empty_trials,
             'pair_trials_per_mount': pair_trials,
+            'speckle_trials_per_mount': speckle_trials,
             'seed': seed,
             'frames_per_trial': frames_per_trial,
             'rule': rule or getattr(vision_module, 'DEFAULT_RULE', 'centre (only rule in this vision.py)'),
@@ -489,6 +515,8 @@ def extra_summary(result):
         text += '  false-proposal {:.1%}'.format(result['false_proposals']['false_proposal_rate'])
     if 'two_darts' in result:
         text += '  two-darts declined {:.1%}'.format(result['two_darts']['no_proposal_rate'])
+    if 'speckle_false_proposals' in result:
+        text += '  speckle false {:.1%}'.format(result['speckle_false_proposals']['false_proposal_rate'])
     return text + calibration_text(result)
 
 
@@ -504,6 +532,8 @@ def main(argv=None):
                         help='extra trials per mount with no new dart and an exposure drift (false proposals)')
     parser.add_argument('--pair-trials', type=int, default=0,
                         help='extra trials per mount where two new darts appear in one frame')
+    parser.add_argument('--speckle-trials', type=int, default=0,
+                        help='extra trials per mount with no dart but 5-40 specks of debris (false proposals)')
     parser.add_argument('--frames', type=int, default=4, help='frames ingested per dart (>= 4)')
     parser.add_argument('--rule', choices=getattr(vision_module, 'TIP_RULES', None),
                         help='tip rule (default: vision.DEFAULT_RULE)')
@@ -530,7 +560,8 @@ def main(argv=None):
     progress = None if args.quiet else (lambda result: print(summary_line(result), flush=True))
     report = run(mounts, args.darts, args.seed, args.profile, args.shadow, args.frames, rule=args.rule,
                  progress=progress, tip_bias=args.tip_bias, empty_trials=args.empty_trials,
-                 pair_trials=args.pair_trials, refine=False if args.no_refine else None)
+                 pair_trials=args.pair_trials, refine=False if args.no_refine else None,
+                 speckle_trials=args.speckle_trials)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)

@@ -45,7 +45,7 @@ BASELINE_MODULE = 'vision_baseline'
 SUMMARY_KEYS = ('exact_accuracy', 'wrong_sector_rate', 'wrong_ring_rate', 'no_proposal_rate', 'exact_given_proposal',
                 'tip_error_mm', 'tip_signed_error_toward_foot_mm', 'near_wire', 'not_near_wire',
                 'no_proposal_reasons', 'false_proposals', 'two_darts', 'calibration_invalidations',
-                'time_per_frame_ms', 'calibration')
+                'time_per_frame_ms', 'calibration', 'speckle_false_proposals')
 
 
 def load_baseline(path):
@@ -56,7 +56,8 @@ def load_baseline(path):
 
 
 def run_cell(cell):
-    pipeline, profile, seed, mount, darts, empty_trials, pair_trials, baseline_path, current_tip_bias = cell
+    (pipeline, profile, seed, mount, darts, empty_trials, pair_trials, speckle_trials, baseline_path,
+     current_tip_bias) = cell
     shadow = profile.endswith('+shadow')
     base_profile = profile.replace('+shadow', '')
     factory, rule, tip_bias, refine = None, None, current_tip_bias, None
@@ -69,7 +70,7 @@ def run_cell(cell):
         tip_bias = baseline.TIP_BIAS_MM
     report = eval_detection.run([mount], darts, seed, base_profile, shadow, rule=rule, tip_bias=tip_bias,
                                 vision_factory=factory, empty_trials=empty_trials, pair_trials=pair_trials,
-                                refine=refine)
+                                refine=refine, speckle_trials=speckle_trials)
     result = report['mounts'][mount]
     summary = {key: result[key] for key in SUMMARY_KEYS if key in result}
     summary['tip_bias_mm'] = tip_bias if tip_bias is not None else report['settings']['tip_bias_mm']
@@ -93,6 +94,8 @@ def main(argv=None):
     parser.add_argument('--empty-trials', type=int, default=0,
                         help='false-proposal trials per cell (current and m105b only)')
     parser.add_argument('--pair-trials', type=int, default=0, help='two-dart trials per cell (current and m105b only)')
+    parser.add_argument('--speckle-trials', type=int, default=0,
+                        help='speckle (debris, no dart) false-proposal trials per cell (current and m105b only)')
     parser.add_argument('--tip-bias', type=float, help="override the 'current' pipeline's tip bias (mm)")
     parser.add_argument('--baseline-commit', default='9af1ad3')
     parser.add_argument('--workers', type=int, default=os.cpu_count() or 1)
@@ -118,7 +121,8 @@ def main(argv=None):
             Path(baseline_path).write_text(source)
         cells = []
         for pipeline in pipelines:
-            extra = (args.empty_trials, args.pair_trials) if pipeline in ('current', 'm105b') else (0, 0)
+            extra = ((args.empty_trials, args.pair_trials, args.speckle_trials) if pipeline in ('current', 'm105b')
+                     else (0, 0, 0))
             for profile in profiles:
                 for seed in seeds:
                     for mount in mounts:
@@ -156,7 +160,8 @@ def main(argv=None):
         'baseline_commit': args.baseline_commit if baseline_path else None,
         'settings': {'pipelines': pipelines, 'profiles': profiles, 'seeds': seeds, 'mounts': mounts,
                      'darts_per_cell': args.darts, 'empty_trials_per_cell': args.empty_trials,
-                     'pair_trials_per_cell': args.pair_trials, 'gated_mounts': list(GATED_MOUNTS),
+                     'pair_trials_per_cell': args.pair_trials, 'speckle_trials_per_cell': args.speckle_trials,
+                     'gated_mounts': list(GATED_MOUNTS),
                      'ceiling_mounts': list(CEILING_MOUNTS),
                      'current_tip_bias_override_mm': args.tip_bias,
                      'note': 'gated_pooled (ceiling_pooled) averages the per-mount rates over the gated (ceiling) '

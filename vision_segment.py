@@ -28,12 +28,21 @@ Pipeline:
      Past the dart's end nearest the foot point only the tip can lie, so a
      fragment joined there across a gap must be point-shaped (elongated and
      parallel); shadow edges and speckles there are not.
-  5. Decision: groups of at least MIN_DART_MM2 are dart candidates. Exactly
-     one candidate is a dart; two or more are reported as 'multiple'.
+     Only a group holding a core fragment (CORE_MIN_MM2, a barrel or flight
+     sized piece) joins across a gap; small pieces without a core join only
+     what they touch, so scattered specks are not chained into a 'dart'.
+  5. Decision: groups of at least MIN_DART_MM2 that are plausibly a dart (a
+     core fragment, mean width MIN_MEAN_WIDTH_MM) are candidates. Exactly one
+     candidate is a dart; two or more are reported as 'multiple'. More than
+     MAX_FRAGMENTS fragments, or one candidate beside MAX_IMPLAUSIBLE_BESIDE_DART
+     dart-sized implausible groups, is 'noisy' (no proposal); the fragment cap
+     also bounds the grouping time.
 
 No ground truth is used: the same code runs on real frames. Every threshold
 here was tuned on synthetic scenes (seed 1) and must be refit on real footage.
 """
+import functools
+import itertools
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -68,16 +77,34 @@ POINT_SOLIDITY = 0.6  # pixels / convex hull area of a cut-off point fragment (s
 POINT_ALIGNMENT = float(np.cos(np.radians(25.0)))  # a cut-off point fragment is roughly parallel to the dart
 MIN_DART_MM2 = 40.0
 MAX_DART_MM2 = 8000.0
+# Dart plausibility (M1-05e). On synthetic seed 1 (all ten mounts, ideal, realistic and realistic +
+# shadow) every accepted dart had a largest fragment of at least 62 mm2 holding at least 26% of the
+# dart's pixels, a mean width (area / length) of at least 3.3 mm and a length of at least 17 mm
+# (12 mm on near-frontal, where a dart can point at the lens). Chained specks are thin; a single
+# fleck is short.
+CORE_MIN_MM2 = 50.0  # a group needs a fragment this large to join pieces across a gap or to be a dart
+MIN_CORE_FRACTION = 0.15  # the core fragment's share of the group's pixels
+MIN_MEAN_WIDTH_MM = 2.0
+MIN_DART_LENGTH_MM = 15.0
+# More fragments than this is a noisy scene (sensor noise, debris, a moving shadow), not one new dart.
+# Synthetic dart frames have at most 8. The cap also bounds the grouping time (pairwise checks).
+MAX_FRAGMENTS = 40
+# A plausible dart next to this many dart-sized implausible groups is a noisy scene too. On grazing
+# views the warp stretches a 3-4 mm fleck to 15-18 mm, as long as the shortest darts; a lone such
+# fleck still passes, but flecks rarely come alone. Chosen on seed 1: speckle false proposals on
+# ceiling-0.5ft / near-frontal / ceiling-3ft 22 / 17 / 11 of 60 -> 2 / 0 / 0, no dart result changed.
+MAX_IMPLAUSIBLE_BESIDE_DART = 2
 
 
 @dataclass
 class Segmentation:
     """Result of segment().
 
-    kind: 'none', 'dart', 'multiple', 'too_large' or 'large_change'.
+    kind: 'none', 'dart', 'multiple', 'too_large', 'noisy' or 'large_change'.
     points: (N, 2) float32 warp pixels (x, y) of the dart when kind == 'dart'.
     outline: (M, 2) float32 outline pixels of the dart's fragments when kind == 'dart'.
     groups: the grouped Blobs, largest first (for diagnostics).
+    implausible: candidate-sized groups rejected as not dart-shaped (diagnostics).
     """
 
     kind: str
@@ -89,19 +116,32 @@ class Segmentation:
     gains: tuple = (1.0, 1.0, 1.0)
     threshold: float = CHANGE_THRESHOLD
     difference: Optional[np.ndarray] = None  # normalised max-channel change image (float32)
+    fragment_count: int = 0
+    implausible: int = 0
 
 
+@functools.lru_cache(maxsize=4)
 def board_disc(size, center, radius_px):
-    """uint8 mask (255 inside) of the board disc in warp pixels."""
+    """uint8 mask (255 inside) of the board disc in warp pixels (cached, read-only)."""
     yy, xx = np.ogrid[:size, :size]
-    return (((xx - center) ** 2 + (yy - center) ** 2) <= radius_px ** 2).astype(np.uint8) * 255
+    mask = (((xx - center) ** 2 + (yy - center) ** 2) <= radius_px ** 2).astype(np.uint8) * 255
+    mask.setflags(write=False)
+    return mask
 
 
-def illumination_gains(frame, base, board_mask):
-    """Per-channel gain g with frame ~= g * base on the board (median ratio over usable pixels)."""
-    # Every GAIN_SAMPLE_STEP-th board pixel is plenty for a median and keeps this fast.
-    rows, cols = np.nonzero(board_mask)
-    rows, cols = rows[::GAIN_SAMPLE_STEP], cols[::GAIN_SAMPLE_STEP]
+@functools.lru_cache(maxsize=4)
+def gain_samples(size, center, radius_px):
+    """(rows, cols) of every GAIN_SAMPLE_STEP-th board pixel (cached)."""
+    rows, cols = np.nonzero(board_disc(size, center, radius_px))
+    return rows[::GAIN_SAMPLE_STEP], cols[::GAIN_SAMPLE_STEP]
+
+
+def illumination_gains(frame, base, samples):
+    """Per-channel gain g with frame ~= g * base on the board (median ratio over usable pixels).
+
+    samples: (rows, cols) of board pixels (gain_samples); a subsample is plenty for a median.
+    """
+    rows, cols = samples
     gains = []
     for channel in range(3):
         b = base[rows, cols, channel].astype(np.float32)
@@ -115,7 +155,8 @@ def illumination_gains(frame, base, board_mask):
 def normalised_difference(frame, base, gains):
     """Frame divided by the gains (float32), and the per-channel max absolute difference to base."""
     corrected = frame.astype(np.float32) * (1.0 / np.asarray(gains, np.float32))
-    difference = cv2.absdiff(corrected, base.astype(np.float32)).max(axis=2)
+    channels = cv2.split(cv2.absdiff(corrected, base.astype(np.float32)))
+    difference = cv2.max(cv2.max(channels[0], channels[1]), channels[2])
     return corrected, difference
 
 
@@ -175,7 +216,9 @@ def shadow_pixels(corrected, base, changed, threshold):
 
 
 def inside_shadow(blob, corrected, base):
-    """True when the board in a 2-pixel ring around the blob is darkened like a shadow.
+    """True when the board in a 2-pixel ring around the blob is darker than the base by a shadow's ratio.
+
+    Only the brightness ratio (all channels summed) is tested here, not chromaticity.
 
     Noise leaves speckles of "change" inside a cast shadow (most of all on the dark
     segments and coloured rings, where the shadow test is weakest). Such a speckle is
@@ -193,15 +236,32 @@ def inside_shadow(blob, corrected, base):
     return float(corrected[y0:y1, x0:x1][ring].sum()) / lit <= SHADOW_RATIO[1]
 
 
-@dataclass
+_serials = itertools.count()
+
+
+@dataclass(eq=False)
 class Blob:
-    """A fragment or a group of fragments: all its pixels, and its outline pixels for fast distances."""
+    """A fragment or a group of fragments: all its pixels, and its outline pixels for fast distances.
+
+    largest: pixels in its largest original fragment. serial: a unique, never reused key
+    (id() is reused once a merged-away Blob is freed, so it cannot key a cache).
+    """
 
     points: np.ndarray  # (N, 2) float32 (x, y)
     outline: np.ndarray  # (M, 2) float32 (x, y), M << N
+    largest: int = 0
+    serial: int = field(default_factory=lambda: next(_serials))
+    _axis: Optional[tuple] = field(default=None, init=False, repr=False)
+    _box: Optional[tuple] = field(default=None, init=False, repr=False)
+    _extents: dict = field(default_factory=dict, init=False, repr=False)
+
+    def __post_init__(self):
+        if not self.largest:
+            self.largest = len(self.points)
 
     def merged(self, other):
-        return Blob(np.vstack([self.points, other.points]), np.vstack([self.outline, other.outline]))
+        return Blob(np.vstack([self.points, other.points]), np.vstack([self.outline, other.outline]),
+                    max(self.largest, other.largest))
 
     def solidity(self):
         """Pixel count over convex hull area: about 1 for a solid shape, low for a sparse cloud.
@@ -212,12 +272,41 @@ class Blob:
         return len(self.points) / max(cv2.contourArea(hull) + 0.5 * cv2.arcLength(hull, True) + 1.0, 1.0)
 
     def principal_axis(self):
-        """(mean, unit direction or None, eigenvalue ratio)."""
-        mean = self.points.mean(axis=0)
-        if len(self.points) < 3:
-            return mean, None, 0.0
-        values, vectors = np.linalg.eigh(np.cov((self.points - mean).T))
-        return mean, vectors[:, 1].astype(np.float32), float(values[1] / max(values[0], 1e-6))
+        """(mean, unit direction or None, eigenvalue ratio); computed once per Blob."""
+        if self._axis is None:
+            mean = self.points.mean(axis=0)
+            if len(self.points) < 3:
+                self._axis = (mean, None, 0.0)
+            else:
+                values, vectors = np.linalg.eigh(np.cov((self.points - mean).T))
+                self._axis = (mean, vectors[:, 1].astype(np.float32), float(values[1] / max(values[0], 1e-6)))
+        return self._axis
+
+    def box(self):
+        """((min x, min y), (max x, max y)) of the outline; computed once per Blob."""
+        if self._box is None:
+            self._box = (tuple(map(float, self.outline.min(axis=0))), tuple(map(float, self.outline.max(axis=0))))
+        return self._box
+
+    def extent(self, direction):
+        """(min, max) of the pixels along direction and the 95th percentile distance across it,
+        measured from the mean; memoised per direction."""
+        key = direction.tobytes()
+        if key not in self._extents:
+            mean = self.principal_axis()[0]
+            relative = self.points - mean
+            along = relative @ direction
+            normal = np.array([-direction[1], direction[0]], np.float32)
+            width = float(np.percentile(np.abs(relative @ normal), 95))
+            self._extents[key] = (float(along.min()), float(along.max()), width)
+        return self._extents[key]
+
+    def length(self):
+        """Extent along the principal axis (px)."""
+        mean, axis, _ = self.principal_axis()
+        if axis is None:
+            return 0.0
+        return float(np.ptp((self.points - mean) @ axis))
 
 
 def fragments(mask, min_pixels):
@@ -247,9 +336,11 @@ def squared_distances(first, second):
 
 
 def bounding_gap(first, second):
-    """Distance between the bounding boxes of two point sets (0 when they overlap); a lower bound."""
-    dx = max(first[:, 0].min() - second[:, 0].max(), second[:, 0].min() - first[:, 0].max(), 0.0)
-    dy = max(first[:, 1].min() - second[:, 1].max(), second[:, 1].min() - first[:, 1].max(), 0.0)
+    """Distance between the bounding boxes of two Blobs (0 when they overlap); a lower bound."""
+    (x0, y0), (x1, y1) = first.box()
+    (u0, v0), (u1, v1) = second.box()
+    dx = max(x0 - u1, u0 - x1, 0.0)
+    dy = max(y0 - v1, v0 - y1, 0.0)
     return float(np.hypot(dx, dy))
 
 
@@ -262,7 +353,11 @@ class FragmentGrouper:
         self.axis_width = AXIS_WIDTH_MM * scale
         self.axis_slope = float(np.tan(np.radians(AXIS_ANGLE_DEG)))
         self.point_min_length = POINT_MIN_LENGTH_MM * scale
+        self.core_pixels = CORE_MIN_MM2 * scale * scale
         self.foot = None if foot is None else np.asarray(foot, np.float32)
+
+    def has_core(self, blob):
+        return blob.largest >= self.core_pixels
 
     def axes(self, group):
         """Candidate axis directions for a group: principal axis and/or away-from-foot direction."""
@@ -289,24 +384,30 @@ class FragmentGrouper:
         mean, axes = self.axes(group)
         for direction in axes:
             normal = np.array([-direction[1], direction[0]], np.float32)
-            group_along = (group.points - mean) @ direction
+            along_min, along_max, group_width = group.extent(direction)
             along = float((point - mean) @ direction)
             # Distance past the group's end along the axis (0 when overlapping).
-            beyond = max(along - float(group_along.max()), float(group_along.min()) - along, 0.0)
+            beyond = max(along - along_max, along_min - along, 0.0)
             offset = abs(float((point - mean) @ normal))
-            group_width = float(np.percentile(np.abs((group.points - mean) @ normal), 95))
             allowed = max(group_width, self.axis_width) + self.axis_slope * beyond
             if offset <= allowed:
                 return True
         return False
 
     def belongs(self, first, second):
-        if bounding_gap(first.outline, second.outline) > self.axis_gap:
+        box_gap = bounding_gap(first, second)
+        if box_gap > self.axis_gap:
+            return False
+        # Without a core fragment on either side, only touching pieces join (no chaining of specks).
+        cored = self.has_core(first) or self.has_core(second)
+        if not cored and box_gap > self.near_gap:
             return False
         pairwise = np.sqrt(squared_distances(first.outline, second.outline))
         gap = float(pairwise.min())
         if gap <= self.near_gap:
             return True
+        if not cored:
+            return False
         if not (self.along_axis(first, second, pairwise.min(axis=0), gap)
                 or self.along_axis(second, first, pairwise.min(axis=1), gap)):
             return False
@@ -337,13 +438,13 @@ class FragmentGrouper:
     def group(self, pieces):
         """Merge Blobs (largest first) until nothing more merges. Returns Blobs, largest first."""
         groups = list(pieces)
-        apart = set()  # pairs of (unchanged) blobs already found not to belong together
+        apart = set()  # serials of (unchanged) blob pairs already found not to belong together
         merged = True
         while merged and len(groups) > 1:
             merged = False
             for i in range(len(groups)):
                 for j in range(i + 1, len(groups)):
-                    pair = (id(groups[i]), id(groups[j]))
+                    pair = (groups[i].serial, groups[j].serial)
                     if pair in apart:
                         continue
                     if self.belongs(groups[i], groups[j]):
@@ -358,11 +459,21 @@ class FragmentGrouper:
         return groups
 
 
+def plausible_dart(group, scale):
+    """A dart candidate has a core fragment that is a fair share of it, is long enough, and is not
+    a thin chain (mean width = area / length along its principal axis)."""
+    if group.largest < CORE_MIN_MM2 * scale * scale or group.largest < MIN_CORE_FRACTION * len(group.points):
+        return False
+    length_mm = group.length() / scale
+    area_mm2 = len(group.points) / (scale * scale)
+    return length_mm >= MIN_DART_LENGTH_MM and area_mm2 / length_mm >= MIN_MEAN_WIDTH_MM
+
+
 def segment(frame, base, scale, center, board_radius_mm=172.0, foot=None):
     """Segment the new dart(s) in a warped frame against the warped base. See module docstring."""
     size = frame.shape[0]
     board_mask = board_disc(size, center, board_radius_mm * scale)
-    gains = illumination_gains(frame, base, board_mask)
+    gains = illumination_gains(frame, base, gain_samples(size, center, board_radius_mm * scale))
     if not all(GAIN_RANGE[0] <= gain <= GAIN_RANGE[1] for gain in gains):
         return Segmentation('large_change', gains=gains, changed_fraction=1.0)
     corrected, difference = normalised_difference(frame, base, gains)
@@ -387,13 +498,23 @@ def segment(frame, base, scale, center, board_radius_mm=172.0, foot=None):
     pieces = fragments(mask, max(3, int(round(MIN_FRAGMENT_MM2 * pixels_per_mm2))))
     pieces = [piece for piece in pieces
               if len(piece.points) >= MIN_DART_MM2 * pixels_per_mm2 or not inside_shadow(piece, corrected, base)]
+    result.fragment_count = len(pieces)
+    if len(pieces) > MAX_FRAGMENTS:
+        result.kind = 'noisy'
+        return result
     groups = FragmentGrouper(scale, foot).group(pieces)
     result.groups = groups
-    candidates = [g for g in groups if len(g.points) >= MIN_DART_MM2 * pixels_per_mm2]
+    sized = [g for g in groups if len(g.points) >= MIN_DART_MM2 * pixels_per_mm2]
+    candidates = [g for g in sized if plausible_dart(g, scale)]
+    result.implausible = len(sized) - len(candidates)
     if not candidates:
         return result
     if len(candidates) > 1:
         result.kind = 'multiple'
+        return result
+    if result.implausible >= MAX_IMPLAUSIBLE_BESIDE_DART:
+        # One dart-like group among several dart-sized non-darts: likely debris or noise, not a dart.
+        result.kind = 'noisy'
         return result
     if len(candidates[0].points) > MAX_DART_MM2 * pixels_per_mm2:
         result.kind = 'too_large'

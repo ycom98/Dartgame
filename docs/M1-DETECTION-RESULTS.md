@@ -1,6 +1,81 @@
-# M1-03 to M1-05d: synthetic detection results
+# M1-03 to M1-05e: synthetic detection results
 
 **All numbers below come from synthetic rendered scenes (`sim/`). They measure the vision code against a model of a board and darts. They are not evidence of real-board accuracy; the Thursday trial is the real gate.**
+
+## M1-05e: segmentation hardening (current)
+
+This ticket fixes the three medium defects QA found in M1-05b's `vision_segment.py` (`QA-M1-05b.md`), plus the low-severity items. It was re-gated on held-out seeds 2 and 3 (realistic and realistic + shadow, all ten mounts, 200 darts per cell, plus 50 speckle trials per cell). The comparison is against M1-05c on the **same darts**: 93–100% of trials are identical per mount and profile, and the rest are the frames the fixes target.
+
+Evidence: `qa-artifacts/M1-05e-detection.json`. It holds the gate cells, the M1-05c speckle baseline on identical trials, the unloaded timing, and the warped-board speck stress test.
+
+### What changed (`vision_segment.py`, `vision.py`)
+
+- **D-A, cache keys.** The "already apart" cache now uses a per-Blob serial number that is never reused. A test compares grouping on 40 random fragment sets with an uncached reference. That test fails when the key is switched back to `id()`.
+- **D-B, cost.**
+  - More than 40 fragments is a `noisy` scene ("Too many small changes…", no proposal); synthetic dart frames have at most 8.
+  - Each Blob caches its bounding box, principal axis and per-direction extents.
+  - Two fragments without a core only join when they touch, so speck pairs are rejected from bounding boxes alone.
+  - The board-disc mask and gain-sample indices are cached, and the channel maximum uses OpenCV.
+  - Results are unchanged by the caching.
+- **D-C, plausibility.** A dart candidate must have:
+  - a core fragment ≥ 50 mm² holding ≥ 15% of its pixels;
+  - length ≥ 15 mm;
+  - mean width (area / length) ≥ 2 mm.
+
+  Only groups with a core join fragments across a gap, so specks are no longer chained. One plausible candidate beside two or more dart-sized implausible groups is `noisy`. On grazing views the warp stretches a 3–4 mm fleck to dart size, but such flecks rarely come alone.
+
+  All thresholds were set on seed 1 (accepted darts: core ≥ 62 mm² and ≥ 26%, length ≥ 17 mm off near-frontal, mean width ≥ 3.3 mm). The noisy rule was added after the first held-out run showed single flecks passing on grazing views. It was chosen on seed-1 speckle and dart trials, where no dart result changed, before this final held-out run.
+- **Low-severity items:**
+  - `vision.segmentation` is cleared on `reset_base()` and `invalidate()`;
+  - the 200 mm change radius is documented as also being the large-change denominator (12% ≈ 15,100 mm²; it was ≈ 11,200 mm² at 172 mm);
+  - `refine_tip`'s 1.5 px tolerance has a comment;
+  - `inside_shadow`'s docstring now says it tests brightness only.
+- **Harness.** New `--speckle-trials`: an empty board plus 5–40 random-colour flecks of radius 0.8–2 mm, with no dart. Any proposal is false.
+
+### Results, held-out seeds 2+3
+
+| | M1-05c segmentation | **M1-05e** |
+|---|---|---|
+| Speckle false proposals (realistic, 10 mounts, 1,000 trials) | 118 (top 24, right 18, bottom 16, left 14, ceiling-1.5ft 12, …) | **7** (at most 3 per 100 on any mount) |
+| QA scene: 20 isolated red specks, 30 boards | 9 of 30 "darts" (QA) | 0 of 30 (test) |
+| Warped-board stress, 10 / 20 / 40 random specks (30 boards each) | 17 / 1 / 2 "darts" | 0 / 1 / 0 |
+| `segment()` worst case, unloaded | 156 ms at 39 specks, 0.6 s at 100, 1.9 s at 200 | 84 ms (any count; > 40 fragments are `noisy` at about 45 ms) |
+| Empty-board false proposals (exposure drift) | 0 | 0 of 3,000 (first M1-05e run) |
+
+#### Exact score (no-proposal), M1-05c → M1-05e
+
+| Mount | realistic | realistic + shadow |
+|---|---|---|
+| top | 95.8 → **95.8%** (1.0 → 1.0%) | 90.3 → **92.5%** (5.2 → 3.0%) |
+| bottom | 95.5 → **95.8%** (0.8 → 0.5%) | 86.8 → **87.8%** (3.5 → 2.5%) |
+| left | 96.0 → **96.5%** (2.0 → 1.5%) | 89.0 → **90.5%** (6.0 → 4.5%) |
+| right | 97.5 → **97.5%** (0.8 → 0.8%) | 87.5 → **88.5%** (2.8 → 1.8%) |
+| steep-topleft | 94.8 → **95.0%** (0.5 → 0.2%) | 92.8 → **93.3%** (1.5 → 1.0%) |
+| near-frontal (not gated) | 49.8 → 49.3% | 38.0 → 39.8% |
+| ceiling-0.5ft | 91.5 → **91.5%** | 76.0 → **79.5%** (10.8 → 5.8%) |
+| **ceiling-1.5ft** | 95.0 → **95.2%** (1.2 → 1.0%) | 90.3 → **91.5%** (3.8 → 2.5%) |
+| ceiling-2ft | 91.5 → **91.5%** | 88.2 → **90.0%** (4.8 → 3.0%) |
+| ceiling-3ft | 82.0 → **82.2%** | 78.5 → **81.8%** (4.5 → 1.2%) |
+| pooled, gated | 95.9 → **96.1%** | 89.2 → **90.5%** |
+
+- **No regression.** Realistic is equal or better on every gated and ceiling mount, and **all five gated mounts are now ≥ 95.0%** (steep-topleft exactly 95.0%, 380 of 400).
+- **Realistic + shadow improves on every mount.** Shadow speckle groups that used to make a second candidate are now implausible, which cuts no-proposal by 1–5 points. Left (4.5%) now meets the 5% no-proposal target. Near-frontal (7.3%) and ceiling-0.5ft (5.8%) do not.
+- **Ideal** was not re-run after the last rule; that rule can only remove proposals. In the first M1-05e run, held-out ideal was equal to or above M1-05c on every mount but one (ceiling-2ft 94.0% vs 94.2%), with 0 of 3,000 empty-board false proposals.
+
+### Timing (D-D correction)
+
+M1-05b's "60–120 ms" understated the worst case. QA measured up to 171 ms with shadow and about 1 s with many fragments. M1-05e on this container, unloaded:
+- `segment()` median 23–44 ms;
+- worst case 84 ms at 39–41 specks;
+- above 40 fragments it stops early (about 45 ms).
+
+`Vision.ingest` p95 was 46–54 ms per frame in the M1-05e gate run (4 workers on 4 CPUs).
+
+### Limits
+
+- **A lone fleck can still pass.** One dart-sized fleck on a grazing view (about 4 mm across, stretched to 15–18 mm in the warp) is indistinguishable by shape from a short dart. That is about 3 in 100 speckle trials on ceiling-0.5ft. A pose-aware minimum projected length would separate them; it is not done.
+- **Unchanged from M1-05c/d:** near-frontal (not gated) remains at about 50%, and hidden tips under earlier darts mostly give wrong scores (M1-05d).
+- **Refit on real footage.** The plausibility thresholds come from synthetic darts and must be refit on Thursday's footage (M2-02).
 
 ## M1-05d: ceiling mounts — SYNTHETIC (the owner's planned geometry)
 
@@ -89,7 +164,7 @@ Each cell gives: tip visible / exact score.
 - 2 ft is an acceptable fallback if 1.5 ft is physically awkward (2–3.5 points lower in the harness).
 - Diffuse light near the board still matters most for the shadow case.
 
-## M1-05c: calibration refinement (current)
+## M1-05c: calibration refinement
 
 Same harness, darts and seeds as M1-05b: 200 single-dart trials per mount and seed, 1920×1080, HFOV 70°, tuned on **seed 1 only**, with seeds 2 and 3 **held out**. The segmentation is unchanged from M1-05b. The only change is that the four-click homography is refined from the image (`vision_calibrate.py`). With refinement off, the same code reproduces the M1-05b trials exactly (checked trial for trial on two cells), so the M1-05b columns below are M1-05b's own evidence.
 

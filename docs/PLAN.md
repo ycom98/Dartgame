@@ -187,6 +187,30 @@ If C1 fails but C5 passes, the product still works with "camera-assisted" scorin
      - a recommended wall distance for the Thursday trial.
   3. All existing Python tests pass; new tests cover the mounts and the occlusion harness.
 
+#### M1-05e — Segmentation hardening
+- **Why:** QA of M1-05b (QA report `QA-M1-05b.md`) found three medium defects in `vision_segment.py`. Approved by the coordinator after M1-05b QA.
+  - **D-A:** the "already apart" cache was keyed by `id()`. Ids are reused once merged blobs are freed, so some pairs were never compared: 17 % of 400 random fragment sets grouped differently.
+  - **D-B:** grouping time grew about quadratically: roughly 1 s at 200 specks.
+  - **D-C:** scattered specks with no dart could be chained into a fake dart (9 of 30 boards).
+- **Scope:**
+  - Key the cache by a per-blob serial number.
+  - Cap the fragment count (beyond it the scene is "noisy", with no proposal) and make grouping cheaper. Target worst case < 150 ms.
+  - Add dart plausibility checks: a core fragment, length, mean width and core share.
+  - Add a speckle/debris false-proposal trial to the harness.
+  - Low-severity items:
+    - clear the stale segmentation result on base reset and invalidation;
+    - document that the 200 mm change radius is also the large-change denominator;
+    - comment the pixel tolerance in `refine_tip`;
+    - correct the segmentation timing in the docs.
+- **Files:** `vision_segment.py`, `vision.py`, `sim/scene.py`, `tools/eval_detection.py`, `tools/run_detection_gate.py`, new `tests/test_segmentation_hardening.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05e-*.json`.
+- **Depends on:** M1-05d.
+- **Acceptance:**
+  1. A test compares grouping with an uncached reference and fails with the `id()` key.
+  2. Worst-case `segment()` time < 150 ms on this container (unloaded) for any number of specks.
+  3. 0 false proposals in the QA speck scenario (20 isolated specks on 30 boards). Speckle false-proposal rates are reported in the harness.
+  4. Re-run the held-out gate (seeds 2 and 3) and show no regression against M1-05c beyond noise.
+  5. All existing Python tests pass.
+
 #### M1-06 — Split the global lock; a background vision worker
 - **Why:** `server.py` holds one `RLock` across game writes, `/api/state`, image encoding and ORB `align()`. A slow alignment freezes `/api/state` polling and the TV. A pulled stream also needs a long-lived worker thread.
 - **Scope:**
