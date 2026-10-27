@@ -9,6 +9,8 @@ value replaced the camera's, at once or later), manual (no camera dart: host tap
 in at the end of a turn). The host's final value is the truth. frame_seq_before is the empty-board base
 frame the dart was detected against; frame_seq_after is the newest processed frame at commit. event_order points into events.jsonl.
 Tags (wire, stacked, bounce, miss, occluded, bump) are added by hand afterwards.
+Score detection accuracy on detection_label, not on source: a manual dart corrected later is
+'corrected' with detection_label null.
 
 Usage: python tools/make_labels.py RECORDING_DIR
 """

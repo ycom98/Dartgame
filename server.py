@@ -84,6 +84,8 @@ def recording_state():
     return {'active':False, 'directory':last.get('directory'), 'error':last.get('error'), 'root':str(RECORDINGS_ROOT)}
 
 def free_disk_bytes():
+    """Free space where recordings go: the --record / last recording folder, else the default folder (QA Q5)."""
+    if recorder is not None: return recorder.free_bytes()
     try: return shutil.disk_usage(RECORDINGS_ROOT if RECORDINGS_ROOT.exists() else ROOT).free
     except OSError: return None
 
@@ -94,15 +96,18 @@ def start_recording(directory=None, notes=None):
     if recorder is not None and recorder.active: return recorder
     directory = Path(directory) if directory else RECORDINGS_ROOT / time.strftime('%Y%m%d-%H%M%S')
     candidate = recording.Recorder(directory, lambda: worker.source)
+    listeners = app.events.listeners
+    def unhook(stopped):  # however the recording ends (stop, write error, disk guard)
+        if stopped.match_event in listeners: listeners.remove(stopped.match_event)
+    candidate.on_stop = unhook
     worker.call(lambda v: candidate.start(v, notes))  # instruments vision under its lock
-    app.events.listeners.append(candidate.match_event)
+    listeners.append(candidate.match_event)
     recorder = candidate
     return recorder
 
 def stop_recording(reason=None):
     if recorder is None or not recorder.active: return
     worker.call(lambda v: recorder.stop(reason))
-    if recorder.match_event in app.events.listeners: app.events.listeners.remove(recorder.match_event)
 
 class App:
     def __init__(self, token=None):
@@ -114,13 +119,14 @@ class App:
     def game_state(self):
         with self.game_lock:
             return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
-                    'camera_game':self.camera_game, 'display':self.game.hints() if self.game else None}
+                    'camera_game':self.camera_game, 'display':self.game.hints() if self.game else None,
+                    'turn_over':self.game.turn_over() if self.game else False}
     def state(self):
         game = self.game_state()
         return {'game':game['game'], 'revision':game['revision'],
                 'presentation_path':'/play?t='+self.display_token,
                 'display':game['display'],  # the game mode's layout hints for /play and /control (M1-15)
-                'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view(),
+                'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view(game['turn_over']),
                 'recording':recording_state()}
 
 app = App()
@@ -295,37 +301,46 @@ def game_write(path, body):
         proposal_id = body['proposal_id'] if accept else body['replaces_proposal_id']
         if not isinstance(proposal_id,str): raise ValueError('proposal id must be a string')
         replacement = None if accept else (body.get('value'), body.get('multiplier',1))
-        commit_camera_dart(proposal_id, 'accepted' if accept else 'corrected', replacement, body['expected_revision'])
+        seen_label = body.get('label') if accept else None
+        if seen_label is not None and not isinstance(seen_label, str): raise ValueError('label must be a string')
+        commit_camera_dart(proposal_id, 'accepted' if accept else 'corrected', replacement, body['expected_revision'],
+                           seen_label)
         return None
     with app.game_lock:
         check_revision(body)
         if app.game is None: raise ValueError('Start a game first')
         g = app.game
         before = g.snapshot()
+        # The game changes and the revision moves first; the event is logged after (QA Q2: a failing log
+        # listener must never leave a write half-applied).
         if path == '/api/throw':
             g.throw(body.get('value'),body.get('multiplier',1))
-            app.events.add('commit', source='manual', dart=last_dart(g), proposal=None, **turn_info(before))
+            event = ('commit', dict(source='manual', dart=last_dart(g), proposal=None, **turn_info(before)))
         elif path == '/api/next':
             # The published state, as /api/state shows it: no refusal while the UI says Ready (QA D3).
             if app.camera_game and (vision is None or not vision.current_state()['verified']):
                 raise ValueError('Reconnect camera, align board and verify the overlay before next turn')
             g.next_turn()
-            app.events.add('next', **turn_info(before))
+            event = ('next', turn_info(before))
         elif path == '/api/undo':
             g.undo()
-            app.events.add('undo', after={'turn':g.data['turn'], 'player':g.data['player'], 'darts':g.data['darts']},
-                           **turn_info(before))
+            event = ('undo', dict(after={'turn':g.data['turn'], 'player':g.data['player'], 'darts':g.data['darts']},
+                                  pending_camera_dart_kept=app.flow.pending is not None, **turn_info(before)))
         elif path == '/api/correct':
             index = body.get('dart_index')
             dropped = g.correct(index, body.get('value'), body.get('multiplier',1))
-            app.events.add('correct', before=before['darts'][index], after=g.data['darts'][index],
-                           dropped_later_darts=dropped, **turn_info(before, index))
+            event = ('correct', dict(before=before['darts'][index], after=g.data['darts'][index],
+                                     dropped_later_darts=dropped, **turn_info(before, index)))
         else:
             count = g.fill_misses()
-            app.events.add('fill_misses', count=count, **turn_info(before))
+            event = ('fill_misses', dict(count=count, **turn_info(before)))
         app.revision += 1
-    # The new empty-board image is taken on the worker; the reply does not wait for it.
-    if vision is not None and path in ('/api/throw', '/api/next', '/api/undo'): worker.submit(reset_base_if_ready)
+        app.events.add(event[0], **event[1])
+    # The new empty-board image is taken on the worker; the reply does not wait for it. Not after an undo
+    # while a camera dart is pending: that dart would become part of the empty board (QA Q5).
+    pending_kept = path == '/api/undo' and app.flow.pending is not None
+    if vision is not None and path in ('/api/throw', '/api/next', '/api/undo') and not pending_kept:
+        worker.submit(reset_base_if_ready)
     return None
 
 def check_revision(body):
@@ -340,7 +355,7 @@ def turn_info(snapshot, dart_index=None):
 def last_dart(game):
     return dict(game.data['darts'][-1]) if game.data['darts'] else None
 
-def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=None):
+def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=None, seen_label=None):
     """Commit the pending camera dart `proposal_id` (accepted / auto), or the host's tapped value in its
     place (corrected). Raises Conflict if that dart is no longer the pending one."""
     if vision is None: raise ValueError('No fresh calibrated proposal available')
@@ -353,6 +368,8 @@ def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=
             if app.game is None: raise ValueError('Start a game first')
             if pending is None or pending['id'] != proposal_id:
                 raise Conflict('Proposal changed. Check the board and the current camera dart.')
+            if seen_label is not None and pending['label'] != seen_label:  # a near-wire label flipped (QA Q4)
+                raise Conflict(f"The camera now reads {pending['label']}, not {seen_label}. Check the dart.")
             if source != 'corrected' and app.camera_game and not vision.verified():
                 raise ValueError('Verify the current live overlay before confirming a camera score')
             g = app.game
@@ -360,10 +377,10 @@ def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=
             value, multiplier = replacement or (pending['value'], pending['multiplier'])
             g.throw(value, multiplier)
             app.revision += 1
+            app.flow.close(proposal_id)  # before anything that could fail: never commit this dart twice (QA Q2)
             proposal = {key:val for key,val in pending.items() if key != 'seen_at'}
             app.events.add('commit', source=source, dart=last_dart(g), proposal=proposal,
                            frame_seq=worker.last_source_seq, **turn_info(before))
-        app.flow.close(proposal_id)
         reset_base_if_ready(vision)
     finally:
         vision.publish(); app.flow.observe(vision)

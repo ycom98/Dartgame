@@ -633,7 +633,7 @@ act('newGame', async () => {
     camera: $('cameraGame').checked,
   });
 });
-act('confirm', () => api('throw', {proposal_id: state?.camera?.pending?.id}));
+act('confirm', () => api('throw', {proposal_id: state?.camera?.pending?.id, label: state?.camera?.pending?.label}));
 act('manual', () => api('throw', {value: +$('value').value, multiplier: +$('multiplier').value}));
 act('undo', () => api('undo', {}));
 act('next', () => api('next', {}));

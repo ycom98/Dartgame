@@ -69,6 +69,8 @@ class Recorder:
         self.stop_event = threading.Event()
         self.notes = {}
         self.order = 0
+        self.files = {}
+        self.on_stop = None                   # called once when recording ends for any reason (server unhooks)
 
     # ---- lifecycle ---------------------------------------------------------------------
     def start(self, vision=None, notes=None):
@@ -77,19 +79,29 @@ class Recorder:
         free = self.free_bytes()
         if free is not None and free < self.min_free_bytes:
             raise ValueError(f'Not recording: only {free / 1024 ** 3:.1f} GB free (needs 5 GB)')
-        (self.directory / 'frames').mkdir(parents=True, exist_ok=True)
-        self.files = {name: open(self.directory / name, 'a', encoding='utf-8')
-                      for name in ('frames.jsonl', 'processed.jsonl', 'events.jsonl')}
+        try:
+            (self.directory / 'frames').mkdir(parents=True, exist_ok=True)
+            self.files = {name: open(self.directory / name, 'a', encoding='utf-8')
+                          for name in ('frames.jsonl', 'processed.jsonl', 'events.jsonl')}
+        except OSError as error:
+            self.close_files()
+            raise ValueError(f'Cannot record to {self.directory}: {error}') from error
         self.active = True
         self.started_at = time.time()
         self.notes = dict(notes or {})
         source = self.get_source()
         # Include the newest frame already received: vision may be about to process it.
         self.last_written_seq = max(source.seq - 1, 0) if source is not None else 0
+        try:
+            if vision is not None:
+                self.save_start_state(vision)
+            self.write_session()
+        except OSError as error:
+            self.active = False
+            self.close_files()
+            raise ValueError(f'Cannot record to {self.directory}: {error}') from error
         if vision is not None:
             self.instrument(vision)
-            self.save_start_state(vision)
-        self.write_session()
         self.event('recording_started', directory=str(self.directory))
         self.stop_event.clear()
         self.thread = threading.Thread(target=self.run, name='recorder', daemon=True)
@@ -97,21 +109,56 @@ class Recorder:
         return self
 
     def stop(self, reason=None):
-        if not self.active:
-            return
-        self.event('recording_stopped', reason=reason)
-        self.active = False
+        """Stop recording. Safe to call more than once and from any thread; never raises (QA Q2)."""
+        with self.lock:
+            if not self.active:
+                return
+            self.active = False
+            try:
+                self.order += 1
+                stopped = {'order': self.order, 'ts': round(time.time(), 3), 'type': 'recording_stopped',
+                           'after_seq': self.last_processed_seq, 'reason': reason}
+                self.files['events.jsonl'].write(json.dumps(json_safe(stopped)) + '\n')
+            except (OSError, ValueError):
+                pass
+            self.close_files()
+        self.finish(reason)
+
+    def fail(self, reason):
+        """A write failed (disk full, drive unplugged...): stop at once and report why. Never raises."""
+        with self.lock:
+            if not self.active:
+                return
+            self.active = False
+            self.close_files()
+        print('Recording stopped: ' + reason, flush=True)
+        self.finish(reason)
+
+    def close_files(self):
+        for handle in self.files.values():
+            try:
+                handle.close()
+            except OSError:
+                pass
+
+    def finish(self, reason):
         self.stop_event.set()
         if self.thread is not None and self.thread is not threading.current_thread():
             self.thread.join(5)
         self.uninstrument()
-        with self.lock:
-            for handle in self.files.values():
-                handle.close()
         self.stopped_at = time.time()
         if reason:
             self.error = reason
-        self.write_session()
+        try:
+            self.write_session()
+        except Exception:  # best effort: the recording has already stopped
+            pass
+        callback, self.on_stop = self.on_stop, None
+        if callback is not None:
+            try:
+                callback(self)
+            except Exception:
+                pass
 
     def free_bytes(self):
         path = self.directory
@@ -132,17 +179,24 @@ class Recorder:
 
     # ---- files -------------------------------------------------------------------------
     def append(self, name, record):
+        """Write one line. A write error stops the recording; it never reaches the caller (QA Q2)."""
+        failure = None
         with self.lock:
-            if not self.active and name != 'events.jsonl':
+            if not self.active:
                 return
             handle = self.files.get(name)
             if handle is None or handle.closed:
                 return
-            if name == 'events.jsonl':
-                self.order += 1
-                record = {'order': self.order, **record}
-            handle.write(json.dumps(json_safe(record), allow_nan=False) + '\n')
-            handle.flush()
+            try:
+                if name == 'events.jsonl':
+                    self.order += 1
+                    record = {'order': self.order, **record}
+                handle.write(json.dumps(json_safe(record), allow_nan=False) + '\n')
+                handle.flush()
+            except (OSError, ValueError, TypeError) as error:
+                failure = f'Recording stopped: could not write {name} ({error})'
+        if failure:
+            self.fail(failure)
 
     def event(self, kind, **fields):
         self.append('events.jsonl', {'ts': round(time.time(), 3), 'type': kind,
@@ -239,6 +293,13 @@ class Recorder:
 
     # ---- frame writer ------------------------------------------------------------------
     def run(self):
+        try:
+            self.write_frames_until_stopped()
+        except Exception as error:  # the writer must not die silently (QA Q3)
+            threading.Thread(target=self.fail, args=(f'Recording stopped: frame writer failed ({error})',),
+                             daemon=True).start()
+
+    def write_frames_until_stopped(self):
         last_disk_check = 0.0
         while not self.stop_event.wait(0.02):
             source = self.get_source()
@@ -248,7 +309,7 @@ class Recorder:
                 last_disk_check = time.monotonic()
                 free = self.free_bytes()
                 if free is not None and free < self.min_free_bytes:
-                    threading.Thread(target=self.stop, args=(
+                    threading.Thread(target=self.fail, args=(
                         f'Recording stopped: less than {self.min_free_bytes / 1024 ** 3:.0f} GB free on the disk',),
                         daemon=True).start()
                     return
