@@ -12,8 +12,8 @@
 /* Tap-the-board scoring on the host controller (M1-11). Host-only; /play is unaffected. */
 .host .tap-board{margin:14px 0 6px}
 .host .tap-board svg{display:block;width:100%;max-width:520px;margin:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.host .tap-board .hit-region{fill:#000;fill-opacity:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.host .tap-board .hit-region:hover{fill:#fff;fill-opacity:.12}
+.host .tap-board .hit-region{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.host .tap-board .hit-region:hover{filter:brightness(1.25)}
 .host .tap-board .tap-flash{fill:#e7c77d!important;transition:none}
 .host .tap-board.disabled .hit-region{cursor:default;pointer-events:none}
 .host .tap-board.disabled svg{opacity:.55}
@@ -33,3 +33,22 @@
 .host .dart-chip.selected{outline:3px solid var(--gold)}
 .host .dart-chip.filled{font-style:italic}
 .host .tap-board .pending-marker{fill:none;stroke:#ffe27a;stroke-width:4;pointer-events:none}
+
+/* QA M1-11: nothing above the tap board changes height during a turn, so the board never moves under a finger. */
+.host .turn-darts{min-height:44px;flex-wrap:nowrap;overflow-x:auto}
+.host .dart-chip{flex:0 0 auto;height:44px;padding:0 12px;line-height:1}
+.host #tap-hint{min-height:2.6em;margin:4px 0}
+.host #notice{position:fixed;left:0;right:0;bottom:0;z-index:5;margin:0;min-height:0;padding:10px 16px;
+  background:#2b1715ee;border-top:1px solid #efb3a955;pointer-events:none;font-size:13px}
+.host #notice:empty{display:none}
+
+/* Host controller on a phone: compact match status instead of the full scoreboard (live demo finding). */
+.host .compact-status{display:none}
+@media(max-width:700px){
+  .host .control-layout .preview{display:none}
+  .host .compact-status{display:block;border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0}
+  .host .compact-player{display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)}
+  .host .compact-player.current{color:var(--ink);font-weight:700}
+  .host .compact-player strong{font-variant-numeric:tabular-nums}
+  .host .compact-darts{margin-top:6px;font-size:13px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}

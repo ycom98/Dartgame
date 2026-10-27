@@ -444,7 +444,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     if args.recording:
-        print('--recording is not implemented yet (planned for M1-14).', file=sys.stderr)
+        print('--recording is not implemented here: use tools/replay_recording.py RECORDING_DIR (M1-14).', file=sys.stderr)
         return 2
     mounts = [m.strip() for m in args.mounts.split(',') if m.strip()]
     unknown = [m for m in mounts if m not in MOUNTS]

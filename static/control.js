@@ -30,53 +30,148 @@
       - otherwise: record a manual dart (also how a missed detection is entered).
     Camera darts auto-accept on the server after a few seconds unless corrected or paused (owner decision #1). */
  let correcting=null,polledAt=performance.now();
- const MM_TO_BOARD=194/170;
  const pending=()=>state?.camera_game?state.camera?.pending||null:null;
- function tapAllowed(){const g=state?.game;if(!g||busy||Date.now()<entryReadyAt)return false;if(correcting!==null)return correcting<g.darts.length;return !done()&&g.winner===null;}
+ function tapAllowed(){
+  const g=state?.game;
+  if(!g||busy||Date.now()<entryReadyAt)return false;
+  if(correcting!==null)return correcting<g.darts.length;
+  return !done()&&g.winner===null;
+ }
  function tapScore(value,multiplier,key){
   if(!tapAllowed())return;
   if(key)DartBoard.flash($('#tap-board'),key);
   const text=value===0?'Miss':DartBoard.label(value,multiplier);
-  if(correcting!==null){const index=correcting;correcting=null;$('#tap-feedback').textContent='Dart '+(index+1)+' corrected to '+text;mutate('/api/correct',{dart_index:index,value,multiplier});return;}
+  if(correcting!==null){
+   const index=correcting;
+   correcting=null;
+   $('#tap-feedback').textContent='Dart '+(index+1)+' corrected to '+text;
+   mutate('/api/correct',{dart_index:index,value,multiplier});
+   return;
+  }
   const p=pending();
   if(p){$('#tap-feedback').textContent=text+' (instead of camera '+p.label+')';mutate('/api/throw',{value,multiplier,replaces_proposal_id:p.id});return;}
   $('#tap-feedback').textContent=text;mutate('/api/throw',{value,multiplier});
  }
  DartBoard.tapBoard($('#tap-board'),tapScore);
  $('#miss').onclick=()=>tapScore(0,1,null);
- $('#accept').onclick=()=>{const p=pending();if(p&&!busy)mutate('/api/throw',{proposal_id:p.id});};
+ // Accept names the value the host saw: a near-wire label that flipped since then gives 409 (QA Q4).
+ $('#accept').onclick=()=>{
+  const p=pending();
+  if(p&&!busy&&!p.turn_over)mutate('/api/throw',{proposal_id:p.id,label:p.label});
+ };
  $('#auto-pause').onclick=()=>{if(!busy)mutate('/api/camera/auto_commit',{paused:!state.camera.auto_commit.paused},false);};
  $('#end-turn').onclick=()=>{if(!busy)mutate('/api/turn/fill_misses',{});};
  function dartText(d){return d.value===0?(d.filled?'Miss · filled in':'Miss'):DartBoard.label(d.value,d.multiplier);}
+ function chip(d,i){
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='dart-chip'+(correcting===i?' selected':'')+(d.filled?' filled':'');
+  b.textContent='Dart '+(i+1)+': '+dartText(d);
+  b.setAttribute('aria-pressed',String(correcting===i));
+  b.onclick=()=>{correcting=correcting===i?null:i;paint();};
+  return b;
+ }
+ function pendingText(p){
+  if(!p){
+   if(state.vision?.verified)return 'Camera: watching for the next dart';
+   return 'Camera: not ready ('+(state.vision?.message||'check the setup page')+')';
+  }
+  let text='Camera: '+p.label+' ('+p.score+')';
+  if(p.near_wire)text+=' · near a wire, check it';
+  if(p.label_changes)text+=' · value changed, check it';
+  if(p.turn_over)return text+' · turn is over: Undo, End turn or Next player';
+  if(p.commit_in==null)return text+' · waiting for Accept';
+  const left=Math.max(0,p.commit_in-(performance.now()-polledAt)/1000);
+  return text+' · auto-accept in '+left.toFixed(1)+' s';
+ }
+ // Compact match status for phones, where the full scoreboard is hidden (live demo finding).
+ function compactStatus(g){
+  const box=$('#compact-status');
+  if(!g){box.replaceChildren();return;}
+  const rows=g.names.map((name,i)=>{
+   const row=document.createElement('div');
+   row.className='compact-player'+(i===g.player?' current':'');
+   const who=document.createElement('span');
+   who.textContent=(i===g.player?'▶ ':'')+name;
+   const left=document.createElement('strong');
+   left.textContent=g.scores?g.scores[i]:'';
+   row.append(who,left);
+   return row;
+  });
+  const darts=document.createElement('div');
+  darts.className='compact-darts';
+  darts.textContent='This turn: '+([0,1,2].map(i=>g.darts[i]?dartText(g.darts[i]):'—').join(' · '))+
+   (g.bust?' · BUST':'')+(g.winner!==null?' · '+g.names[g.winner]+' wins':'');
+  box.replaceChildren(...rows,darts);
+ }
  function paintCamera(full=true){
+  compactStatus(state?.game);
   const g=state?.game,p=pending(),camera=!!state?.camera_game;
   // Committed darts of this turn: tap one, then tap the board to correct it.
   const chips=$('#turn-darts'),signature=JSON.stringify([g?.darts,correcting]);
-  if(full&&signature!==chips.dataset.signature){chips.dataset.signature=signature;chips.replaceChildren();
-  if(g){g.darts.forEach((d,i)=>{const b=document.createElement('button');b.type='button';b.className='dart-chip'+(correcting===i?' selected':'')+(d.filled?' filled':'');
-   b.textContent='Dart '+(i+1)+': '+dartText(d);b.setAttribute('aria-pressed',String(correcting===i));
-   b.onclick=()=>{correcting=correcting===i?null:i;paint();};chips.append(b);});}}
+  if(full&&signature!==chips.dataset.signature){
+   chips.dataset.signature=signature;
+   chips.replaceChildren(...(g?g.darts.map(chip):[]));
+  }
   if(correcting!==null&&(!g||correcting>=g.darts.length))correcting=null;
   $('#tap-hint').textContent=correcting!==null?'Tap the board (or Miss) to correct dart '+(correcting+1)+'. Tap the chip again to cancel.':
    p?'Camera dart pending. Tap the board to enter a different value instead.':'Tap where the dart landed.';
   $('#camera-panel').hidden=!camera;
   if(camera){
-   const auto=state.camera.auto_commit,left=p&&p.commit_in!=null?Math.max(0,p.commit_in-(performance.now()-polledAt)/1000):null;
-   $('#pending').textContent=p?'Camera: '+p.label+' ('+p.score+')'+(p.near_wire?' · near a wire, check it':'')+(left!==null?' · auto-accept in '+left.toFixed(1)+' s':' · waiting for Accept'):
-    state.vision?.verified?'Camera: watching for the next dart':'Camera: not ready ('+(state.vision?.message||'check the setup page')+')';
+   const auto=state.camera.auto_commit;
+   $('#pending').textContent=pendingText(p);
    $('#pending').classList.toggle('active',!!p);
-   $('#accept').hidden=!p;$('#accept').disabled=busy;
-   $('#auto-status').textContent=!auto.enabled?'Auto-accept is off (--auto-commit 0).':auto.paused?'Auto-accept paused: camera darts wait for Accept.':'Camera darts auto-accept after '+auto.seconds+' s.';
-   $('#auto-pause').hidden=!auto.enabled;$('#auto-pause').textContent=auto.paused?'Resume auto-accept':'Pause auto-accept';$('#auto-pause').disabled=busy;
+   $('#accept').hidden=!p||p.turn_over;
+   $('#accept').disabled=busy;
+   $('#auto-status').textContent=!auto.enabled?'Auto-accept is off (--auto-commit 0).':
+    auto.paused?'Auto-accept paused: camera darts wait for Accept.':'Camera darts auto-accept after '+auto.seconds+' s.';
+   $('#auto-pause').hidden=!auto.enabled;
+   $('#auto-pause').textContent=auto.paused?'Resume auto-accept':'Pause auto-accept';
+   $('#auto-pause').disabled=busy;
   }
-  $('#end-turn').hidden=!camera||!g||g.winner!==null||g.bust||g.darts.length>=3||!!p;$('#end-turn').disabled=busy;
-  // Pending dart marker on the tap board (board mm -> board picture units).
+  $('#end-turn').hidden=!camera||!g||g.winner!==null||g.bust||g.darts.length>=3||!!p;
+  $('#end-turn').disabled=busy;
+  // Pending dart marker on the tap board (board mm -> tap board picture units).
   const markers=$('#tap-board .markers');
-  if(markers){markers.innerHTML=p&&p.x!=null?`<circle class="pending-marker" cx="${220+p.x*MM_TO_BOARD}" cy="${220+p.y*MM_TO_BOARD}" r="9"/>`:'';}
+  if(markers){
+   const at=p&&p.x!=null?DartBoard.tapPoint(p.x,p.y):null;
+   markers.innerHTML=at?`<circle class="pending-marker" cx="${at[0]}" cy="${at[1]}" r="9"/>`:'';
+  }
  }
  setInterval(()=>{if(pending())paintCamera(false);},200);
  $('#undo').onclick=()=>mutate('/api/undo',{},false);$('#next').onclick=()=>mutate('/api/next',{},false);
  $('#cancel').onclick=()=>{pausedRevision=state.revision;cancel();$('#handoff').textContent='Handoff paused. Review the turn, then choose Next player.';};
  $('#auto').onchange=()=>{pausedRevision=null;schedule();};$('#new-game').onclick=()=>{cancel();pausedRevision=state.revision;showSetup=true;paint();$('#start').focus();};
- async function poll(){checking=true;try{const fresh=await DartRoom.request('/api/state');lastHealthy=Date.now();DartRoom.connection('CONNECTED · HOST');if(!busy&&(!state||fresh.revision>state.revision)){if(state&&!fresh.camera_game){cancel();pausedRevision=fresh.revision;notice('Match updated. Review the current turn before continuing.');}state=fresh;paint();if(fresh.camera_game)schedule();}else if(!busy&&fresh.revision===state.revision){state=fresh;polledAt=performance.now();paint();}}catch(e){cancel();pausedRevision=state?.revision;DartRoom.connection(e.status===401?'PAIRING LINK REQUIRED':'CONNECTION LOST');notice(e.status===401?'Open the full private controller link printed by the host.':'Connection lost. Automatic handoff is paused.');}finally{checking=false;setTimeout(poll,state?.camera_game?400:1000);}}poll();
+ async function poll(){
+  checking=true;
+  try{
+   const fresh=await DartRoom.request('/api/state');
+   lastHealthy=Date.now();
+   DartRoom.connection('CONNECTED · HOST');
+   if(!busy&&(!state||fresh.revision>state.revision)){
+    // Camera games change the match on their own (auto-accept): no review notice for those.
+    if(state&&!fresh.camera_game){
+     cancel();
+     pausedRevision=fresh.revision;
+     notice('Match updated. Review the current turn before continuing.');
+    }
+    state=fresh;
+    paint();
+    if(fresh.camera_game)schedule();
+   }else if(!busy&&fresh.revision===state.revision){
+    state=fresh;
+    polledAt=performance.now();
+    paint();
+   }
+  }catch(e){
+   cancel();
+   pausedRevision=state?.revision;
+   DartRoom.connection(e.status===401?'PAIRING LINK REQUIRED':'CONNECTION LOST');
+   notice(e.status===401?'Open the full private controller link printed by the host.':'Connection lost. Automatic handoff is paused.');
+  }finally{
+   checking=false;
+   setTimeout(poll,state?.camera_game?400:1000);
+  }
+ }
+ poll();
 })();
