@@ -35,9 +35,9 @@ def load_frame(directory, file):
     return fit_frame(frame)
 
 
-def restore_start(vision, directory):
-    """Recording started after calibration: begin from the saved calibration."""
-    start = Path(directory) / 'start'
+def restore_start(vision, directory, folder='start'):
+    """Recording (or a resumed part, start-N/) started mid-session: begin from the state saved then."""
+    start = Path(directory) / folder
     if (start / 'frame.png').exists():  # the frame vision held when recording started
         vision.frame = cv2.imread(str(start / 'frame.png'), cv2.IMREAD_COLOR)
         vision.timestamp = time.time()
@@ -96,18 +96,26 @@ def replay(directory):
     files = {record['seq']: record['file'] for record in read_jsonl(directory / 'frames.jsonl')}
     processed = read_jsonl(directory / 'processed.jsonl')
     events = sorted(read_jsonl(directory / 'events.jsonl'), key=lambda e: e['order'])
-    actions = [e for e in events if e['type'] == 'vision']
+    # Vision actions, and the start of each resumed part (the server restarted: vision begins again from start-N/).
+    actions = [e for e in events if e['type'] == 'vision' or (e['type'] == 'recording_started' and e.get('part', 1) > 1)]
     vision = Vision()
     restored = restore_start(vision, directory)
+    parts_restored = 0
     snapshot_ids = {}
     action_index = 0
     action_mismatches = []
 
     def run_actions_up_to(seq):
-        nonlocal action_index
+        nonlocal action_index, vision, parts_restored
         while action_index < len(actions) and (actions[action_index].get('after_seq') is None and seq is None or
                                                actions[action_index].get('after_seq') == seq):
             event = actions[action_index]
+            if event['type'] == 'recording_started':
+                vision = Vision()
+                restore_start(vision, directory, event.get('start') or f"start-{event['part']}")
+                parts_restored += 1
+                action_index += 1
+                continue
             ok, error = apply_action(vision, event, snapshot_ids)
             if ok != event['ok']:
                 action_mismatches.append({'order': event['order'], 'action': event['action'], 'live_ok': event['ok'],
@@ -128,7 +136,8 @@ def replay(directory):
         run_actions_up_to(seq)
     return {'frames_processed': len(processed), 'frames_missing': missing, 'detection_mismatches': mismatches,
             'identical': not mismatches and not missing and not action_mismatches,
-            'vision_actions': len(actions), 'action_mismatches': action_mismatches, 'started_from_saved_calibration': restored}
+            'vision_actions': len(actions), 'action_mismatches': action_mismatches, 'started_from_saved_calibration': restored,
+            'resumed_parts': parts_restored}
 
 
 def score(labels):

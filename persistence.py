@@ -6,7 +6,8 @@ calibration.json  the four-point calibration (reference homography and points, i
 reference.png     the frozen calibration image, for the alignment check after a restart
 
 A corrupt match.json is renamed to match.corrupt-<time>.json and the server starts with no match.
-Pairing tokens are never saved. Calibration needs OpenCV; the match does not.
+links.json        the controller and display tokens (mode 600), so the phone and TV links survive a restart
+                  (--new-links or --fresh makes new ones). Calibration needs OpenCV; the match does not.
 """
 import json
 import os
@@ -141,3 +142,29 @@ def load_calibration(vision, directory):
     vision.aligned = False
     vision.message = 'Saved calibration loaded. Waiting for the camera to check the board position.'
     return data
+
+
+def load_links(directory):
+    """The saved (controller token, display token), or None. They stay valid across restarts (QA M1-17 #2)."""
+    try:
+        data = json.loads((Path(directory) / 'links.json').read_text(encoding='utf-8'))
+        token, display = data['token'], data['display_token']
+        if all(isinstance(t, str) and len(t) >= 16 and t.isascii() for t in (token, display)) and token != display:
+            return token, display
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
+def save_links(directory, token, display_token):
+    """Owner-only file (mode 600) on the host Mac; --new-links or --fresh replaces it."""
+    path = Path(directory) / 'links.json'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name('links.json.tmp')
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+        handle.write(json.dumps({'token': token, 'display_token': display_token}))
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.chmod(temporary, 0o600)
+    os.replace(temporary, path)

@@ -41,7 +41,7 @@ recorder = None
 worker = VisionWorker(lambda: vision)
 # After every published vision state, update the pending camera dart of the current app (M1-12).
 worker.after_publish = lambda v: app.flow.observe(v)
-worker.after_ingest = lambda v, seq: recorder.on_ingest(v, seq) if recorder is not None else None
+worker.after_ingest = lambda v, seq, source: recorder.on_ingest(v, seq, source) if recorder is not None else None
 AUTO_COMMIT_SECONDS = DEFAULT_AUTO_COMMIT_SECONDS
 
 # Lock order (M1-06): app.game_lock protects only the game, revision and camera_game. vision.lock may be
@@ -127,6 +127,48 @@ def restore_calibration():
             print('Board position check after restart failed: '+str(error), flush=True)
     threading.Thread(target=check_when_camera_ready, name='calibration-recheck', daemon=True).start()
 
+# After a stream drop (or a large scene change) the board is re-checked automatically. Ready comes back without
+# a tap only if the markers land within AUTO_READY_PX of where the host last verified them (QA M1-17 #3, C9);
+# otherwise the host is asked to check the overlay on the Mac. main() turns this on.
+AUTO_READY_PX = 3.0
+board_recheck_thread = None
+
+def board_recheck_loop():
+    last_verified, tried_version, retry_at = None, None, 0.0
+    while True:
+        time.sleep(0.5)
+        v = vision
+        if v is None: continue
+        try:
+            state = v.current_state()
+            if state['verified']:
+                last_verified, tried_version = state['overlay'], None
+                continue
+            if (state['phase'] != 'needs_alignment' or not state['fresh'] or last_verified is None
+                    or (state['version'] == tried_version and time.monotonic() < retry_at)):
+                continue
+            tried_version, retry_at = state['version'], time.monotonic() + 2.0
+            worker.call(lambda v: recheck_board(v, last_verified))
+        except Exception as error:  # keep watching; the host can always realign by hand
+            print('Automatic board check failed: '+str(error), flush=True)
+
+def recheck_board(v, verified_overlay):
+    """Realign; restore readiness only if the board has not moved since it was verified. Returns True if ready."""
+    import numpy as np
+    if v.reference is None or not v.fresh() or v.calibration_id: return False
+    try: v.align()
+    except ValueError:
+        v.message = 'Camera back: board check needed. On the Mac: Check / realign board, then Markers correct.'
+        return False
+    drift = float(np.max(np.linalg.norm(np.asarray(v.overlay()) - np.asarray(verified_overlay, float), axis=1)))
+    if drift <= AUTO_READY_PX:
+        v.verified_version = v.version
+        v.message = 'Camera back and the board has not moved: ready to play.'
+        return True
+    v.message = (f'Camera back, but the board moved {drift:.0f} px since it was verified. '
+                 'On the Mac: check the overlay, then Markers correct.')
+    return False
+
 def recording_state():
     """Recording status for /api/state. Free disk space is included only while recording, so an idle state
     does not change on its own (the setup page reads it from /api/record/disk)."""
@@ -164,6 +206,7 @@ class App:
     def __init__(self, token=None):
         self.token = token or secrets.token_urlsafe(24)
         self.display_token = secrets.token_urlsafe(24)
+        self.tokens_chosen = token is not None  # a caller-chosen token (tests) is never replaced by saved links
         self.game = None; self.game_lock = threading.RLock(); self.camera_game = False; self.revision = 0
         self.flow = CameraFlow(AUTO_COMMIT_SECONDS)  # pending camera dart and auto-commit (M1-12)
         self.events = EventLog()
@@ -500,12 +543,16 @@ def recheck_before_camera_game(v):
 def reset_base_if_ready(v):
     if v.aligned and v.fresh(): v.reset_base()
 
-def setup_persistence(state_file, fresh=False):
-    """Load the saved match (unless fresh) and calibration; save every later change. Returns a message."""
+def setup_persistence(state_file, fresh=False, new_links=False):
+    """Load the saved match (unless fresh), links and calibration; save every later change. Returns a message."""
     global CALIBRATION_DIR
     import persistence
     store = persistence.MatchStore(state_file)
     message = None
+    if not app.tokens_chosen:  # the phone and TV links survive restarts (QA M1-17 #2)
+        links = persistence.load_links(state_file.parent) if not (fresh or new_links) else None
+        if links: app.token, app.display_token = links
+        else: persistence.save_links(state_file.parent, app.token, app.display_token)
     if fresh and state_file.exists():
         kept = state_file.with_name(f'match.previous-{time.strftime("%Y%m%d-%H%M%S")}.json')
         os.replace(state_file, kept)
@@ -540,7 +587,12 @@ def main():
                         default=os.environ.get('DART_STATE_FILE') or str(ROOT/'.local'/'state'/'match.json'),
                         help='where the match is saved after every change (default .local/state/match.json); '
                              'the calibration is kept in the same folder')
-    parser.add_argument('--fresh',action='store_true',help='start with no match (the saved one is kept as match.previous-*.json)')
+    parser.add_argument('--fresh',action='store_true',
+                        help='start with no match (the saved one is kept as match.previous-*.json) and new links')
+    parser.add_argument('--no-auto-recheck',action='store_true',
+                        help='after a camera drop, always wait for the host to realign and verify on the Mac')
+    parser.add_argument('--new-links',action='store_true',
+                        help='make new controller and display links (the old ones stop working); keeps the match')
     parser.add_argument('--record',metavar='DIR',
                         help='record the camera stream and event log into DIR from the start (stays on this Mac)')
     parser.add_argument('--auto-commit',type=float,default=DEFAULT_AUTO_COMMIT_SECONDS,metavar='SECONDS',
@@ -561,7 +613,7 @@ def main():
     except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
     if args.https and not shutil.which('openssl'):
         parser.exit(1,'OpenSSL was not found. Install it or restore the macOS /usr/bin tools, or run without --https.\n')
-    restore_message = setup_persistence(Path(args.state_file), args.fresh)
+    restore_message = setup_persistence(Path(args.state_file), args.fresh, args.new_links)
     if args.camera:
         try: set_camera_source(args.camera)
         except ValueError as error: parser.error(f'--camera: {error}')
@@ -592,6 +644,10 @@ def main():
         print('CA SHA-256: '+certificate_info['sha256_fingerprint'],flush=True)
         print('Device trust setup: see README. Public CA helper: .venv/bin/python local_https.py serve --lan-ip '+ip,flush=True)
     if restore_message: print(restore_message,flush=True)
+    global board_recheck_thread
+    if vision is not None and not args.no_auto_recheck:
+        board_recheck_thread = threading.Thread(target=board_recheck_loop, name='board-recheck', daemon=True)
+        board_recheck_thread.start()
     if args.record:
         try: start_recording(args.record); print('Recording to: '+str(recorder.directory),flush=True)
         except ValueError as error: print('Recording not started: '+str(error),flush=True)

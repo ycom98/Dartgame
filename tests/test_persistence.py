@@ -110,7 +110,10 @@ class MatchSurvivesRestart(unittest.TestCase):
         after = second.request('/api/state')[1]
         self.assertEqual(after['game'], before['game'])
         self.assertEqual(after['revision'], before['revision'])
-        self.assertNotEqual(second.token, first.token)  # pairing tokens are never saved
+        self.assertEqual(second.token, first.token)  # QA M1-17 #2: the phone and TV links survive a restart
+        self.assertEqual(second.request('/api/state')[0], 200)
+        links = self.state_file.parent / 'links.json'
+        self.assertEqual(links.stat().st_mode & 0o777, 0o600)
         status, undone = second.request('/api/undo', {})
         self.assertEqual(status, 200)
         self.assertEqual([d['score'] for d in undone['game']['darts']], [57])
@@ -125,6 +128,17 @@ class MatchSurvivesRestart(unittest.TestCase):
         copies = list(self.state_file.parent.glob('match.corrupt-*.json'))
         self.assertEqual(len(copies), 1)
         self.assertTrue(copies[0].read_text().startswith('{"schema": 1'))
+
+    def test_new_links_replaces_the_saved_links_and_keeps_the_match(self):
+        first = self.server()
+        first.request('/api/game', {'names': ['A', 'B'], 'camera': False})
+        old_token = first.token
+        first.stop()
+        second = self.server(['--new-links'])
+        self.assertNotEqual(second.token, old_token)
+        self.assertIsNotNone(second.request('/api/state')[1]['game'])
+        second.token = old_token
+        self.assertEqual(second.request('/api/state')[0], 401)  # the old link no longer works
 
     def test_fresh_starts_empty_and_keeps_the_previous_match(self):
         first = self.server()

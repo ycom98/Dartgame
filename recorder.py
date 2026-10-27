@@ -14,6 +14,11 @@ A recording folder holds:
 tools/make_labels.py turns events.jsonl into labels; tools/replay_recording.py replays processed frames and
 vision actions through Vision and checks the detections; tools/contact_sheet.py draws per-throw crops.
 Recording stops by itself when the disk has less than MIN_FREE_BYTES free.
+
+Restarting (the server, or recording) with the same folder APPENDS a new part (QA M1-17 #1): frame and event
+numbers continue from what is already on disk, nothing is overwritten, the first start time and the notes are
+kept, and part N's starting state goes to start-N/ (an event 'recording_started' with part N tells the replay to
+begin again from it). A camera source switch also continues the numbering (each source counts from 1).
 """
 import json
 import queue
@@ -70,6 +75,13 @@ class Recorder:
         self.stop_event = threading.Event()
         self.notes = {}
         self.order = 0
+        self.part = 1
+        self.first_started_at = None
+        self.previous_totals = {'frames': 0, 'skipped_frames': 0, 'bytes': 0}
+        self.disk_max_seq = 0                 # highest frame seq already in the folder (a resumed session)
+        self.sources = []                     # [(source, offset)]: recorded seq = source seq + offset
+        self.writer_source = None             # the source whose frames the writer is saving
+        self.parts = []
         self.files = {}
         self.lines = queue.Queue()           # (file name, JSON line) waiting for the writer thread
         self.free_cache = None               # free disk bytes, refreshed by the writer each second
@@ -83,6 +95,7 @@ class Recorder:
         if free is not None and free < self.min_free_bytes:
             raise ValueError(f'Not recording: only {free / 1024 ** 3:.1f} GB free (needs 5 GB)')
         try:
+            self.resume_from_disk()
             (self.directory / 'frames').mkdir(parents=True, exist_ok=True)
             self.files = {name: open(self.directory / name, 'a', encoding='utf-8')
                           for name in ('frames.jsonl', 'processed.jsonl', 'events.jsonl')}
@@ -91,10 +104,15 @@ class Recorder:
             raise ValueError(f'Cannot record to {self.directory}: {error}') from error
         self.active = True
         self.started_at = time.time()
-        self.notes = dict(notes or {})
+        self.first_started_at = self.first_started_at or self.started_at
+        self.notes = {**self.notes, **dict(notes or {})}
+        self.sources = []
         source = self.get_source()
-        # Include the newest frame already received: vision may be about to process it.
-        self.last_written_seq = max(source.seq - 1, 0) if source is not None else 0
+        if source is not None:
+            # Include the newest frame already received: vision may be about to process it.
+            self.last_written_seq = max(source.seq - 1, 0)
+            self.writer_source = source
+            self.source_offset(source)
         try:
             if vision is not None:
                 self.save_start_state(vision)
@@ -105,7 +123,8 @@ class Recorder:
             raise ValueError(f'Cannot record to {self.directory}: {error}') from error
         if vision is not None:
             self.instrument(vision)
-        self.event('recording_started', directory=str(self.directory))
+        self.event('recording_started', directory=str(self.directory), part=self.part,
+                   start=self.start_folder().name)
         self.stop_event.clear()
         self.thread = threading.Thread(target=self.run, name='recorder', daemon=True)
         self.thread.start()
@@ -232,10 +251,64 @@ class Recorder:
             self.append('events.jsonl', {**event, 'type': event['type'], 'match_seq': event['seq'],
                                          'after_seq': self.last_processed_seq})
 
+    def resume_from_disk(self):
+        """Continue a session folder that already holds recording parts: numbering, notes, totals."""
+        def last_values(name, field):
+            path = self.directory / name
+            values = []
+            if path.exists():
+                with open(path, encoding='utf-8') as handle:
+                    for line in handle:
+                        try:
+                            value = json.loads(line).get(field)
+                        except (ValueError, AttributeError):
+                            continue  # a line cut short by a crash
+                        if isinstance(value, int):
+                            values.append(value)
+            return values
+        seqs = last_values('frames.jsonl', 'seq') + last_values('processed.jsonl', 'seq')
+        orders = last_values('events.jsonl', 'order')
+        self.disk_max_seq = max(seqs, default=0)
+        self.order = max(orders, default=0)
+        self.last_processed_seq = max(last_values('processed.jsonl', 'seq'), default=None)
+        session_path = self.directory / 'session.json'
+        if session_path.exists():
+            try:
+                old = json.loads(session_path.read_text(encoding='utf-8'))
+            except ValueError:
+                old = {}
+            self.parts = list(old.get('parts') or [])
+            self.first_started_at = old.get('started_at')
+            self.notes = dict(old.get('notes') or {})
+            self.previous_totals = {key: int(old.get(key) or 0) for key in ('frames', 'skipped_frames', 'bytes')}
+        else:
+            self.parts = []
+        if self.order or self.disk_max_seq or self.parts:
+            self.part = max(len(self.parts), 1) + 1
+
+    def start_folder(self):
+        return self.directory / ('start' if self.part == 1 else f'start-{self.part}')
+
+    def source_offset(self, source):
+        """Recorded seq = source seq + offset; a new source (or a resumed session) continues after the highest
+        seq recorded so far. Call with a source object."""
+        with self.lock:
+            for known, offset in self.sources:
+                if known is source:
+                    return offset
+            offset = max([self.disk_max_seq] + [known.seq + offset for known, offset in self.sources])
+            self.sources.append((source, offset))
+            return offset
+
     def write_session(self):
-        session = {'started_at': self.started_at, 'stopped_at': self.stopped_at, 'notes': self.notes,
-                   'frames': self.frames_written, 'skipped_frames': self.frames_skipped,
-                   'bytes': self.bytes_written, 'error': self.error}
+        session = {'started_at': self.first_started_at or self.started_at, 'stopped_at': self.stopped_at,
+                   'notes': self.notes,
+                   'frames': self.previous_totals['frames'] + self.frames_written,
+                   'skipped_frames': self.previous_totals['skipped_frames'] + self.frames_skipped,
+                   'bytes': self.previous_totals['bytes'] + self.bytes_written, 'error': self.error,
+                   'parts': self.parts + [{'part': self.part, 'started_at': self.started_at,
+                                           'stopped_at': self.stopped_at, 'frames': self.frames_written,
+                                           'start': self.start_folder().name}]}
         source = self.get_source()
         if source is not None:
             session['source'] = {'kind': source.kind, 'url_redacted': source.description,
@@ -251,7 +324,7 @@ class Recorder:
 
     def save_start_state(self, vision):
         """Recording may start mid-session: keep what a replay needs to begin from the same state."""
-        start = self.directory / 'start'
+        start = self.start_folder()
         if vision.frame is not None:
             start.mkdir(exist_ok=True)
             cv2.imwrite(str(start / 'frame.png'), vision.frame)  # the frame vision holds now
@@ -305,10 +378,12 @@ class Recorder:
         self.event('vision', action=name, args=list(args), kwargs=kwargs, ok=ok, error=error, result=result,
                    overlay=overlay, version=vision.version, aligned=vision.aligned)
 
-    def on_ingest(self, vision, seq):
-        """Worker hook after each processed source frame (vision.lock held)."""
+    def on_ingest(self, vision, seq, source=None):
+        """Worker hook after each processed source frame (vision.lock held). seq is the source's own number."""
         if not self.active:
             return
+        if source is not None:
+            seq += self.source_offset(source)
         self.last_processed_seq = seq
         proposal = vision.proposal
         self.append('processed.jsonl', {'seq': seq, 'proposal': None if proposal is None else {
@@ -345,12 +420,17 @@ class Recorder:
                     self.write_session()
 
     def write_new_frames(self, source):
+        if source is not self.writer_source:  # a new camera source counts from 1 again
+            self.writer_source = source
+            self.last_written_seq = max(source.seq - 1, 0)
+        offset = self.source_offset(source)
         frames = source.frames_after(self.last_written_seq)
         if not frames:
             return
         if frames[0][0] > self.last_written_seq + 1 and self.last_written_seq:
             self.frames_skipped += frames[0][0] - self.last_written_seq - 1
-        for seq, timestamp, data, frame in frames:
+        for source_seq, timestamp, data, frame in frames:
+            seq = source_seq + offset
             if data is not None:
                 name = f'{seq:06d}.jpg'
             else:
@@ -360,5 +440,5 @@ class Recorder:
             (self.directory / 'frames' / name).write_bytes(data)
             self.frames_written += 1
             self.bytes_written += len(data)
-            self.last_written_seq = seq
+            self.last_written_seq = source_seq
             self.append('frames.jsonl', {'seq': seq, 'ts': round(timestamp, 3), 'file': 'frames/' + name})

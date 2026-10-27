@@ -213,3 +213,86 @@ class DiskGuard(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ResumedAfterRestart(unittest.TestCase):
+    """QA M1-17 #1: restarting with the same --record folder appends a part; nothing is overwritten."""
+
+    def test_kill_and_restart_with_the_same_record_folder(self):
+        from core import SECTORS
+        from sim import camera_for_mount
+        from sim.scene import Dart, calibration_points, render_clean
+        from test_persistence import Server
+        camera = camera_for_mount('left', 1280, 720)
+        darts = []
+        for sector, radius in PLAN[:6]:
+            angle = math.radians(SECTORS.index(sector) * 18)
+            darts.append(Dart(x=radius * math.sin(angle), y=-radius * math.cos(angle), tilt=11.0))
+        scenes = [render_clean(camera, darts[:k]) for k in range(7)]
+        fake = FakeIPWebcam([scenes[0]], fps=15).start()
+        with tempfile.TemporaryDirectory() as folder:
+            record = Path(folder) / 'session1'
+            args = ['--camera', fake.url + '/video', '--record', str(record), '--auto-commit', '0']
+            state_file = Path(folder) / 'state' / 'match.json'
+
+            def play(server, ks, correct=None):
+                for k in ks:
+                    fake.set_frames([scenes[k]])
+                    pending = wait_for(lambda: server.request('/api/state')[1]['camera']['pending'], 6, step=0.05)
+                    self.assertTrue(pending, f'dart {k} not detected')
+                    body = ({'value': 3, 'multiplier': 1, 'replaces_proposal_id': pending['id']} if k == correct
+                            else {'proposal_id': pending['id']})
+                    self.assertEqual(server.request('/api/throw', body)[0], 200)
+                self.assertEqual(server.request('/api/next', {})[0], 200)
+
+            first = Server(state_file, args).start()
+            try:
+                self.assertTrue(wait_for(lambda: first.request('/api/state')[1]['vision']['fresh'], 8))
+                first.request('/api/record/notes', {'notes': {'mount': 'ceiling 1.5 ft'}})
+                started = first.request('/api/calibration/start', {})[1]
+                calibrated = first.request('/api/calibrate', {'snapshot_id': started['snapshot']['snapshot_id'],
+                                                              'points': calibration_points(camera).tolist()})[1]
+                first.request('/api/verify', {'version': calibrated['vision']['version']})
+                first.request('/api/game', {'names': ['A', 'B'], 'camera': True})
+                play(first, (1, 2, 3))
+                time.sleep(1.0)
+                frames_before = {p.name: p.read_bytes() for p in (record / 'frames').iterdir()}
+            finally:
+                first.kill()  # like a crash or Ctrl-C mid-match
+            second = Server(state_file, args).start()
+            try:
+                self.assertTrue(wait_for(lambda: second.request('/api/state')[1]['vision']['phase'] == 'review_overlay', 10))
+                vision = second.request('/api/state')[1]['vision']
+                second.request('/api/verify', {'version': vision['version']})
+                play(second, (4, 5, 6), correct=5)
+                time.sleep(1.0)
+            finally:
+                second.stop()
+                fake.stop()
+
+            for name, data in frames_before.items():  # nothing from the first part was overwritten
+                self.assertEqual((record / 'frames' / name).read_bytes(), data, name)
+            frames = [json.loads(l) for l in (record / 'frames.jsonl').read_text().splitlines()]
+            seqs = [f['seq'] for f in frames]
+            self.assertEqual(len(seqs), len(set(seqs)))
+            self.assertEqual(seqs, sorted(seqs))
+            self.assertEqual(len(list((record / 'frames').iterdir())), len(seqs))
+            orders = [json.loads(l)['order'] for l in (record / 'events.jsonl').read_text().splitlines()]
+            self.assertEqual(orders, sorted(set(orders)))
+            session = json.loads((record / 'session.json').read_text())
+            self.assertEqual(session['notes']['mount'], 'ceiling 1.5 ft')
+            self.assertEqual([p['part'] for p in session['parts']], [1, 2])
+            self.assertTrue((record / 'start-2').is_dir())
+
+            from tools.make_labels import make_labels
+            from tools.replay_recording import replay
+            from tools.contact_sheet import make_sheet
+            labels = make_labels(record)
+            self.assertEqual([l['truth_label'] for l in labels], ['S20', 'T6', 'S3', 'S11', 'S3', 'S15'])
+            self.assertEqual([l['source'] for l in labels].count('corrected'), 1)
+            self.assertEqual([l['turn'] for l in labels], [1, 1, 1, 2, 2, 2])
+            result = replay(record)
+            self.assertEqual(result['resumed_parts'], 1)
+            self.assertTrue(result['identical'], {k: v for k, v in result.items() if k != 'detection_mismatches'} |
+                            {'first_mismatches': result['detection_mismatches'][:3]})
+            self.assertEqual(make_sheet(record)[1], 6)

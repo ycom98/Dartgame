@@ -249,6 +249,79 @@ async function run(name, fn) {
     return {visiblePointsChecked: samples.length, nearWireTaps: tapped.length};
   });
 
+  // QA M1-17 #4: the 4 s auto handoff must fire every time, even when a state poll is in flight at that moment.
+  await run('auto handoff fires on every turn while state polls are slow (8 turns)', async () => {
+    const page = await browser.newPage({viewport: {width: 1100, height: 1000}});
+    page.on('pageerror', error => errors.push(error.message));
+    await newGame();
+    await page.route('**/api/state', async route => { await pause(350); await route.continue(); });
+    await page.goto(origin + '/control?t=' + token);
+    await page.waitForSelector('#tap-board .hit-region');
+    const handoffs = [];
+    for (let turn = 0; turn < 8; turn++) {
+      const before = (await api('state')).game.player;
+      for (let dart = 0; dart < 3; dart++) {
+        await waitFor(async () => !(await page.locator('#miss').isDisabled()), 8000);
+        await page.locator('#miss').click();
+        await pause(650);
+      }
+      const started = Date.now();
+      await waitFor(async () => (await api('state')).game.player !== before, 9000).catch(async () => {
+        throw Error('No handoff on turn ' + (turn + 1) + '; notice: ' + await page.locator('#notice').textContent());
+      });
+      handoffs.push((Date.now() - started) / 1000);
+    }
+    await page.close();
+    return {turns: handoffs.length, secondsAfterThirdDart: handoffs};
+  });
+
+  // QA M1-17 #5: feedback follows the server's answer.
+  await run('a tap the server refuses shows "Not recorded", not success', async () => {
+    const page = await browser.newPage({viewport: {width: 1100, height: 1000}});
+    page.on('pageerror', error => errors.push(error.message));
+    await newGame();
+    await page.goto(origin + '/control?t=' + token);
+    await page.waitForSelector('#tap-board .hit-region');
+    await waitFor(async () => !(await page.locator('#miss').isDisabled()));
+    await page.route('**/api/throw', async route => {
+      const current = await api('state');
+      await route.fulfill({status: 409, contentType: 'application/json',
+        body: JSON.stringify({...current, error: 'Proposal changed. Check the board and the current camera dart.'})});
+    });
+    const point = await target(page, 'T12');
+    await page.mouse.click(point.x, point.y);
+    await waitFor(async () => (await page.locator('#tap-feedback').textContent()).startsWith('Not recorded'));
+    check((await page.locator('#notice').textContent()).includes('Proposal changed'), 'Notice explains the refusal');
+    check((await api('state')).game.darts.length === 0, 'Nothing recorded');
+    await page.close();
+    return {feedback: 'Not recorded'};
+  });
+
+  // QA M1-17 #3: a dropped phone stream and a needed board check are explained on the controller.
+  await run('the controller explains a camera drop and a board check', async () => {
+    const page = await browser.newPage({viewport: {width: 1100, height: 1000}});
+    page.on('pageerror', error => errors.push(error.message));
+    await newGame();
+    let phase = 'camera_disconnected';
+    await page.route('**/api/state', async route => {
+      const real = await (await route.fetch()).json();
+      real.camera_game = true;
+      real.vision = {...real.vision, phase, fresh: phase !== 'camera_disconnected', verified: false,
+        message: 'Ready'};
+      real.camera = {pending: null, auto_commit: {seconds: 3, paused: false, enabled: true}};
+      await route.fulfill({contentType: 'application/json', body: JSON.stringify(real)});
+    });
+    await page.goto(origin + '/control?t=' + token);
+    const panel = () => page.locator('#camera-panel').textContent();
+    await waitFor(async () => (await panel()).includes('Camera reconnecting'));
+    check(!(await panel()).includes('Ready'), 'No "Ready" while the stream is lost');
+    phase = 'needs_alignment';
+    await waitFor(async () => (await panel()).includes('Board check needed'));
+    check((await panel()).includes('Check / realign board'), 'Says what to do on the Mac');
+    await page.close();
+    return {ok: true};
+  });
+
   await run('keypad entry is still available as a fallback', async () => {
     const page = await browser.newPage({viewport: {width: 1100, height: 1000}});
     page.on('pageerror', error => errors.push(error.message));

@@ -568,6 +568,7 @@ act('calibrate', async () => {
   selecting = true;
   $('guide').textContent = 'Frozen image: click 1 · ' + CLICK_STEPS[0];
   draw();
+  $('board').scrollIntoView({block: 'center'});  // the frozen image is where the next four clicks go
   setupStatus();
 });
 

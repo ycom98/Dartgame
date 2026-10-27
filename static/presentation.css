@@ -76,3 +76,4 @@
   .host.in-game .camera-panel{height:118px;padding:8px 10px;margin:6px 0}
   .host.in-game .camera-panel .auto-status{display:none}
 }
+.host #tap-feedback.refused{color:#efb3a9}

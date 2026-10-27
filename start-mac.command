@@ -22,5 +22,9 @@ if ! .venv/bin/python -c 'from importlib.metadata import version; import numpy, 
   printf '%s\n' 'Installing camera dependencies. Internet access is needed for this first setup…'
   .venv/bin/python -m pip install -r requirements.txt || fail 'Dependency installation failed. Check Internet access, then run again.'
 fi
-printf '%s\n' 'Starting Dart Room. Keep this Terminal window open.' 'Open the Setup link below on this Mac; Controller and Presentation links work on other devices on your Wi-Fi.' 'Camera: add --camera PHONE_IP (IP Webcam), or enter the address on the Setup page.'
+printf '%s\n' 'Starting Dart Room. Keep this Terminal window open.' 'Open the Setup link below on this Mac; Controller and Presentation links work on other devices on your Wi-Fi.'
+case " $* " in
+  *" --camera "*|*" --camera="*) ;;
+  *) printf '%s\n' 'Camera: add --camera PHONE_IP (IP Webcam), or enter the address on the Setup page.' ;;
+esac
 exec .venv/bin/python server.py "$@"

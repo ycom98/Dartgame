@@ -390,6 +390,8 @@ class Vision:
         state['age_seconds'] = round(age, 1)
         if state['fresh'] and age >= 5:
             state.update(fresh=False, aligned=False, verified=False, proposal=None, phase='camera_disconnected')
+        if state.get('phase') == 'camera_disconnected':  # never an old "Ready" while the stream is lost
+            state['message'] = 'Camera stream lost: waiting for the phone. It reconnects by itself.'
         return state
 
     def state(self):
