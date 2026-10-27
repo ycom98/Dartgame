@@ -70,7 +70,29 @@ class GameMode:
         return copy.deepcopy(state)
 
     def from_json(self, data):
+        """Restore a saved state, checking its shape: a damaged save must fail here, not crash later."""
+        if not isinstance(data, dict):
+            raise ValueError(f'Saved {self.id} game is not an object')
         for field in ('names', 'player', 'turn', 'darts', 'winner'):
             if field not in data:
                 raise ValueError(f'Saved {self.id} game is missing {field}')
+        names = data['names']
+        if (not isinstance(names, list) or not self.min_players <= len(names) <= self.max_players
+                or not all(isinstance(name, str) and name for name in names)):
+            raise ValueError(f'Saved {self.id} game has invalid names')
+        count = len(names)
+        if type(data['player']) is not int or not 0 <= data['player'] < count:
+            raise ValueError(f'Saved {self.id} game has an invalid player')
+        if type(data['turn']) is not int or data['turn'] < 1:
+            raise ValueError(f'Saved {self.id} game has an invalid turn')
+        if data['winner'] is not None and (type(data['winner']) is not int or not 0 <= data['winner'] < count):
+            raise ValueError(f'Saved {self.id} game has an invalid winner')
+        darts = data['darts']
+        if not isinstance(darts, list) or len(darts) > self.darts_per_turn:
+            raise ValueError(f'Saved {self.id} game has invalid darts')
+        for dart in darts:
+            if (not isinstance(dart, dict) or type(dart.get('value')) is not int or type(dart.get('multiplier')) is not int
+                    or dart['value'] not in (*range(0, 21), 25) or dart['multiplier'] not in (1, 2, 3)
+                    or type(dart.get('score')) is not int):
+                raise ValueError(f'Saved {self.id} game has an invalid dart')
         return copy.deepcopy(data)

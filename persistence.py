@@ -25,6 +25,14 @@ def atomic_write(path, text):
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(temporary, path)
+    try:  # make the rename itself durable (QA M1-16 L1); not available on every platform
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    except OSError:
+        pass
 
 
 class MatchStore:
@@ -49,18 +57,28 @@ class MatchStore:
             return None
         try:
             payload = json.loads(self.path.read_text(encoding='utf-8'))
+            if not isinstance(payload, dict):
+                raise ValueError('not a JSON object')
             if payload.get('schema') != SCHEMA:
                 raise ValueError(f"unknown schema {payload.get('schema')!r}")
             game = Game.from_json(payload['game']) if payload['game'] is not None else None
             revision, camera_game = payload['revision'], payload['camera_game']
-            if type(revision) is not int or type(camera_game) is not bool:
+            if type(revision) is not int or revision < 0 or type(camera_game) is not bool:
                 raise ValueError('bad revision or camera_game')
-        except (OSError, ValueError, KeyError, TypeError) as error:
+            auto = payload.get('auto_commit', {})
+            if auto is None:
+                auto = {}
+            if not isinstance(auto, dict):
+                raise ValueError('bad auto_commit')
+        except Exception as error:  # any damage at all: keep the file, start empty (QA M1-16 D1)
             corrupt = self.path.with_name(f'match.corrupt-{time.strftime("%Y%m%d-%H%M%S")}.json')
-            os.replace(self.path, corrupt)
-            return f'WARNING: the saved match could not be read ({error}). It was kept as {corrupt}; starting with no match.'
+            try:
+                os.replace(self.path, corrupt)
+                kept = f'It was kept as {corrupt}'
+            except OSError as move_error:
+                kept = f'It could not be moved aside ({move_error}) and will be overwritten'
+            return f'WARNING: the saved match could not be read ({error}). {kept}; starting with no match.'
         app.game, app.revision, app.camera_game = game, revision, camera_game
-        auto = payload.get('auto_commit') or {}
         app.flow.paused = bool(auto.get('paused', False))
         if game is None:
             return 'Saved state restored (no match in progress).'
@@ -79,6 +97,8 @@ def save_calibration(vision, directory):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     points = cv2.perspectiveTransform(TARGETS.reshape(1, -1, 2), np.linalg.inv(vision.reference_H))[0]
+    current = vision.overlay() if vision.aligned else None  # where the markers were when last aligned
+    overlay = current.tolist() if current is not None else points.tolist()
     ok, png = cv2.imencode('.png', vision.reference)
     if not ok:
         return False
@@ -88,7 +108,7 @@ def save_calibration(vision, directory):
     data = {'schema': SCHEMA, 'points': points.tolist(), 'reference_H': vision.reference_H.tolist(),
             'width': int(vision.reference.shape[1]), 'height': int(vision.reference.shape[0]),
             'mount_side': vision.mount_side, 'camera_hfov': vision.camera_hfov,
-            'pose': vision.pose, 'saved_at': time.time()}
+            'pose': vision.pose, 'overlay': overlay, 'saved_at': time.time()}
     atomic_write(directory / 'calibration.json', json.dumps(data, default=float))
     return True
 

@@ -49,5 +49,20 @@ class X01(GameMode):
         d['turn_start'] = d['scores'][d['player']]
         d['bust'] = False
 
+    def from_json(self, data):
+        d = super().from_json(data)
+        count = len(d['names'])
+        if d.get('start') not in STARTS or type(d.get('start')) is not int:
+            raise ValueError('Saved x01 game has an invalid start')
+        scores = d.get('scores')
+        if (not isinstance(scores, list) or len(scores) != count
+                or not all(type(v) is int and 0 <= v <= d['start'] for v in scores)):
+            raise ValueError('Saved x01 game has invalid scores')
+        if type(d.get('turn_start')) is not int or not 0 <= d['turn_start'] <= d['start']:
+            raise ValueError('Saved x01 game has an invalid turn start')
+        if not isinstance(d.get('double_out'), bool) or not isinstance(d.get('bust'), bool):
+            raise ValueError('Saved x01 game has invalid double_out or bust')
+        return d
+
     def presentation_hints(self, d):
         return {'kind': 'x01', 'start': d['start'], 'double_out': d['double_out']}

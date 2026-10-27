@@ -47,9 +47,9 @@
 @media(max-width:700px){
   .host .control-layout .preview{display:none}
   .host .compact-status{display:block;border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0}
-  .host .compact-player{display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)}
+  .host .compact-players{display:flex;gap:12px;height:1.5em;line-height:1.5em;white-space:nowrap;overflow:hidden}
+  .host .compact-player{color:var(--muted);font-variant-numeric:tabular-nums}
   .host .compact-player.current{color:var(--ink);font-weight:700}
-  .host .compact-player strong{font-variant-numeric:tabular-nums}
   .host .compact-darts{margin-top:6px;font-size:13px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 
@@ -62,3 +62,17 @@
 .host .camera-panel .auto-status{height:1.6em;line-height:1.6em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
 .host #prompt{min-height:2.5em;max-height:2.5em;overflow:hidden;line-height:1.25}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* QA M1-16 L4: during a game on a phone the tap board starts on the first screen. */
+.host .tap-actions button{white-space:nowrap}
+.host #tap-feedback{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){
+  .host.in-game header{padding:10px 20px}
+  .host.in-game .console>.eyebrow,.host.in-game .console>h1,.host.in-game .console>p.muted{display:none}
+  .host.in-game .console{padding:12px}
+  .host.in-game .tap-board{margin-left:-27px;margin-right:-27px}
+  .host.in-game #prompt{font-size:18px;min-height:1.3em;max-height:1.3em;white-space:nowrap;text-overflow:ellipsis;margin:4px 0}
+  .host.in-game .compact-status{padding:6px 10px;margin:6px 0}
+  .host.in-game .camera-panel{height:118px;padding:8px 10px;margin:6px 0}
+  .host.in-game .camera-panel .auto-status{display:none}
+}

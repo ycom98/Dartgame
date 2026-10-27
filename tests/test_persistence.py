@@ -152,10 +152,64 @@ class WriteSpeed(unittest.TestCase):
             for _ in range(60):
                 store.save(app)
                 times.append(store.last_write_seconds)
-        p95 = sorted(times)[int(0.95 * len(times)) - 1]
-        print(f'\nM1-16 save with {len(app.game.history)} history entries: median {statistics.median(times) * 1000:.2f} ms, '
-              f'p95 {p95 * 1000:.2f} ms')
-        self.assertLess(p95, 0.020)
+        median, p95 = statistics.median(times), sorted(times)[int(0.95 * len(times)) - 1]
+        load = os.getloadavg()[0] / (os.cpu_count() or 1)
+        print(f'\nM1-16 save with {len(app.game.history)} history entries: median {median * 1000:.2f} ms, '
+              f'p95 {p95 * 1000:.2f} ms (load {load:.2f} per CPU)')
+        # QA M1-16 L5: the median is the regression guard and always applies; the p95 limit only on a quiet
+        # machine, because parallel disk load (other test suites) spikes single writes.
+        self.assertLess(median, 0.020)
+        if load < 1.0:
+            self.assertLess(p95, 0.020)
+        else:
+            self.assertLess(p95, 0.100)
+
+
+class DamagedSaveFiles(unittest.TestCase):  # QA M1-16 D1
+    def test_every_damaged_shape_starts_clean_and_keeps_the_file(self):
+        import server
+        from core import Game
+        from persistence import MatchStore
+        good = {'schema': 1, 'game': Game(['A', 'B']).to_json(), 'revision': 3, 'camera_game': False,
+                'auto_commit': {'paused': False, 'seconds': 3.0}, 'saved_at': 0}
+
+        def broken(change):
+            data = json.loads(json.dumps(good))
+            change(data)
+            return data
+        cases = {
+            'a list': [], 'null': None, 'a number': 7,
+            'game is a list': broken(lambda d: d.update(game=[])),
+            'state is null': broken(lambda d: d['game'].update(state=None)),
+            'player out of range': broken(lambda d: d['game']['state'].update(player=5)),
+            'missing scores': broken(lambda d: d['game']['state'].pop('scores')),
+            'scores too short': broken(lambda d: d['game']['state'].update(scores=[301])),
+            'bad dart': broken(lambda d: d['game']['state'].update(darts=[{'value': 21, 'multiplier': 1, 'score': 21}])),
+            'four darts': broken(lambda d: d['game']['state'].update(darts=[{'value': 1, 'multiplier': 1, 'score': 1}] * 4)),
+            'winner out of range': broken(lambda d: d['game']['state'].update(winner=9)),
+            'names empty': broken(lambda d: d['game']['state'].update(names=[])),
+            'history not a list': broken(lambda d: d['game'].update(history={})),
+            'bad history entry': broken(lambda d: d['game'].update(history=[{'names': 'A'}])),
+            'unknown mode': broken(lambda d: d['game'].update(mode='cricket')),
+            'negative revision': broken(lambda d: d.update(revision=-1)),
+            'auto_commit a list': broken(lambda d: d.update(auto_commit=[])),
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'match.json'
+            path.write_text(json.dumps(good))
+            self.assertIn('Resumed', MatchStore(path).load(server.App('damaged')))  # the good file loads
+            for name, payload in cases.items():
+                with self.subTest(case=name):
+                    for old in Path(folder).glob('match.corrupt-*'):
+                        old.unlink()
+                    path.write_text(json.dumps(payload))
+                    app = server.App('damaged')
+                    message = MatchStore(path).load(app)
+                    self.assertIn('WARNING', message)
+                    self.assertIsNone(app.game)
+                    self.assertEqual(app.revision, 0)
+                    self.assertFalse(path.exists())
+                    self.assertEqual(len(list(Path(folder).glob('match.corrupt-*'))), 1)
 
 
 class SaveFailureNeverBreaksAWrite(unittest.TestCase):
@@ -171,6 +225,30 @@ class SaveFailureNeverBreaksAWrite(unittest.TestCase):
                 app.bump()
         self.assertEqual(app.revision, 1)
         self.assertIn('Could not save the match', app.store.error)
+
+    def test_any_save_error_is_reported_not_raised(self):  # QA M1-16 L2
+        import server
+        from persistence import MatchStore
+        app = server.App('save-error')
+        app.store = MatchStore('/nonexistent/match.json')
+        def failing(_):
+            raise TypeError('not JSON serialisable')
+        app.store.save = failing
+        with app.game_lock:
+            app.bump()
+        self.assertEqual(app.revision, 1)
+        self.assertIn('not JSON serialisable', app.store.error)
+
+    def test_calibration_save_errors_are_reported_not_raised(self):  # QA M1-16 L3
+        import cv2
+        import persistence
+        import server
+        from unittest.mock import patch
+        def failing(vision, directory):
+            raise cv2.error('imencode failed')
+        with tempfile.TemporaryDirectory() as folder, patch.object(server, 'CALIBRATION_DIR', Path(folder)), \
+                patch.object(persistence, 'save_calibration', failing):
+            server.save_calibration()  # must not raise
 
 
 class CalibrationSurvivesRestart(unittest.TestCase):
@@ -202,13 +280,50 @@ class CalibrationSurvivesRestart(unittest.TestCase):
             try:
                 self.assertIn('Saved calibration loaded', second.output)
                 phase = wait_for(lambda: second.request('/api/state')[1]['vision']['phase'] == 'review_overlay', 10)
+                time.sleep(1.5)  # several frames later the review prompt must still be there (QA M1-16 D2)
                 vision = second.request('/api/state')[1]['vision']
                 self.assertTrue(phase, vision)
+                self.assertEqual(vision['phase'], 'review_overlay')
+                self.assertNotIn('Ready', vision['message'])
                 self.assertEqual(vision['mount_side'], 'left')
                 drift = max(abs(a - b) for p, q in zip(vision['overlay'], overlay) for a, b in zip(p, q))
                 self.assertLess(drift, 2.0)
                 status, verified = second.request('/api/verify', {'version': vision['version']})  # the one tap
                 self.assertEqual(verified['vision']['phase'], 'ready')
+            finally:
+                second.stop()
+
+
+class DifferentViewAfterRestart(unittest.TestCase):  # QA M1-16 D2
+    def test_a_restart_with_another_camera_view_asks_for_the_four_points_again(self):
+        import cv2
+        from sim import camera_for_mount
+        from sim.scene import calibration_points, render_clean
+        left, right = camera_for_mount('left', 1280, 720), camera_for_mount('right', 1280, 720)
+        with tempfile.TemporaryDirectory() as folder:
+            frames = {name: Path(folder) / name for name in ('left', 'right')}
+            for name, camera in (('left', left), ('right', right)):
+                frames[name].mkdir()
+                cv2.imwrite(str(frames[name] / 'board.png'), render_clean(camera, []))
+            state_file = Path(folder) / 'state' / 'match.json'
+            first = Server(state_file, ['--camera', f"dir:{frames['left']}?loop=1&fps=10"]).start()
+            try:
+                self.assertTrue(wait_for(lambda: first.request('/api/state')[1]['vision']['fresh'], 8))
+                started = first.request('/api/calibration/start', {})[1]
+                status, calibrated = first.request('/api/calibrate', {'snapshot_id': started['snapshot']['snapshot_id'],
+                                                                      'points': calibration_points(left).tolist()})
+                self.assertEqual(status, 200, calibrated)
+                first.request('/api/verify', {'version': calibrated['vision']['version']})
+            finally:
+                first.kill()
+            second = Server(state_file, ['--camera', f"dir:{frames['right']}?loop=1&fps=10"]).start()
+            try:
+                message = lambda: second.request('/api/state')[1]['vision']['message'].lower()
+                self.assertTrue(wait_for(lambda: 'set four points' in message(), 10), message())
+                time.sleep(1.0)
+                vision = second.request('/api/state')[1]['vision']
+                self.assertEqual(vision['phase'], 'needs_alignment', vision['message'])
+                self.assertFalse(vision['verified'])
             finally:
                 second.stop()
 

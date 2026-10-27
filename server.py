@@ -77,13 +77,16 @@ def switch_camera_source(uri):
     worker.set_source(source)
     return source
 
-CALIBRATION_DIR = None  # where the calibration is saved (M1-16); main() sets it next to the match file
+CALIBRATION_DIR = None
+# After a restart, a re-alignment whose markers moved further than this from the saved ones is not trusted.
+RESTORE_MAX_DRIFT_PX = 30.0  # where the calibration is saved (M1-16); main() sets it next to the match file
 
 def save_calibration():
     if CALIBRATION_DIR is None or vision is None: return
     import persistence
     try: worker.call(lambda v: persistence.save_calibration(v, CALIBRATION_DIR))
-    except (OSError, ValueError, WorkerBusy) as error: print('Could not save the calibration: '+str(error), flush=True)
+    except Exception as error:  # includes cv2.error (QA M1-16 L3); the calibration itself is unaffected
+        print('Could not save the calibration: '+str(error), flush=True)
 
 def restore_calibration():
     """Load the saved calibration, then check the board position once the camera sends frames (M1-16).
@@ -105,6 +108,16 @@ def restore_calibration():
             except ValueError as error:
                 v.message = 'Saved calibration does not match the board (moved?): set four points again. ' + str(error)
                 return False
+            # align() can "succeed" on a different view with a wrong homography (QA M1-16 D2): accept the restored
+            # alignment only if the markers land near where they were when saved.
+            saved, now = data.get('overlay'), v.overlay()
+            if saved is not None and now is not None:
+                import numpy as np
+                drift = float(np.max(np.linalg.norm(np.asarray(now) - np.asarray(saved, float), axis=1)))
+                if drift > RESTORE_MAX_DRIFT_PX:
+                    v.invalidate(f'The camera view changed since the saved calibration (markers moved {drift:.0f} px). '
+                                 'Set four points again.')
+                    return False
             v.message = 'Board position matches the saved calibration. Check the live overlay, then verify.'
             return True
         try:
@@ -160,7 +173,7 @@ class App:
         self.revision += 1
         if self.store is not None:
             try: self.store.save(self)
-            except OSError as error:  # the write already happened: warn, never fail it half-way (as QA Q2)
+            except Exception as error:  # the write already happened: warn, never fail it half-way (QA Q2, M1-16 L2)
                 self.store.error = f'Could not save the match: {error}'
                 print(self.store.error, flush=True)
             else: self.store.error = None
