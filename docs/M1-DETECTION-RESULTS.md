@@ -25,6 +25,11 @@ Evidence: `qa-artifacts/M1-05e-detection.json`. It holds the gate cells, the M1-
   Only groups with a core join fragments across a gap, so specks are no longer chained. One plausible candidate beside two or more dart-sized implausible groups is `noisy`. On grazing views the warp stretches a 3–4 mm fleck to dart size, but such flecks rarely come alone.
 
   All thresholds were set on seed 1 (accepted darts: core ≥ 62 mm² and ≥ 26%, length ≥ 17 mm off near-frontal, mean width ≥ 3.3 mm). The noisy rule was added after the first held-out run showed single flecks passing on grazing views. It was chosen on seed-1 speckle and dart trials, where no dart result changed, before this final held-out run.
+- **After QA (M1-05c/e QA fixes):**
+  - D4: more than 12 core-sized fragments (≥ 50 mm²) is also `noisy`. 30–40 large strokes took 0.16–0.38 s and sometimes gave a false dart.
+  - D5: when every dart-sized group is rejected as not dart-shaped, the result is `noisy` ("enter score manually") instead of a silent "Ready".
+
+  Re-running three held-out cells (realistic+shadow ceiling-1.5ft s2, realistic steep-topleft s2, realistic+shadow left s3) gives 600 of 600 identical trials.
 - **Low-severity items:**
   - `vision.segmentation` is cleared on `reset_base()` and `invalidate()`;
   - the 200 mm change radius is documented as also being the large-change denominator (12% ≈ 15,100 mm²; it was ≈ 11,200 mm² at 172 mm);
@@ -58,7 +63,7 @@ Evidence: `qa-artifacts/M1-05e-detection.json`. It holds the gate cells, the M1-
 | ceiling-3ft | 82.0 → **82.2%** | 78.5 → **81.8%** (4.5 → 1.2%) |
 | pooled, gated | 95.9 → **96.1%** | 89.2 → **90.5%** |
 
-- **No regression.** Realistic is equal or better on every gated and ceiling mount, and **all five gated mounts are now ≥ 95.0%** (steep-topleft exactly 95.0%, 380 of 400).
+- **No regression.** Realistic is equal or better on every gated and ceiling mount. Four gated mounts are 95.8–97.5%. **Steep-topleft is about 95%, not a clear pass:** 95.0% on seeds 2+3 (380 of 400). QA's fresh seed 4 gave 93.0%, so it is 94.3% over seeds 2–4 (566 of 600). Seed 4 gave ceiling-1.5ft 96.0%.
 - **Realistic + shadow improves on every mount.** Shadow speckle groups that used to make a second candidate are now implausible, which cuts no-proposal by 1–5 points. Left (4.5%) now meets the 5% no-proposal target. Near-frontal (7.3%) and ceiling-0.5ft (5.8%) do not.
 - **Ideal** was not re-run after the last rule; that rule can only remove proposals. In the first M1-05e run, held-out ideal was equal to or above M1-05c on every mount but one (ceiling-2ft 94.0% vs 94.2%), with 0 of 3,000 empty-board false proposals.
 
@@ -231,13 +236,22 @@ M1-05b realistic tip median was 1.03–2.55 mm; it is now 0.68–1.22 mm. No-pro
    - ≥ 300 inliers and ≥ 40% of the sampled points;
    - inliers in ≥ 10 of 12 ring sectors and on ≥ 14 of 20 wires;
    - RMS residual ≤ 0.6 mm;
-   - the fit moves no clicked point by more than 12 px (6σ of the harness's click noise).
+   - the fit moves no clicked point by more than max(30 px, 10% of the board's radius in the image). A fit that slipped by one sector moves a click by about 30% of the radius (70–100 px).
 
    Otherwise the clicks are kept and the setup message names the reason.
 
    The last check was first written as "≤ 10 mm change of the board map". On the grazing `ceiling-0.5ft` view, 2 px of click noise is 11 mm of board, and that rule rejected one correct refinement (held-out seed 3, M1-05d). It now uses pixels, because clicks are made in pixels. That change was prompted by a held-out observation, so it was validated on fresh draws (`M1-05c-calibration-fresh-draws.json`: 300 of 300 refined, worst map error 0.52 mm). Re-running every gate calibration with the new rule gives identical results except that one.
 
+   After QA (D1), the 12 px limit became max(30 px, 10% of the board radius). 12 px rejected correct fits with sloppy clicks: 2 of 10 at 6 px click noise, 5 of 10 at 8 px. A test now refines 6–8 px click noise on ceiling-1.5ft and left to < 0.6 mm. All gate clicks are within 12 px, so no gate result changes.
+
 It uses only the calibration image and the clicks; nothing from the harness. A refined calibration also becomes the alignment reference (`align()` composes onto it) and feeds the pose solver.
+
+### QA fixes (M1-05c/e QA, `QA-M1-05cde.md`)
+
+- **D1:** the click-error limit is now relative to the board's size in the image (above).
+- **D3:** `refine()` accepts a grayscale image and never raises; any failure keeps the clicks with a reason.
+- **D6:** if the 20 (first click) is not the topmost click, the report says `confidence: 'low'` with a `warning` (wrong click order, or a phone that is not upright). The board model is rotationally symmetric, so the fit itself cannot tell; the refined homography is still used. The setup UI should show `warning`.
+- **D7:** with refinement off, the report now has the same keys as a refined one.
 
 ### What limits accuracy now
 

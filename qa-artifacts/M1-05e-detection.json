@@ -1,8 +1,8 @@
 {
  "tool": "tools/run_detection_gate.py run_cell, one cell per process (resumable), merged",
  "disclaimer": "Synthetic rendered scenes only (sim/). These numbers measure the vision pipeline against a model of the board and darts; they are not evidence of real-board accuracy.",
- "git_commit": null,
- "evidence_note": "Produced from a snapshot of the working tree committed as \"M1-05e: Segmentation hardening\" (parent eb0c7fe). Held-out seeds 2 and 3 only, profiles realistic and realistic+shadow, 200 darts and 50 speckle trials per cell (no empty-board or two-dart trials in this run; see speckle_baseline_m105c and timing).",
+ "git_commit": "9543192",
+ "evidence_note": "Produced from a snapshot of the working tree whose code was then committed unchanged as 9543192 \"M1-05e: Segmentation hardening\" (git_commit filled in afterwards; the snapshot was not a git checkout). Held-out seeds 2 and 3 only, profiles realistic and realistic+shadow, 200 darts and 50 speckle trials per cell (no empty-board or two-dart trials in this run; see speckle_baseline_m105c and timing).",
  "settings": {
   "pipelines": [
    "current"
