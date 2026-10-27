@@ -76,10 +76,39 @@ MIN_SPOKES = 14  # of 20 spokes with inliers
 MAX_RESIDUAL_MM = 0.6  # RMS of inlier residuals
 # Largest implied click error: how far (image px) the refined calibration puts the four click
 # targets from where they were clicked. Measured in pixels because clicks are made in pixels: on a
-# grazing view 2 px is ~10 mm of board. 12 px is 6 sigma of the harness's 2 px click noise.
-MAX_CLICK_ERROR_PX = 12.0
+# grazing view 2 px is ~10 mm of board. The limit is max(30 px, 10% of the board's radius in the
+# image): sloppy clicks (6-8 px) still refine, while a fit that slipped by a sector (18 degrees,
+# about 30% of the radius, 70-100 px) is rejected. (M1-05c used 12 px, which rejected half of the
+# correct fits at 8 px click noise; QA D1.)
+MIN_CLICK_ERROR_LIMIT_PX = 30.0
+CLICK_ERROR_RADIUS_FRACTION = 0.10
 CLICK_TARGETS_MM = np.array([[0.0, -170.0], [170.0, 0.0], [0.0, 170.0], [-170.0, 0.0]])  # 20, 6, 3, 11
 MIN_POINTS_PER_BIN = 3
+
+
+def clicks_report(reason, confidence='low'):
+    """A report for a calibration that keeps the four-click homography (same keys as refine()'s)."""
+    return {'method': 'clicks', 'confidence': confidence, 'reason': reason, 'warning': None, 'residual_mm': None,
+            'edge_points': 0, 'sampled_points': 0, 'ring_sectors': 0, 'spokes': 0, 'click_offset_mm': None,
+            'click_error_px': None, 'click_error_limit_px': None, 'seconds': None}
+
+
+def click_error_limit(clicked):
+    """Largest acceptable click error (px) for clicks at these image points (20, 6, 3, 11)."""
+    radius = float(np.linalg.norm(clicked - clicked.mean(axis=0), axis=1).mean())
+    return max(MIN_CLICK_ERROR_LIMIT_PX, CLICK_ERROR_RADIUS_FRACTION * radius)
+
+
+def orientation_warning(clicked):
+    """A warning when the 20 (first click) is not the topmost click in the image, else None.
+
+    The board model is symmetric under rotation, so the fit cannot tell clicks in the wrong
+    order (or a phone mounted sideways) from correct ones; the setup UI must say so (QA D6).
+    """
+    if int(np.argmin(clicked[:, 1])) != 0:
+        return ('the 20 is not the topmost of the four points: check the click order (20, 6, 3, 11) '
+                'and that the phone is upright')
+    return None
 
 
 def scaling(scale, center):
@@ -325,24 +354,30 @@ def refine(image, H, scale, center):
     Returns (H, report). H is the refined homography when the refinement is confident,
     otherwise the input H unchanged. report (JSON-serialisable) has:
       method        'refined' or 'clicks' (the click homography was kept)
-      confidence    'high' (refined) or 'low' (kept the clicks)
+      confidence    'high' (refined), or 'low' (kept the clicks, or refined but the orientation
+                    looks wrong: see warning)
       reason        why the clicks were kept (None when refined)
+      warning       orientation warning (orientation_warning), or None
       residual_mm   RMS distance of the found edges from the fitted board model (inliers)
       edge_points   inlier edge points used / sampled
       ring_sectors, spokes  coverage of the inliers (of 12 and 20)
       click_offset_mm  largest change of the board map within the double ring versus the clicks
       click_error_px   largest distance between a click and where the refined fit puts its target
+      click_error_limit_px  the acceptance limit for click_error_px (click_error_limit)
       seconds       time taken
-    Never raises on a bad image; a failure keeps the clicks.
+    Never raises on a bad image (including a grayscale one); a failure keeps the clicks.
     """
     started = time.perf_counter()
     S = scaling(scale, center)
     click_map = np.linalg.inv(S) @ np.asarray(H, np.float64)  # image px -> board mm
-    report = {'method': 'clicks', 'confidence': 'low', 'reason': None, 'residual_mm': None,
-              'edge_points': 0, 'sampled_points': 0, 'ring_sectors': 0, 'spokes': 0,
-              'click_offset_mm': None, 'click_error_px': None, 'seconds': None}
+    report = clicks_report(None)
     try:
-        blurred = cv2.GaussianBlur(np.asarray(image), (0, 0), PRE_BLUR_SIGMA).astype(np.float32)
+        image = np.asarray(image)
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        if image.ndim != 3 or image.shape[2] != 3:
+            raise ValueError('calibration image must be a colour or grayscale image')
+        blurred = cv2.GaussianBlur(image, (0, 0), PRE_BLUR_SIGMA).astype(np.float32)
         points, normals, kinds, indices = model_points()
         inside, outside = side_points(points, kinds, indices)
         report['sampled_points'] = int(len(points))
@@ -368,23 +403,29 @@ def refine(image, H, scale, center):
         shift = board_shift_mm(click_map, current)
         clicked = apply(np.linalg.inv(click_map), CLICK_TARGETS_MM)
         click_error = float(np.linalg.norm(apply(np.linalg.inv(current), CLICK_TARGETS_MM) - clicked, axis=1).max())
+        limit = click_error_limit(clicked)
         report.update({'residual_mm': round(rms, 3) if rms is not None else None,
                        'edge_points': int(inliers.sum()), 'ring_sectors': ring_sectors, 'spokes': spokes,
-                       'click_offset_mm': round(shift, 2), 'click_error_px': round(click_error, 2)})
-        reason = rejection_reason(inliers, rms, ring_sectors, spokes, click_error)
+                       'click_offset_mm': round(shift, 2), 'click_error_px': round(click_error, 2),
+                       'click_error_limit_px': round(limit, 1)})
+        reason = rejection_reason(inliers, rms, ring_sectors, spokes, click_error, limit)
         if reason is None:
             H = S @ current
             H = H / H[2, 2]
-            report.update({'method': 'refined', 'confidence': 'high'})
+            warning = orientation_warning(clicked)
+            report.update({'method': 'refined', 'confidence': 'high' if warning is None else 'low',
+                           'warning': warning})
         else:
             report['reason'] = reason
-    except (ValueError, np.linalg.LinAlgError, cv2.error) as error:
+    except ValueError as error:
         report['reason'] = str(error)
+    except Exception as error:  # noqa: BLE001 - a calibration helper must never break calibrate()
+        report['reason'] = 'refinement failed: %s: %s' % (type(error).__name__, error)
     report['seconds'] = round(time.perf_counter() - started, 3)
     return np.asarray(H, np.float64), report
 
 
-def rejection_reason(inliers, rms, ring_sectors, spokes, click_error):
+def rejection_reason(inliers, rms, ring_sectors, spokes, click_error, limit=MIN_CLICK_ERROR_LIMIT_PX):
     """Why the refined fit is not trusted, or None when it is."""
     if inliers.sum() < MIN_INLIERS or inliers.mean() < MIN_INLIER_FRACTION:
         return 'only %d of %d board edges fit' % (inliers.sum(), len(inliers))
@@ -392,6 +433,6 @@ def rejection_reason(inliers, rms, ring_sectors, spokes, click_error):
         return 'edges found on only part of the board (%d/12 ring sectors, %d/20 wires)' % (ring_sectors, spokes)
     if rms is None or rms > MAX_RESIDUAL_MM:
         return 'edge residual %.2f mm is too large' % (rms if rms is not None else float('nan'))
-    if not math.isfinite(click_error) or click_error > MAX_CLICK_ERROR_PX:
+    if not math.isfinite(click_error) or click_error > limit:
         return 'the fit moves a clicked point by %.0f px, implausibly far; check the four points' % click_error
     return None

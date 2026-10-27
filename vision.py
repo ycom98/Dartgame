@@ -204,7 +204,7 @@ class Vision:
         Keeps the click homography when the refinement is not confident (vision_calibrate.refine).
         """
         if not self.refine_calibration:
-            return {'method': 'clicks', 'confidence': None, 'reason': 'refinement disabled'}
+            return vision_calibrate.clicks_report('refinement disabled', confidence=None)
         self.H, quality = vision_calibrate.refine(source, self.H, SCALE, CENTER)
         return quality
     def overlay(self):
