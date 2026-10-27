@@ -1,0 +1,2261 @@
+{
+ "runs": [
+  [
+   {
+    "step": [
+     "game",
+     [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     301,
+     true
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      301,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 0
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      241,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 1
+   },
+   {
+    "step": [
+     "throw",
+     19,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      184,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 19,
+       "multiplier": 3,
+       "score": 57
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 2
+   },
+   {
+    "step": [
+     "throw",
+     25,
+     2
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 19,
+       "multiplier": 3,
+       "score": 57
+      },
+      {
+       "value": 25,
+       "multiplier": 2,
+       "score": 50
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 3
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 4
+   },
+   {
+    "step": [
+     "throw",
+     0,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 5
+   },
+   {
+    "step": [
+     "throw",
+     5,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      296,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      },
+      {
+       "value": 5,
+       "multiplier": 1,
+       "score": 5
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 6
+   },
+   {
+    "step": [
+     "undo"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 5
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      281,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      },
+      {
+       "value": 20,
+       "multiplier": 1,
+       "score": 20
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 6
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     2
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      },
+      {
+       "value": 20,
+       "multiplier": 1,
+       "score": 20
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 7
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      301
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 301,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 8
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      241
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 9
+   },
+   {
+    "step": [
+     "fill"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      241
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 10
+   },
+   {
+    "step": [
+     "correct",
+     1,
+     1,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 1,
+       "multiplier": 3,
+       "score": 3
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 11
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 12
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      74,
+      241,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 13
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      14,
+      241,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 14
+   },
+   {
+    "step": [
+     "throw",
+     19,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 19,
+       "multiplier": 3,
+       "score": 57
+      }
+     ],
+     "bust": true,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 15
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      241,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 241,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 16
+   },
+   {
+    "step": [
+     "throw",
+     18,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      187,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 241,
+     "darts": [
+      {
+       "value": 18,
+       "multiplier": 3,
+       "score": 54
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 17
+   },
+   {
+    "step": [
+     "throw",
+     19,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      168,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 241,
+     "darts": [
+      {
+       "value": 18,
+       "multiplier": 3,
+       "score": 54
+      },
+      {
+       "value": 19,
+       "multiplier": 1,
+       "score": 19
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 18
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     2
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 241,
+     "darts": [
+      {
+       "value": 18,
+       "multiplier": 3,
+       "score": 54
+      },
+      {
+       "value": 19,
+       "multiplier": 1,
+       "score": 19
+      },
+      {
+       "value": 1,
+       "multiplier": 2,
+       "score": 2
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 19
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 238,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 6
+    },
+    "history": 20
+   },
+   {
+    "step": [
+     "throw",
+     0,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 238,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 6
+    },
+    "history": 21
+   },
+   {
+    "step": [
+     "throw",
+     0,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 238,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 6
+    },
+    "history": 22
+   },
+   {
+    "step": [
+     "throw",
+     0,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 2,
+     "turn_start": 238,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 6
+    },
+    "history": 23
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      134,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 24
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      114,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 1,
+       "score": 20
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 25
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      113,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 1,
+       "score": 20
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 26
+   },
+   {
+    "step": [
+     "throw",
+     0,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      113,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 0,
+     "turn_start": 134,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 1,
+       "score": 20
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 27
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      113,
+      166,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 166,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 8
+    },
+    "history": 28
+   },
+   {
+    "step": [
+     "throw",
+     17,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      113,
+      149,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 166,
+     "darts": [
+      {
+       "value": 17,
+       "multiplier": 1,
+       "score": 17
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 8
+    },
+    "history": 29
+   },
+   {
+    "step": [
+     "throw",
+     2,
+     2
+    ],
+    "snapshot": {
+     "names": [
+      "Kapil",
+      "Aita",
+      "Sam"
+     ],
+     "scores": [
+      113,
+      145,
+      238
+     ],
+     "start": 301,
+     "double_out": true,
+     "player": 1,
+     "turn_start": 166,
+     "darts": [
+      {
+       "value": 17,
+       "multiplier": 1,
+       "score": 17
+      },
+      {
+       "value": 2,
+       "multiplier": 2,
+       "score": 4
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 8
+    },
+    "history": 30
+   }
+  ],
+  [
+   {
+    "step": [
+     "game",
+     [
+      "A",
+      "B"
+     ],
+     301,
+     false
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      301,
+      301
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 0
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      241,
+      301
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 1
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      181,
+      301
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 2
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      301
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 1
+    },
+    "history": 3
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      301
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 4
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      300
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 5
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      299
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 6
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      298
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 301,
+     "darts": [
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 2
+    },
+    "history": 7
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      298
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 8
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      61,
+      298
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 9
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      1,
+      298
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 10
+   },
+   {
+    "step": [
+     "throw",
+     5,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      298
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 5,
+       "multiplier": 1,
+       "score": 5
+      }
+     ],
+     "bust": true,
+     "winner": null,
+     "turn": 3
+    },
+    "history": 11
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      298
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 298,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 12
+   },
+   {
+    "step": [
+     "throw",
+     5,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 298,
+     "darts": [
+      {
+       "value": 5,
+       "multiplier": 1,
+       "score": 5
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 13
+   },
+   {
+    "step": [
+     "fill"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 298,
+     "darts": [
+      {
+       "value": 5,
+       "multiplier": 1,
+       "score": 5
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 4
+    },
+    "history": 14
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 15
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      61,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 16
+   },
+   {
+    "step": [
+     "undo"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      121,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 15
+   },
+   {
+    "step": [
+     "throw",
+     19,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      102,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 19,
+       "multiplier": 1,
+       "score": 19
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 16
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 19,
+       "multiplier": 1,
+       "score": 19
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 17
+   },
+   {
+    "step": [
+     "throw",
+     0,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 121,
+     "darts": [
+      {
+       "value": 19,
+       "multiplier": 1,
+       "score": 19
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 5
+    },
+    "history": 18
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 293,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 6
+    },
+    "history": 19
+   },
+   {
+    "step": [
+     "fill"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 1,
+     "turn_start": 293,
+     "darts": [
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      },
+      {
+       "value": 0,
+       "multiplier": 1,
+       "score": 0,
+       "filled": true
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 6
+    },
+    "history": 20
+   },
+   {
+    "step": [
+     "next"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 21
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     3
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      41,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 22
+   },
+   {
+    "step": [
+     "throw",
+     20,
+     2
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      1,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      }
+     ],
+     "bust": false,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 23
+   },
+   {
+    "step": [
+     "throw",
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      0,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": 0,
+     "turn": 7
+    },
+    "history": 24
+   },
+   {
+    "step": [
+     "correct",
+     2,
+     2,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      },
+      {
+       "value": 2,
+       "multiplier": 1,
+       "score": 2
+      }
+     ],
+     "bust": true,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 25
+   },
+   {
+    "step": [
+     "correct",
+     2,
+     1,
+     1
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      0,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": 0,
+     "turn": 7
+    },
+    "history": 26
+   },
+   {
+    "step": [
+     "undo"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      101,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      },
+      {
+       "value": 2,
+       "multiplier": 1,
+       "score": 2
+      }
+     ],
+     "bust": true,
+     "winner": null,
+     "turn": 7
+    },
+    "history": 25
+   },
+   {
+    "step": [
+     "undo"
+    ],
+    "snapshot": {
+     "names": [
+      "A",
+      "B"
+     ],
+     "scores": [
+      0,
+      293
+     ],
+     "start": 301,
+     "double_out": false,
+     "player": 0,
+     "turn_start": 101,
+     "darts": [
+      {
+       "value": 20,
+       "multiplier": 3,
+       "score": 60
+      },
+      {
+       "value": 20,
+       "multiplier": 2,
+       "score": 40
+      },
+      {
+       "value": 1,
+       "multiplier": 1,
+       "score": 1
+      }
+     ],
+     "bust": false,
+     "winner": 0,
+     "turn": 7
+    },
+    "history": 24
+   }
+  ]
+ ]
+}

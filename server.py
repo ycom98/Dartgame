@@ -114,11 +114,12 @@ class App:
     def game_state(self):
         with self.game_lock:
             return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
-                    'camera_game':self.camera_game}
+                    'camera_game':self.camera_game, 'display':self.game.hints() if self.game else None}
     def state(self):
         game = self.game_state()
         return {'game':game['game'], 'revision':game['revision'],
                 'presentation_path':'/play?t='+self.display_token,
+                'display':game['display'],  # the game mode's layout hints for /play and /control (M1-15)
                 'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view(),
                 'recording':recording_state()}
 
@@ -150,6 +151,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers(); self.wfile.write(content); return
         if not self.authenticated(display=path == '/api/state'): return self.reply({'error':'Open the complete pairing link printed in Terminal'},401)
         if path == '/api/state': return self.reply(app.state())
+        if path == '/api/modes':
+            import modes
+            return self.reply({'modes':modes.catalog()})
         if path == '/api/record/disk':
             return self.reply({'free_bytes':free_disk_bytes(), 'min_free_bytes':recording.MIN_FREE_BYTES if recording else None})
         if path == '/api/events':
@@ -269,15 +273,19 @@ def game_write(path, body):
     if path == '/api/game':
         camera = body.get('camera', True)
         if type(camera) is not bool: raise ValueError('camera must be boolean')
-        candidate = Game(body.get('names'),body.get('start',301),body.get('double_out',False))
+        # {mode, options} (M1-15); the legacy top-level start / double_out still make an x01 game.
+        mode = body.get('mode', 'x01')
+        if not isinstance(mode, str): raise ValueError('mode must be a string')
+        candidate = Game(body.get('names'), body.get('start',301), body.get('double_out',False),
+                         mode=mode, options=body.get('options'))
         if camera:
             if vision is None: raise ValueError('Complete calibration and verify the live overlay before starting')
             worker.call(recheck_before_camera_game)
         with app.game_lock:
             check_revision(body)
             app.game = candidate; app.camera_game = camera; app.revision += 1
-            app.events.add('game', names=candidate.data['names'], start=candidate.data['start'],
-                           double_out=candidate.data['double_out'], camera=camera)
+            app.events.add('game', names=candidate.data['names'], mode=candidate.mode.id,
+                           options=candidate.options, camera=camera)
         if vision is not None: worker.submit(reset_base_if_ready)
         return None
     if path == '/api/throw' and 'proposal' in body:
@@ -368,7 +376,7 @@ def auto_commit_once():
     if pending is None: return False
     with app.game_lock:
         g = app.game
-        if g is None or not app.camera_game or g.data['winner'] is not None or g.data['bust'] or len(g.data['darts']) >= 3:
+        if g is None or not app.camera_game or g.turn_over():
             return False
     try:
         commit_camera_dart(pending['id'], 'auto')

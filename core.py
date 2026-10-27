@@ -28,79 +28,81 @@ def near_wire(x, y, tolerance=1.5):
     return False
 
 class Game:
-    def __init__(self, names, start=301, double_out=False):
-        if type(start) is not int or start not in (301, 501): raise ValueError('Choose 301 or 501')
-        if not isinstance(names, list) or not 2 <= len(names) <= 4:
-            raise ValueError('Choose 2–4 players')
+    """A match of any registered game mode (modes/, M1-15).
+
+    The mode owns the rules and its state (self.data); Game adds what every mode shares: validation of
+    names and darts, undo (a snapshot stack in self.history), correcting a dart of the current turn,
+    filling in missed darts, and save/restore. Game(names, start, double_out) still makes an x01 game.
+    """
+    def __init__(self, names, start=301, double_out=False, mode='x01', options=None):
+        import modes
+        self.mode = modes.get(mode)
+        if options is None and self.mode.id == 'x01':
+            options = {'start': start, 'double_out': double_out}
+        self.options = self.mode.validate_options(options)
+        if not isinstance(names, list) or not self.mode.min_players <= len(names) <= self.mode.max_players:
+            raise ValueError(f'Choose {self.mode.min_players}\u2013{self.mode.max_players} players')
         if any(not isinstance(name, str) or not name.strip() or len(name.strip()) > 30 for name in names):
             raise ValueError('Player names must contain 1–30 characters')
         if len(set(n.strip().casefold() for n in names)) != len(names):
             raise ValueError('Player names must be distinct')
-        if not isinstance(double_out, bool): raise ValueError('double_out must be true or false')
-        self.data = {'names': [n.strip() for n in names], 'scores': [start] * len(names), 'start': start,
-                     'double_out': double_out, 'player': 0, 'turn_start': start, 'darts': [],
-                     'bust': False, 'winner': None, 'turn': 1}
+        self.data = self.mode.new_state([n.strip() for n in names], self.options)
         self.history = []
-    def snapshot(self): return copy.deepcopy(self.data)
-    def _save(self): self.history.append(self.snapshot())
+    def snapshot(self): return {**copy.deepcopy(self.data), 'mode': self.mode.id}
+    def hints(self): return self.mode.presentation_hints(self.data)
+    def turn_over(self): return self.mode.turn_over(self.data)
+    def _save(self): self.history.append(copy.deepcopy(self.data))
     def throw(self, value, multiplier=1, filled=False):
         """Record one dart. filled=True marks a miss the server filled in for an undetected dart."""
-        d = self.data
         if type(value) is not int or type(multiplier) is not int or multiplier not in (1, 2, 3):
             raise ValueError('Invalid dart')
         if value not in (*range(0, 21), 25) or (value == 25 and multiplier == 3) or (value == 0 and multiplier != 1):
             raise ValueError('Invalid board score')
-        if d['winner'] is not None or d['bust'] or len(d['darts']) >= 3:
+        if self.mode.turn_over(self.data):
             raise ValueError('Turn is finished; advance or undo')
         self._save()
-        remaining = d['scores'][d['player']] - value * multiplier
-        dart = {'value': value, 'multiplier': multiplier, 'score': value * multiplier}
-        if filled: dart['filled'] = True
-        d['darts'].append(dart)
-        bust = remaining < 0 or (d['double_out'] and (remaining == 1 or (remaining == 0 and multiplier != 2)))
-        if bust:
-            d['scores'][d['player']] = d['turn_start']; d['bust'] = True
-        else:
-            d['scores'][d['player']] = remaining
-            if remaining == 0: d['winner'] = d['player']
+        self.mode.throw(self.data, value, multiplier)
+        if filled: self.data['darts'][-1]['filled'] = True
         return self.snapshot()
     def next_turn(self):
-        d = self.data
-        if d['winner'] is not None: raise ValueError('Game is finished')
-        if not d['bust'] and len(d['darts']) != 3: raise ValueError('Record all three darts, including misses, first')
+        if self.data['winner'] is not None: raise ValueError('Game is finished')
+        if not self.mode.can_advance(self.data): raise ValueError('Record all three darts, including misses, first')
         self._save()
-        d['player'] = (d['player'] + 1) % len(d['names'])
-        d['turn_start'] = d['scores'][d['player']]
-        d['darts'] = []; d['bust'] = False; d['turn'] += 1
+        self.mode.next_turn(self.data)
         return self.snapshot()
     def fill_misses(self):
-        """End the turn with fewer than 3 darts: record the missing darts as filled-in misses."""
-        d = self.data
-        if d['winner'] is not None or d['bust'] or len(d['darts']) >= 3:
+        """End the turn with fewer darts than allowed: record the missing darts as filled-in misses."""
+        if self.mode.turn_over(self.data):
             raise ValueError('Turn is finished; advance or undo')
-        count = 3 - len(d['darts'])
-        before = self.snapshot(); history = list(self.history)
-        for _ in range(count): self.throw(0, 1, filled=True)
+        before = copy.deepcopy(self.data); history = list(self.history)
+        count = 0
+        while not self.mode.turn_over(self.data):
+            self.throw(0, 1, filled=True); count += 1
         self.history = history + [before]  # one undo step
         return count
+    def turn_start_state(self):
+        """The state before the first dart of the current turn (from the undo history)."""
+        turn = self.data['turn']
+        if not self.data['darts']: return copy.deepcopy(self.data)
+        for state in reversed(self.history):
+            if state['turn'] == turn and not state['darts']:
+                return copy.deepcopy(state)
+        raise ValueError('The start of this turn is no longer available')
     def correct(self, index, value, multiplier=1):
         """Replace dart `index` of the current turn and replay the later darts (one undo step).
 
         Returns the number of later darts dropped because the corrected dart ended the turn (bust or win)."""
         d = self.data
         if type(index) is not int or not 0 <= index < len(d['darts']): raise ValueError('No such dart in this turn')
-        before = self.snapshot(); history = list(self.history)
+        before = copy.deepcopy(d); history = list(self.history)
         darts = [dict(dart) for dart in d['darts']]
         darts[index] = {'value': value, 'multiplier': multiplier}
         # Replay the turn from its start (the history may hold collapsed steps from earlier corrections).
-        start = self.snapshot()
-        start.update(darts=[], bust=False, winner=None)
-        start['scores'][start['player']] = start['turn_start']
-        self.data = start
+        self.data = self.turn_start_state()
         try:
             dropped = 0
             for dart in darts:
-                if self.data['winner'] is not None or self.data['bust']:
+                if self.mode.turn_over(self.data):
                     dropped += 1; continue
                 self.throw(dart['value'], dart['multiplier'], filled=dart.get('filled', False) and dart['value'] == 0)
         except ValueError:
@@ -112,3 +114,17 @@ class Game:
         if not self.history: raise ValueError('Nothing to undo')
         self.data = self.history.pop()
         return self.snapshot()
+    def to_json(self):
+        """Everything needed to resume this match (M1-16)."""
+        return {'mode': self.mode.id, 'options': copy.deepcopy(self.options), 'state': self.mode.to_json(self.data),
+                'history': [self.mode.to_json(state) for state in self.history]}
+    @classmethod
+    def from_json(cls, data):
+        import modes
+        mode = modes.get(data['mode'])
+        game = cls.__new__(cls)
+        game.mode = mode
+        game.options = mode.validate_options(data['options'])
+        game.data = mode.from_json(data['state'])
+        game.history = [mode.from_json(state) for state in data['history']]
+        return game
