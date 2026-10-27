@@ -29,7 +29,7 @@ CLICK_OFFSETS = [[2.5, -1.5], [-2.0, 2.5], [1.5, 2.0], [-2.5, -2.0]]
 
 
 class RefineChecks:
-    """check_refines for TestCase classes."""
+    """check_refines for TestCase classes (also used by tests/test_ceiling.py)."""
 
     def check_refines(self, mount, profile):
         camera = camera_for_mount(mount)

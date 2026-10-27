@@ -164,6 +164,29 @@ If C1 fails but C5 passes, the product still works with "camera-assisted" scorin
   4. Confidence/residual exposed in `vision.state()`. A low-confidence refinement keeps the clicks and reports the reason.
   5. All existing Python tests pass; new tests cover the refinement and its fallback.
 
+#### M1-05d — Ceiling mount profiles
+- **Why:** The owner's real setup (`docs/DECISIONS.md` #2) is a ceiling mount, and no harness mount models it:
+  - 7.5 ft (2286 mm) ceiling, bull at 1730 mm;
+  - phone about 30 mm below the ceiling, so the camera is about 526 mm above the bull;
+  - centred left-right, looking down at the board.
+- **Scope:**
+  - Add the synthetic mounts `ceiling-0.5ft` (152 mm from the wall), `ceiling-1.5ft` (457 mm, the **planned** setup), `ceiling-2ft` (610 mm) and `ceiling-3ft` (914 mm).
+  - Model the camera as the Samsung Galaxy S22 main camera at 1× (assumed 78° diagonal FOV, about 70.4° horizontal), aimed at the board centre, with 1920×1080 frames.
+  - Keep random streams keyed by mount name (D7), so existing mounts' results do not change.
+  - Run the full gate (ideal, realistic, realistic + shadow; held-out seeds 2 and 3) on the ceiling mounts with M1-05b and with M1-05c.
+  - Measure a multi-dart occlusion scenario: 3 darts per turn, with darts 2 and 3 landing below earlier darts. Cases: T20 grouping, T20 → T5/T1 neighbours, and darts directly below another by 3–8 cm.
+    - The pipeline proposes one new dart per frame, so simulate throw by throw: each dart is added to a board that already holds the earlier darts, and those darts are in the reference image.
+    - Report how often later darts are visible and detected, per mount.
+- **Files:** `sim/camera.py`, `sim/scene.py`, `sim/preview.py`, new `tools/eval_occlusion.py`, `tools/run_detection_gate.py`, new `tests/test_ceiling.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05d-*.json`.
+- **Depends on:** M1-05c.
+- **Acceptance:**
+  1. The existing mounts' trials are unchanged.
+  2. A clearly labelled synthetic ceiling section in `docs/M1-DETECTION-RESULTS.md` gives:
+     - per-mount numbers (M1-05b vs M1-05c, all profiles);
+     - the occlusion results;
+     - a recommended wall distance for the Thursday trial.
+  3. All existing Python tests pass; new tests cover the mounts and the occlusion harness.
+
 #### M1-06 — Split the global lock; a background vision worker
 - **Why:** `server.py` holds one `RLock` across game writes, `/api/state`, image encoding and ORB `align()`. A slow alignment freezes `/api/state` polling and the TV. A pulled stream also needs a long-lived worker thread.
 - **Scope:**

@@ -1,6 +1,93 @@
-# M1-03 to M1-05c: synthetic detection results
+# M1-03 to M1-05d: synthetic detection results
 
 **All numbers below come from synthetic rendered scenes (`sim/`). They measure the vision code against a model of a board and darts. They are not evidence of real-board accuracy; the Thursday trial is the real gate.**
+
+## M1-05d: ceiling mounts — SYNTHETIC (the owner's planned geometry)
+
+**Synthetic only.** These are rendered scenes of the owner's ceiling geometry (`docs/DECISIONS.md` #2). They rank the mount distances against each other under the harness's model; they do not predict Thursday's real accuracy.
+
+### Geometry and camera assumptions
+
+- **Room:** 7.5 ft (2286 mm) ceiling, bull at 1730 mm, phone 30 mm below the ceiling. The camera is therefore 526 mm above the bull, centred left-right, and aimed at the bull. In board mm the camera sits at (0, −526, d), where d is the distance from the wall.
+- **Phone:** Samsung Galaxy S22 main camera at 1×, 1920×1080. **Assumed 78° diagonal FOV** (about 70.4° horizontal, 43° vertical): the 4:3 still is about 85° diagonal, the 16:9 video crop about 80°, and stabilisation crops a little more. No lens distortion is modelled.
+- **Random streams:** keyed by mount name (D7), so the original six mounts' darts are unchanged.
+
+| Mount | Distance from wall | View angle above the board plane | Camera to bull | Resolution at the bull, across / up-down (px per mm) |
+|---|---|---|---|---|
+| ceiling-0.5ft | 152 mm | 16° | 548 mm | 2.48 / **0.69** |
+| **ceiling-1.5ft (planned)** | 457 mm | 41° | 697 mm | 1.95 / 1.28 |
+| ceiling-2ft | 610 mm | 49° | 805 mm | 1.69 / 1.28 |
+| ceiling-3ft | 914 mm | 60° | 1055 mm | 1.29 / 1.12 |
+| (top, for reference) | 500 mm | 48° | 673 mm | 2.04 / 1.51 |
+
+Evidence:
+- `qa-artifacts/M1-05d-ceiling-detection.json`: M1-05b vs M1-05c, seeds 1–3, three profiles, 200 darts per cell, plus 50 empty-board trials per cell.
+- `qa-artifacts/M1-05d-occlusion.json`: realistic, seeds 2 and 3, 100 turns per scenario.
+
+### Single darts: exact score, held-out seeds 2+3 (400 darts per mount; seed 1 in brackets)
+
+| Mount | ideal M1-05b | ideal M1-05c | realistic M1-05b | **realistic M1-05c** | realistic+shadow M1-05b | **realistic+shadow M1-05c** |
+|---|---|---|---|---|---|---|
+| ceiling-0.5ft | 97.2% | 97.8% (98.5) | 93.2% | **91.5%** (90.5) | 75.2% | **76.0%** (79.5) |
+| **ceiling-1.5ft** | 96.2% | 96.2% (96.0) | 87.8% | **95.0%** (93.5) | 82.2% | **90.3%** (88.0) |
+| ceiling-2ft | 94.2% | 94.2% (95.0) | 89.8% | **91.5%** (93.0) | 86.8% | **88.2%** (86.5) |
+| ceiling-3ft | 85.5% | 85.5% (82.5) | 80.0% | **82.0%** (78.5) | 75.5% | **78.5%** (72.0) |
+
+#### M1-05c details, held-out seeds 2+3
+
+| Mount | realistic no-proposal | realistic tip median / p95 (mm) | realistic near-wire exact | realistic+shadow no-proposal | calibration residual (mm) | true map error, max (mm) | low-confidence proposals (ideal, 400 darts) |
+|---|---|---|---|---|---|---|---|
+| ceiling-0.5ft | 0.0% | 2.15 / 4.61 | 73.2% | 10.8% | 0.49 | 0.22 | 0 |
+| ceiling-1.5ft | 1.2% | 0.94 / 1.79 | 82.4% | 3.8% | 0.41 | 0.26 | 3 |
+| ceiling-2ft | 0.8% | 0.96 / 2.09 | 67.5% | 4.8% | 0.43 | 0.30 | 24 |
+| ceiling-3ft | 1.0% | 1.39 / 27.25 | 61.9% | 4.5% | 0.48 | 0.46 | 153 |
+
+0 false proposals in 1,800 empty-board trials across both pipelines.
+
+What the numbers say:
+- **ceiling-1.5ft (planned) is the best ceiling mount on single darts.** Realistic is 95.0% (M1-05b: 87.8%) and realistic + shadow 90.3%, with 1.2% no-proposal. Calibration refinement is worth 7–8 points here: at 41° each click pixel is about 0.8 mm of board up-down.
+- **ceiling-0.5ft is resolution-limited.** At 16° the board is 257 px tall (0.69 px per mm up-down).
+  - Even in ideal the tip error median is 1.44 mm, against 0.7 mm elsewhere. Realistic adds noise, and hard shadows give 10.8% no-proposal (shadows are long at a grazing angle).
+  - Refinement does not help here: M1-05c 91.5% vs M1-05b 93.2%, within noise. The tip error median rose from 1.2 to 2.2 mm, so the M1-05b click errors seem partly to have cancelled the grazing-view tip bias by chance.
+  - The original M1-05c acceptance rule rejected a correct refinement on this mount; see M1-05c.
+- **ceiling-3ft (60°) is the worst.** Steeply tilted darts point almost at the lens, so the dart blob is not elongated and the tip rule falls back to "nearest the foot point": 153 of 400 ideal proposals are low-confidence, and most errors are among them. `docs/DECISIONS.md` #2 predicted this ("beyond ~60° … each dart starts hiding its own tip").
+- **ceiling-2ft** sits between 1.5 ft and 3 ft, 2–3.5 points below 1.5 ft.
+
+### Several darts in a turn (throw by throw), realistic, seeds 2+3, M1-05c
+
+The detector proposes one new dart per stable frame, so each turn is simulated throw by throw: dart k is detected against a base image that already holds darts 1..k−1, as M1-08 will do.
+
+Scenarios, 100 turns each per seed:
+- **T20 group:** three darts aimed at T20, σ 8 mm.
+- **T20 → neighbours:** T20, then T5 or T1, then the other one.
+- **Stacked below:** dart 2 lands 30–80 mm directly below dart 1, and dart 3 30–80 mm below dart 2.
+
+"Visible" is geometric (harness only): no earlier dart, and not the dart's own body, covers the tip's image point.
+
+Each cell gives: tip visible / exact score.
+
+| Mount | dart 1 (all) | dart 2 (all) | dart 3 (all) | T20 group, dart 3 | neighbours, dart 3 | stacked below, dart 2 | stacked below, dart 3 |
+|---|---|---|---|---|---|---|---|
+| ceiling-0.5ft | 100% / 91% | 92% / 84% | 82% / 76% | 86% / 82% | 100% / 86% | 80% / 74% | 60% / 61% |
+| **ceiling-1.5ft** | 100% / 94% | 87% / 86% | 79% / 79% | 86% / 85% | 100% / 92% | 72% / 80% | 52% / 58% |
+| ceiling-2ft | 99% / 90% | 85% / 80% | 79% / 78% | 84% / 78% | 96% / 86% | 67% / 74% | 56% / 70% |
+| ceiling-3ft | 90% / 73% | 80% / 66% | 74% / 66% | 71% / 58% | 80% / 62% | 80% / 72% | 70% / 76% |
+| top (reference) | 100% / 90% | 88% / 80% | 79% / 76% | 83% / 76% | 98% / 86% | 74% / 78% | 56% / 68% |
+
+- **Visible tips stay accurate.** On ceiling-1.5ft, darts 2 and 3 score 91% and 89% when their tip is visible. When the tip is hidden by an earlier dart they score 50% and 39%; the rest are wrong (9% and 13% of darts 2 and 3) or have no proposal (5–8%).
+- **Stacked darts are the hard case at every mount.** A dart landing directly below an earlier one has a hidden tip in 28–48% of throws on ceiling-1.5ft (that is what "below" means for a camera above the board). Neighbours (T20 → T5/T1) are almost never hidden on 0.5–2 ft.
+- **Hidden tips usually give a wrong score, not "no proposal".** The detector does not know the tip is hidden. M1-08 / M1-12 should treat a new dart whose blob touches an earlier dart, on the camera side, as low confidence.
+- **ceiling-0.5ft does not occlude more here than 1.5 ft.** The simulated darts are thin and the scenarios put dart 2 directly below dart 1, so the grazing view's long "hidden strip" rarely covers the next tip. This does not cover the flight-shadowed strip or the thicker real flights that `docs/DECISIONS.md` #2 worries about.
+- **ceiling-3ft hides tips by the dart's own body** in 9–10% of throws.
+
+### Recommendation for Thursday
+
+**Keep the planned mount: 1.5 ft (about 46 cm) from the wall, centred on the board, aimed at the bull.**
+- It has the best single-dart accuracy of the ceiling mounts (realistic 95.0%, with hard shadows 90.3%) and later-dart accuracy as good as any distance tested.
+- Do not go closer than about 1.5 ft: 0.5 ft loses resolution up-down and is badly hurt by shadows.
+- Do not go to 3 ft: darts start pointing at the lens.
+- 2 ft is an acceptable fallback if 1.5 ft is physically awkward (2–3.5 points lower in the harness).
+- Diffuse light near the board still matters most for the shadow case.
 
 ## M1-05c: calibration refinement (current)
 

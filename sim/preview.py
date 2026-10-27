@@ -25,7 +25,8 @@ def main(argv=None):
     parser.add_argument('--shadow', action='store_true', help='add a hard shadow from the default light')
     parser.add_argument('--width', type=int, default=DEFAULT_WIDTH)
     parser.add_argument('--height', type=int, default=DEFAULT_HEIGHT)
-    parser.add_argument('--hfov', type=float, default=DEFAULT_HFOV)
+    parser.add_argument('--hfov', type=float, default=None,
+                        help='horizontal FOV in degrees (default: the mount\'s, %s for the original mounts)' % DEFAULT_HFOV)
     parser.add_argument('--k1', type=float, default=0.0, help='radial distortion coefficient')
     parser.add_argument('--annotate', action='store_true', help='mark calibration points and true tips')
     parser.add_argument('--out', required=True)

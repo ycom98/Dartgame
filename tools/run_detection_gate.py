@@ -34,12 +34,13 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from sim.camera import MOUNTS  # noqa: E402
+from sim.camera import CEILING_MOUNTS, MOUNTS  # noqa: E402
 from tools import eval_detection  # noqa: E402
 
 PIPELINES = ('current', 'm105b', 'm105-foot', 'm105-centre')
 GATED_MOUNTS = ('top', 'bottom', 'left', 'right', 'steep-topleft')
-POOLED_GROUPS = {'gated_pooled': GATED_MOUNTS}
+# Reported as a group of their own (M1-05d), not gated.
+POOLED_GROUPS = {'gated_pooled': GATED_MOUNTS, 'ceiling_pooled': CEILING_MOUNTS}
 BASELINE_MODULE = 'vision_baseline'
 SUMMARY_KEYS = ('exact_accuracy', 'wrong_sector_rate', 'wrong_ring_rate', 'no_proposal_rate', 'exact_given_proposal',
                 'tip_error_mm', 'tip_signed_error_toward_foot_mm', 'near_wire', 'not_near_wire',
@@ -156,8 +157,10 @@ def main(argv=None):
         'settings': {'pipelines': pipelines, 'profiles': profiles, 'seeds': seeds, 'mounts': mounts,
                      'darts_per_cell': args.darts, 'empty_trials_per_cell': args.empty_trials,
                      'pair_trials_per_cell': args.pair_trials, 'gated_mounts': list(GATED_MOUNTS),
+                     'ceiling_mounts': list(CEILING_MOUNTS),
                      'current_tip_bias_override_mm': args.tip_bias,
-                     'note': 'gated_pooled averages the per-mount rates over the gated mounts present; '
+                     'note': 'gated_pooled (ceiling_pooled) averages the per-mount rates over the gated (ceiling) '
+                             'mounts present; '
                              'near-wire = tip within 1.5 mm of a wire (core.near_wire).'},
         'total_wall_seconds': round(time.perf_counter() - started, 1),
         'results': results,

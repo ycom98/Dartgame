@@ -245,6 +245,31 @@ def _draw_dart(image, camera, dart):
             cv2.fillPoly(image, [_fixed(pixels)], colour, cv2.LINE_AA, SUBPIXEL_SHIFT)
 
 
+def dart_silhouette(camera, darts, include_point=True):
+    """uint8 mask (255 = covered, anti-aliased edges) of the darts' outlines in the image.
+
+    include_point=False leaves out the steel point (used to ask whether a dart's own
+    barrel, shaft or flight hides its tip).
+    """
+    mask = np.zeros((camera.height, camera.width), np.uint8)
+    for dart in darts:
+        parts = _dart_parts(dart)
+        if not include_point:
+            parts = parts[1:]
+        for part in parts:
+            if part[0] == 'cylinder':
+                _, s0, s1, diameter, _ = part
+                quad, end, radius = _cylinder_outline(camera, dart, s0, s1, diameter)
+                if quad is not None:
+                    cv2.fillConvexPoly(mask, _fixed(quad), 255, cv2.LINE_AA, SUBPIXEL_SHIFT)
+                centre = tuple(int(v) for v in _fixed(end))
+                cv2.circle(mask, centre, max(1, int(round(radius * SUBPIXEL_SCALE))), 255, -1,
+                           cv2.LINE_AA, SUBPIXEL_SHIFT)
+            else:
+                cv2.fillPoly(mask, [_fixed(camera.project(part[1]))], 255, cv2.LINE_AA, SUBPIXEL_SHIFT)
+    return mask
+
+
 def _shadow_mask(camera, darts, light):
     """Mask of board pixels in hard shadow of the darts for a directional light."""
     light = np.asarray(light, dtype=np.float64)
