@@ -27,6 +27,34 @@ DEFAULT_HEIGHT = 1080
 DEFAULT_HFOV = 70.0
 
 
+def hfov_from_diagonal(diagonal_degrees, width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT):
+    """Horizontal FOV (degrees) of a pinhole camera with the given diagonal FOV and frame size."""
+    half_diagonal = math.tan(math.radians(diagonal_degrees) / 2.0)
+    return math.degrees(2.0 * math.atan(half_diagonal * width / math.hypot(width, height)))
+
+
+# Ceiling mounts (M1-05d): the owner's basement (docs/DECISIONS.md #2). 7.5 ft (2286 mm) ceiling,
+# bull at 1730 mm, phone about 30 mm below the ceiling, so the camera is 526 mm above the bull,
+# centred left-right, at a distance from the wall, aimed at the bull.
+CEILING_HEIGHT_ABOVE_BULL = 2286.0 - 30.0 - 1730.0
+CEILING_DISTANCES = {
+    'ceiling-0.5ft': 152.0,
+    'ceiling-1.5ft': 457.0,  # the owner's planned mount
+    'ceiling-2ft': 610.0,
+    'ceiling-3ft': 914.0,
+}
+CEILING_MOUNTS = tuple(CEILING_DISTANCES)
+MOUNTS.update({name: (0.0, -CEILING_HEIGHT_ABOVE_BULL, distance) for name, distance in CEILING_DISTANCES.items()})
+
+# Samsung Galaxy S22 main camera at 1x, 1920x1080 video. Assumption: about 78 degrees diagonal
+# (the 4:3 still frame is ~85 degrees; 16:9 video crops it to ~80, and video stabilisation
+# crops a little more). That is ~70.4 degrees horizontal, ~43 degrees vertical.
+S22_DIAGONAL_FOV = 78.0
+S22_HFOV = hfov_from_diagonal(S22_DIAGONAL_FOV)
+# Horizontal FOV per mount; mounts not listed use DEFAULT_HFOV.
+MOUNT_HFOV = {name: S22_HFOV for name in CEILING_MOUNTS}
+
+
 def board_to_world(points):
     """Board coordinates (x, y, z toward thrower) -> right-handed world (x, y, -z)."""
     points = np.asarray(points, dtype=np.float64)
@@ -150,7 +178,10 @@ class Camera:
         return self.f / float(self.depth(np.atleast_2d(point_board))[0])
 
 
-def camera_for_mount(name, width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT, hfov=DEFAULT_HFOV, roll=0.0, k1=0.0):
+def camera_for_mount(name, width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT, hfov=None, roll=0.0, k1=0.0):
+    """Camera at a standard mount, aimed at the bull. hfov defaults to the mount's (MOUNT_HFOV)."""
     if name not in MOUNTS:
         raise ValueError('Unknown mount %r; choose one of %s' % (name, ', '.join(MOUNTS)))
+    if hfov is None:
+        hfov = MOUNT_HFOV.get(name, DEFAULT_HFOV)
     return Camera(MOUNTS[name], (0.0, 0.0, 0.0), roll, width, height, hfov, k1)

@@ -74,6 +74,19 @@ class HarnessSmoke(unittest.TestCase):
         union = eval_detection.run(['left'], 3, 5, 'ideal', rule='foot', vision_factory=UnionSegmentationVision)
         self.assertEqual(len(union['mounts']['left']['trials']), 3)
 
+    def test_calibration_is_reported_and_refinement_can_be_turned_off(self):
+        refined = eval_detection.run(['top'], 1, 2, 'realistic')
+        clicks = eval_detection.run(['top'], 1, 2, 'realistic', refine=False)
+        self.assertTrue(refined['settings']['calibration_refinement'])
+        self.assertFalse(clicks['settings']['calibration_refinement'])
+        refined, clicks = refined['mounts']['top']['calibration'], clicks['mounts']['top']['calibration']
+        self.assertEqual((refined['n'], refined['refined']), (1, 1))
+        self.assertEqual((clicks['n'], clicks['refined']), (1, 0))
+        self.assertIsNotNone(refined['residual_mm_mean'])
+        self.assertLess(refined['refine_seconds_max'], 2.0)
+        self.assertLess(refined['true_error_mm_max'], clicks['true_error_mm_max'])
+        self.assertIn('calib 1/1 refined', eval_detection.calibration_text({'calibration': refined}))
+
     def test_recording_is_stubbed(self):
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
             self.assertEqual(eval_detection.main(['--recording', 'nowhere']), 2)

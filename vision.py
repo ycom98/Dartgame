@@ -5,6 +5,7 @@ import time
 import cv2
 import numpy as np
 from core import score_point, near_wire
+import vision_calibrate
 import vision_pose
 import vision_segment
 
@@ -26,16 +27,22 @@ DEFAULT_RULE = 'foot'
 # QA measured slightly lower tip error with 0.0 and identical exact scores.
 TIP_BIAS_MM = 0.0
 # Change detection covers the board and most of the number ring (mm): a dart body near the
-# double ring often projects outside the scoring area.
+# double ring often projects outside the scoring area. This disc is also the denominator of
+# vision_segment.LARGE_CHANGE_FRACTION: 12% of it (about 15,100 mm2) changed means the camera or
+# board moved. (M1-05 used 172 mm, where 12% was about 11,200 mm2.)
 BOARD_CHANGE_RADIUS_MM = 200.0
 # Pixels within this distance of the chosen blob end refine the tip along the point's own axis (mm).
 TIP_REFINE_MM = 12.0
 # How far beyond the pixel end the half-contrast edge search looks (mm).
 EDGE_SEARCH_MM = 2.0
+# Refine the four-click homography from the board's own ring edges and wires (M1-05c).
+# The harness turns it off to reproduce M1-05b (click-only calibration).
+CALIBRATION_REFINEMENT = True
 SEGMENTATION_MESSAGES = {
     'none': 'Ready',
     'multiple': 'More than one new dart; enter scores manually',
     'too_large': 'Change is too large for one dart; enter score manually',
+    'noisy': 'Too many small changes (noise, debris or a moving shadow); enter score manually',
 }
 
 
@@ -60,7 +67,7 @@ def refine_tip(points, tip, direction, difference=None):
     along = (near - mean) @ axis
     across = (near - mean) @ normal
     end = float(along.max())
-    centre = float(np.median(across[along >= end - 1.5]))
+    centre = float(np.median(across[along >= end - 1.5]))  # last 1.5 warp px (~0.9 mm) of the point
     tip = mean + axis * end + normal * centre
     if difference is not None:
         tip = half_contrast_end(difference, tip, axis)
@@ -107,6 +114,9 @@ class Vision:
         self.pose = None
         self.rule = DEFAULT_RULE
         self.tip_bias_mm = TIP_BIAS_MM
+        # Calibration refinement (M1-05c): report of the last calibrate(), shown by the setup UI.
+        self.refine_calibration = CALIBRATION_REFINEMENT
+        self.calibration_quality = None
         # Threading boundary (M1-06). Vision methods do not lock themselves: the server's vision worker
         # (vision_worker.py) holds self.lock around every action and frame, then calls publish().
         # Readers on other threads use current_state() and never wait for the lock.
@@ -128,6 +138,7 @@ class Vision:
         # The pose belongs to the geometry just invalidated; a successful calibrate()/align() re-solves it.
         # mount_side is kept on purpose: it describes where the phone is mounted, not this calibration.
         self.solved_pose = None; self.pose = None
+        self.segmentation = None
     def reset_camera(self):
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.timestamp = 0
@@ -164,6 +175,7 @@ class Vision:
         if min(lengths) < 40 or max(lengths) / min(lengths) > 4:
             raise ValueError('Board is too small or camera angle too steep')
         self.H = cv2.getPerspectiveTransform(p, TARGETS)
+        self.calibration_quality = self.refine_clicks(source)
         self.update_pose()
         self.reference = source.copy(); self.reference_H = self.H.copy()
         self.reference_mask = np.zeros((h,w), np.uint8)
@@ -181,7 +193,20 @@ class Vision:
         else:
             self.aligned = True; self.version += 1; self.reset_base()
         self.message = 'Calibration complete. Check the four markers on the LIVE image, then verify.'
-        return {'ok': True, 'message': self.message}
+        if self.calibration_quality['method'] == 'clicks' and self.refine_calibration:
+            self.message = ('Calibration complete from your four points only (automatic board fit not confident: '
+                            + self.calibration_quality['reason'] + '). Check the markers on the LIVE image, then verify.')
+        return {'ok': True, 'message': self.message, 'calibration': dict(self.calibration_quality)}
+
+    def refine_clicks(self, source):
+        """Refine self.H (from the four clicks) on the calibration image; returns the quality report.
+
+        Keeps the click homography when the refinement is not confident (vision_calibrate.refine).
+        """
+        if not self.refine_calibration:
+            return {'method': 'clicks', 'confidence': None, 'reason': 'refinement disabled'}
+        self.H, quality = vision_calibrate.refine(source, self.H, SCALE, CENTER)
+        return quality
     def overlay(self):
         if self.H is None: return None
         try: return cv2.perspectiveTransform(TARGETS.reshape(1,-1,2),np.linalg.inv(self.H))[0]
@@ -261,7 +286,7 @@ class Vision:
     def reset_base(self):
         if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
         self.base = self.warp(self.frame); self.last_warp = self.base.copy()
-        self.stable = 0; self.proposal = None
+        self.stable = 0; self.proposal = None; self.segmentation = None
     def ingest(self, data):
         # data: encoded image bytes (/api/frame) or a decoded BGR frame from a camera source (M1-07).
         frame = data if isinstance(data, np.ndarray) else self.decode(data)
@@ -389,4 +414,5 @@ class Vision:
                 'version':self.version, 'width':int(self.frame.shape[1]) if self.frame is not None else 0,
                 'height':int(self.frame.shape[0]) if self.frame is not None else 0,
                 'pose':dict(self.pose) if self.pose is not None else None,
-                'foot':self.foot_point(), 'mount_side':self.mount_side}
+                'foot':self.foot_point(), 'mount_side':self.mount_side,
+                'calibration':dict(self.calibration_quality) if self.calibration_quality is not None else None}

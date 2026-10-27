@@ -245,6 +245,51 @@ def _draw_dart(image, camera, dart):
             cv2.fillPoly(image, [_fixed(pixels)], colour, cv2.LINE_AA, SUBPIXEL_SHIFT)
 
 
+def dart_silhouette(camera, darts, include_point=True):
+    """uint8 mask (255 = covered, anti-aliased edges) of the darts' outlines in the image.
+
+    include_point=False leaves out the steel point (used to ask whether a dart's own
+    barrel, shaft or flight hides its tip).
+    """
+    mask = np.zeros((camera.height, camera.width), np.uint8)
+    for dart in darts:
+        parts = _dart_parts(dart)
+        if not include_point:
+            parts = parts[1:]
+        for part in parts:
+            if part[0] == 'cylinder':
+                _, s0, s1, diameter, _ = part
+                quad, end, radius = _cylinder_outline(camera, dart, s0, s1, diameter)
+                if quad is not None:
+                    cv2.fillConvexPoly(mask, _fixed(quad), 255, cv2.LINE_AA, SUBPIXEL_SHIFT)
+                centre = tuple(int(v) for v in _fixed(end))
+                cv2.circle(mask, centre, max(1, int(round(radius * SUBPIXEL_SCALE))), 255, -1,
+                           cv2.LINE_AA, SUBPIXEL_SHIFT)
+            else:
+                cv2.fillPoly(mask, [_fixed(camera.project(part[1]))], 255, cv2.LINE_AA, SUBPIXEL_SHIFT)
+    return mask
+
+
+def add_speckles(image, camera, rng, count, radius_mm=(0.8, 2.0), max_board_radius=170.0):
+    """Draw count small discs (debris, chalk, flecks; random colours) on the board plane, in place.
+
+    By default each disc is smaller than a dart fragment (radius 0.8-2 mm, at most ~13 mm2; blur
+    and the warp make it look up to about twice that). Returns the (x, y, radius) of each speck in mm.
+    """
+    specks = []
+    for _ in range(count):
+        radius = math.sqrt(rng.uniform(0.0, 1.0)) * max_board_radius
+        angle = rng.uniform(0.0, 2.0 * math.pi)
+        x, y = radius * math.sin(angle), -radius * math.cos(angle)
+        size = float(rng.uniform(*radius_mm))
+        outline = np.array([[x + size * math.cos(t), y + size * math.sin(t)]
+                            for t in np.linspace(0.0, 2.0 * math.pi, 16, endpoint=False)])
+        colour = tuple(int(v) for v in rng.integers(0, 256, 3))
+        cv2.fillPoly(image, [_fixed(camera.project_plane(outline))], colour, cv2.LINE_AA, SUBPIXEL_SHIFT)
+        specks.append((float(x), float(y), size))
+    return specks
+
+
 def _shadow_mask(camera, darts, light):
     """Mask of board pixels in hard shadow of the darts for a directional light."""
     light = np.asarray(light, dtype=np.float64)

@@ -147,6 +147,70 @@ If C1 fails but C5 passes, the product still works with "camera-assisted" scorin
   3. If targets are missed, report the numbers and the remaining failure modes honestly; do not overfit.
   4. All existing Python tests pass; new tests cover the segmentation.
 
+#### M1-05c — Calibration refinement
+- **Why:** After M1-05b, the main remaining error in the realistic profile is a 1–3 mm calibration offset from about 2 px of noise in the four user clicks. Without click noise, realistic reached 95–97 % on every gated mount (ablation, `docs/M1-DETECTION-RESULTS.md`). Approved by the coordinator after M1-05b.
+- **Scope:**
+  - Refine the calibration automatically, to sub-pixel accuracy, from the image itself. The four clicks give the initial homography. Then fit the board's actual ring edges (double, treble and bull rings) and the 20 radial sector wires, and solve a refined homography by robust least squares.
+  - Degrade gracefully: if the refinement has low confidence, keep the click homography and say so.
+  - Use no harness ground truth.
+  - Expose a confidence/residual value in `vision.state()` for the setup UI.
+  - The harness reports the calibration residual (mm) and the true calibration error (ground truth, harness only). Add an `m105b` gate pipeline (refinement off) for comparison.
+- **Files:** new `vision_calibrate.py`, `vision.py`, `tools/eval_detection.py`, `tools/run_detection_gate.py`, new `tests/test_calibration_refine.py`, `tests/test_eval_harness.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05c-*.json`.
+- **Depends on:** M1-05b.
+- **Acceptance:** tune on seed 1 only; report on held-out seeds 2 and 3, with the realistic click-noise profile.
+  1. ≥ 95 % exact on `realistic` for the gated off-axis mounts. If this is not met, report it honestly.
+  2. Calibration residual reported in mm.
+  3. Refinement adds < 2 s on this container's CPU (Mac class).
+  4. Confidence/residual exposed in `vision.state()`. A low-confidence refinement keeps the clicks and reports the reason.
+  5. All existing Python tests pass; new tests cover the refinement and its fallback.
+
+#### M1-05d — Ceiling mount profiles
+- **Why:** The owner's real setup (`docs/DECISIONS.md` #2) is a ceiling mount, and no harness mount models it:
+  - 7.5 ft (2286 mm) ceiling, bull at 1730 mm;
+  - phone about 30 mm below the ceiling, so the camera is about 526 mm above the bull;
+  - centred left-right, looking down at the board.
+- **Scope:**
+  - Add the synthetic mounts `ceiling-0.5ft` (152 mm from the wall), `ceiling-1.5ft` (457 mm, the **planned** setup), `ceiling-2ft` (610 mm) and `ceiling-3ft` (914 mm).
+  - Model the camera as the Samsung Galaxy S22 main camera at 1× (assumed 78° diagonal FOV, about 70.4° horizontal), aimed at the board centre, with 1920×1080 frames.
+  - Keep random streams keyed by mount name (D7), so existing mounts' results do not change.
+  - Run the full gate (ideal, realistic, realistic + shadow; held-out seeds 2 and 3) on the ceiling mounts with M1-05b and with M1-05c.
+  - Measure a multi-dart occlusion scenario: 3 darts per turn, with darts 2 and 3 landing below earlier darts. Cases: T20 grouping, T20 → T5/T1 neighbours, and darts directly below another by 3–8 cm.
+    - The pipeline proposes one new dart per frame, so simulate throw by throw: each dart is added to a board that already holds the earlier darts, and those darts are in the reference image.
+    - Report how often later darts are visible and detected, per mount.
+- **Files:** `sim/camera.py`, `sim/scene.py`, `sim/preview.py`, new `tools/eval_occlusion.py`, `tools/run_detection_gate.py`, new `tests/test_ceiling.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05d-*.json`.
+- **Depends on:** M1-05c.
+- **Acceptance:**
+  1. The existing mounts' trials are unchanged.
+  2. A clearly labelled synthetic ceiling section in `docs/M1-DETECTION-RESULTS.md` gives:
+     - per-mount numbers (M1-05b vs M1-05c, all profiles);
+     - the occlusion results;
+     - a recommended wall distance for the Thursday trial.
+  3. All existing Python tests pass; new tests cover the mounts and the occlusion harness.
+
+#### M1-05e — Segmentation hardening
+- **Why:** QA of M1-05b (QA report `QA-M1-05b.md`) found three medium defects in `vision_segment.py`. Approved by the coordinator after M1-05b QA.
+  - **D-A:** the "already apart" cache was keyed by `id()`. Ids are reused once merged blobs are freed, so some pairs were never compared: 17 % of 400 random fragment sets grouped differently.
+  - **D-B:** grouping time grew about quadratically: roughly 1 s at 200 specks.
+  - **D-C:** scattered specks with no dart could be chained into a fake dart (9 of 30 boards).
+- **Scope:**
+  - Key the cache by a per-blob serial number.
+  - Cap the fragment count (beyond it the scene is "noisy", with no proposal) and make grouping cheaper. Target worst case < 150 ms.
+  - Add dart plausibility checks: a core fragment, length, mean width and core share.
+  - Add a speckle/debris false-proposal trial to the harness.
+  - Low-severity items:
+    - clear the stale segmentation result on base reset and invalidation;
+    - document that the 200 mm change radius is also the large-change denominator;
+    - comment the pixel tolerance in `refine_tip`;
+    - correct the segmentation timing in the docs.
+- **Files:** `vision_segment.py`, `vision.py`, `sim/scene.py`, `tools/eval_detection.py`, `tools/run_detection_gate.py`, new `tests/test_segmentation_hardening.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05e-*.json`.
+- **Depends on:** M1-05d.
+- **Acceptance:**
+  1. A test compares grouping with an uncached reference and fails with the `id()` key.
+  2. Worst-case `segment()` time < 150 ms on this container (unloaded) for any number of specks.
+  3. 0 false proposals in the QA speck scenario (20 isolated specks on 30 boards). Speckle false-proposal rates are reported in the harness.
+  4. Re-run the held-out gate (seeds 2 and 3) and show no regression against M1-05c beyond noise.
+  5. All existing Python tests pass.
+
 #### M1-06 — Split the global lock; a background vision worker
 - **Why:** `server.py` holds one `RLock` across game writes, `/api/state`, image encoding and ORB `align()`. A slow alignment freezes `/api/state` polling and the TV. A pulled stream also needs a long-lived worker thread.
 - **Scope:**
