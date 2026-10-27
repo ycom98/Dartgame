@@ -433,7 +433,8 @@ class CommandLine(unittest.TestCase):
             cv2.imwrite(os.path.join(folder, 'board.png'), render_clean(camera_for_mount('left', 1280, 720), []))
             with __import__('socket').socket() as probe:
                 probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
-            environment = {**os.environ, 'PATH': empty_path}  # no openssl on PATH
+            environment = {**os.environ, 'PATH': empty_path,  # no openssl on PATH
+                           'DART_STATE_FILE': os.path.join(empty_path, 'state', 'match.json')}
             process = subprocess.Popen([sys.executable, '-B', str(ROOT / 'server.py'), '--http', '--host', '127.0.0.1',
                                         '--port', str(port), '--camera', f'dir:{folder}?loop=1&fps=10'],
                                        cwd=ROOT, env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
