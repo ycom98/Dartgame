@@ -111,6 +111,20 @@ print(json.dumps({'points': calibration_points(camera).tolist(), 'ring170': np.a
     const drawn = await page.evaluate(o => window.setupOverlay.ringPoints(o, 170, 72), overlay);
     const ringError = Math.max(...drawn.map(([u, v], i) => Math.hypot(u - truth.ring170[i][0], v - truth.ring170[i][1])));
     check(ringError <= 3, 'Overlay r=170 ring is ' + ringError.toFixed(2) + ' px from the sim ring');
+    // Calibration quality (M1-05c report) is shown next to the overlay check; warnings stand out.
+    await waitFor(async () => await page.locator('#calibrationQuality').isVisible());
+    check(/^Calibration /.test(await page.locator('#calibrationQuality').textContent()), 'Calibration quality line');
+    const warned = await page.evaluate(() => {
+      calibrationQuality({method: 'clicks', confidence: 'low', residual_mm: 1.234, warning: '20 must be the topmost click'});
+      const line = document.getElementById('calibrationQuality');
+      const result = {text: line.textContent, className: line.className};
+      calibrationQuality(undefined);
+      result.hiddenWhenMissing = line.hidden;
+      calibrationQuality(window.state?.vision?.calibration ?? {method: 'clicks'});
+      return result;
+    });
+    check(warned.className === 'warning' && warned.text.includes('20 must be the topmost click') &&
+      warned.text.includes('1.23 mm') && warned.hiddenWhenMissing, 'Calibration warning shown: ' + JSON.stringify(warned));
     await page.screenshot({path: path.join(artifacts, 'M1-13-setup-overlay-review.png'), fullPage: true});
     await page.locator('#verify').click(); actions++;
     await waitFor(async () => await title() === 'Ready to play');

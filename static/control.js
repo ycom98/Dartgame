@@ -95,17 +95,18 @@
  }
  function compactStatus(g){
   const box=$('#compact-status');
+  document.body.classList.toggle('in-game',!!g&&!showSetup);
   if(!g){box.replaceChildren();return;}
-  const rows=g.names.map((name,i)=>{
-   const row=document.createElement('div');
-   row.className='compact-player'+(i===g.player?' current':'');
+  // One fixed-height line for all players (QA M1-16 L4: the board must start on the first phone screen).
+  const players=document.createElement('div');
+  players.className='compact-players';
+  g.names.forEach((name,i)=>{
    const who=document.createElement('span');
-   who.textContent=(i===g.player?'▶ ':'')+name;
-   const left=document.createElement('strong');
-   left.textContent=g.scores?g.scores[i]:'';
-   row.append(who,left);
-   return row;
+   who.className='compact-player'+(i===g.player?' current':'');
+   who.textContent=(i===g.player?'▶ ':'')+name+' '+(g.scores?g.scores[i]:'');
+   players.append(who);
   });
+  const rows=[players];
   const darts=document.createElement('div');
   darts.className='compact-darts';
   darts.textContent='This turn: '+([0,1,2].map(i=>g.darts[i]?dartText(g.darts[i]):'—').join(' · '))+

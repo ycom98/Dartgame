@@ -316,7 +316,8 @@ class Vision:
             return
         if segmentation.kind != 'dart':
             self.proposal = None
-            self.message = SEGMENTATION_MESSAGES[segmentation.kind]
+            if segmentation.kind != 'none' or self.verified():  # never "Ready" before the overlay is verified
+                self.message = SEGMENTATION_MESSAGES[segmentation.kind]
             return
         tip, confidence, rule = self.locate_tip(segmentation.outline, segmentation.points, segmentation.difference)
         if tip is None:

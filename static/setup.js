@@ -247,6 +247,24 @@ function setupStatus() {
     $('sourceStatus').className = kind || 'muted';
   }
   footPoint(v);
+  calibrationQuality(v.calibration);
+}
+
+// How the four points were turned into the board position (vision.state().calibration, M1-05c). Any field may be
+// missing on older servers; a warning (wrong click order, rotated phone...) is shown prominently.
+function calibrationQuality(report) {
+  const line = $('calibrationQuality');
+  if (!report || typeof report !== 'object') { line.hidden = true; return; }
+  const parts = [];
+  parts.push(report.method === 'refined' ? 'Calibration refined on the double ring' :
+    report.method === 'clicks' ? 'Calibration from your four clicks' : 'Calibration: ' + (report.method || 'unknown'));
+  if (report.confidence) parts.push('confidence ' + report.confidence);
+  if (typeof report.residual_mm === 'number') parts.push('fit ' + report.residual_mm.toFixed(2) + ' mm');
+  if (report.reason) parts.push(report.reason);
+  const warning = typeof report.warning === 'string' && report.warning;
+  line.textContent = parts.join(' · ') + (warning ? ' — ' + warning : '');
+  line.className = warning || report.confidence === 'low' ? 'warning' : 'muted';
+  line.hidden = false;
 }
 
 function mark(id, done, problem, text) {
