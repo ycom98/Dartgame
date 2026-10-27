@@ -152,3 +152,68 @@ class VisionReportsCalibrationQuality(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class QAFixes(unittest.TestCase):
+    """M1-05c/e QA: D1 sloppy clicks, D3 grayscale input, D6 click order, D7 report keys."""
+
+    def test_sloppy_clicks_still_refine(self):
+        for mount in ('ceiling-1.5ft', 'left'):
+            camera = camera_for_mount(mount)
+            clean = render_clean(camera, [])
+            for sigma in (6.0, 8.0):
+                rng = np.random.default_rng([int(sigma), len(mount)])
+                for _ in range(4):
+                    frame, _ = degrade(clean, PROFILES['realistic'], rng)
+                    H = click_homography(camera, rng.normal(0.0, sigma, (4, 2)))
+                    refined, report = vision_calibrate.refine(frame, H, vision.SCALE, vision.CENTER)
+                    with self.subTest(mount=mount, sigma=sigma):
+                        self.assertEqual(report['method'], 'refined', report)
+                        self.assertLess(map_error_mm(camera, refined), 0.6)
+
+    def test_click_error_limit_still_catches_a_sector_slip(self):
+        for mount in ('ceiling-0.5ft', 'ceiling-1.5ft', 'top', 'near-frontal'):
+            clicked = calibration_points(camera_for_mount(mount)).astype(np.float64)
+            limit = vision_calibrate.click_error_limit(clicked)
+            radius = np.linalg.norm(clicked - clicked.mean(axis=0), axis=1).mean()
+            slip = 2 * radius * np.sin(np.radians(9.0))  # a click moved by one sector along the ring
+            with self.subTest(mount=mount):
+                self.assertGreaterEqual(limit, 30.0)
+                self.assertLess(limit, slip)
+        inliers = np.ones(2000, bool)
+        self.assertIn('implausibly far', vision_calibrate.rejection_reason(inliers, 0.3, 12, 20, 80.0, 30.0))
+        self.assertIsNone(vision_calibrate.rejection_reason(inliers, 0.3, 12, 20, 25.0, 30.0))
+
+    def test_grayscale_and_malformed_images_never_raise(self):
+        camera = camera_for_mount('top')
+        H = click_homography(camera, CLICK_OFFSETS)
+        gray = cv2.cvtColor(render_clean(camera, []), cv2.COLOR_BGR2GRAY)
+        _, report = vision_calibrate.refine(gray, H, vision.SCALE, vision.CENTER)
+        self.assertIn(report['method'], ('refined', 'clicks'))
+        for bad in (np.zeros((10,), np.uint8), np.zeros((1080, 1920, 4), np.uint8), None):
+            kept, report = vision_calibrate.refine(bad, H, vision.SCALE, vision.CENTER)
+            self.assertEqual(report['method'], 'clicks')
+            self.assertTrue(np.allclose(kept, H))
+
+    def test_clicks_in_the_wrong_order_are_flagged(self):
+        camera = camera_for_mount('left')
+        frame = render_clean(camera, [])
+        points = calibration_points(camera).astype(np.float64)
+        rotated = np.roll(points, 1, axis=0)  # 11, 20, 6, 3 clicked as 20, 6, 3, 11
+        H = cv2.getPerspectiveTransform(rotated.astype(np.float32), vision.TARGETS)
+        _, report = vision_calibrate.refine(frame, H, vision.SCALE, vision.CENTER)
+        self.assertEqual(report['method'], 'refined')
+        self.assertEqual(report['confidence'], 'low')
+        self.assertIn('click order', report['warning'])
+        _, good = vision_calibrate.refine(frame, click_homography(camera, CLICK_OFFSETS), vision.SCALE, vision.CENTER)
+        self.assertIsNone(good['warning'])
+        self.assertEqual(good['confidence'], 'high')
+
+    def test_every_report_has_the_same_keys(self):
+        camera = camera_for_mount('bottom')
+        H = click_homography(camera, CLICK_OFFSETS)
+        _, refined = vision_calibrate.refine(render_clean(camera, []), H, vision.SCALE, vision.CENTER)
+        _, failed = vision_calibrate.refine(np.zeros((1080, 1920, 3), np.uint8), H, vision.SCALE, vision.CENTER)
+        disabled = vision_calibrate.clicks_report('refinement disabled', confidence=None)
+        self.assertEqual(set(refined), set(failed))
+        self.assertEqual(set(refined), set(disabled))
