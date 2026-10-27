@@ -121,10 +121,14 @@ class Game:
     @classmethod
     def from_json(cls, data):
         import modes
-        mode = modes.get(data['mode'])
+        if not isinstance(data, dict):
+            raise ValueError('Saved match is not an object')
+        mode = modes.get(data.get('mode'))
         game = cls.__new__(cls)
         game.mode = mode
-        game.options = mode.validate_options(data['options'])
-        game.data = mode.from_json(data['state'])
+        game.options = mode.validate_options(data.get('options'))
+        game.data = mode.from_json(data.get('state'))
+        if not isinstance(data.get('history'), list):
+            raise ValueError('Saved match has no undo history list')
         game.history = [mode.from_json(state) for state in data['history']]
         return game

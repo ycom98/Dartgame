@@ -31,7 +31,7 @@ In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** wi
 - **Accept now** or **Pause auto-accept** (camera darts then wait for Accept).
 - **Dart the camera missed:** tap where it landed.
 - **Fix a dart already recorded:** tap its chip (Dart 1: …), then tap the board (two taps).
-- **Darts off the board:** press **End turn · fill misses**; the missing darts are recorded as clearly marked misses, which you can still correct.
+- **Darts off the board:** press **End turn · misses**; the missing darts are recorded as clearly marked misses, which you can still correct.
 
 Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
 

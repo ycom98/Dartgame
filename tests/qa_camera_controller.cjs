@@ -233,7 +233,17 @@ print(json.dumps({'points': calibration_points(camera).tolist()}))
   await run('the phone tap board never moved during the camera turn and handoff', async () => {
     const moved = boardTops.filter(t => Math.abs(t.y - boardTops[0].y) > 0.5);
     check(moved.length === 0, 'Board moved: ' + JSON.stringify(boardTops));
-    return {checks: boardTops.length};
+    // QA M1-16 L4: in a camera game on a 360x740 phone the board starts on the first screen, mostly visible.
+    check(boardTops[0].y <= 440, 'Tap board starts at y=' + boardTops[0].y + ' on a 740 px tall phone screen');
+    const endTurn = await phone.evaluate(() => {
+      const b = document.getElementById('end-turn'), wasHidden = b.hidden;
+      b.hidden = false;
+      const height = b.getBoundingClientRect().height;
+      b.hidden = wasHidden;
+      return {height};
+    });
+    check(endTurn.height <= 50, 'End turn button wraps (height ' + endTurn.height + ' px)');
+    return {checks: boardTops.length, boardTop: boardTops[0].y, endTurnHeight: endTurn.height};
   });
 })().catch(error => { results.push({name: 'camera controller harness completion', pass: false, error: error.stack}); })
   .finally(async () => {
