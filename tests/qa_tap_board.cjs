@@ -40,7 +40,7 @@ async function run(name, fn) {
   let output = '';
   server = spawn(python, ['-B', '-c', 'import server;server.app=server.App("' + token + '");server.vision=None;' +
     'server.vision_error="QA no camera";server.main()', '--host', '127.0.0.1', '--port', String(port)],
-  {cwd: root, stdio: ['ignore', 'pipe', 'pipe']});
+  {cwd: root,env:{...process.env,DART_STATE_FILE:process.env.DART_STATE_FILE||require('path').join(require('os').tmpdir(),'dart-qa-'+process.pid+'-'+Date.now(),'match.json')}/* M1-16: never the real saved match */, stdio: ['ignore', 'pipe', 'pipe']});
   server.stdout.on('data', chunk => { output += chunk; });
   server.stderr.on('data', chunk => errors.push('server: ' + chunk.toString().trim()));
   await waitFor(() => output.includes('Computer:'), 10000);

@@ -28,7 +28,9 @@ def free_port():
 
 def start_server(args, environment=None, code=None):
     command = [sys.executable, '-B'] + (['-c', code] if code else [str(ROOT / 'server.py')]) + args
-    process = subprocess.Popen(command, cwd=ROOT, env=environment or os.environ.copy(),
+    environment = dict(environment or os.environ)
+    environment['DART_STATE_FILE'] = os.path.join(tempfile.mkdtemp(), 'match.json')  # M1-16: never the real match
+    process = subprocess.Popen(command, cwd=ROOT, env=environment,
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     lines = []
     while not any(line.startswith('Camera source:') for line in lines):

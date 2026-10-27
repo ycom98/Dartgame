@@ -15,6 +15,9 @@
 #   DART_CHROME  Chrome/Chromium executable for Playwright (default: Playwright's bundled Chromium)
 #   DART_QA_ARTIFACTS  Browser evidence directory (overrides the default; --record wins)
 #
+# Servers started by the tests save their match to a throw-away DART_STATE_FILE (M1-16), never to the
+# real .local/state/match.json; each browser suite gets its own.
+#
 # Both entry points exit non-zero if any test or suite fails.
 set -u
 
@@ -30,8 +33,11 @@ if [ ! -x "$PYTHON" ]; then
   exit 2
 fi
 
+STATE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/dart-test-state.XXXXXX")"
+trap 'rm -rf "$STATE_ROOT"' EXIT
+
 run_python() {
-  "$PYTHON" -B -m unittest discover -s tests "$@"
+  DART_STATE_FILE="$STATE_ROOT/python/match.json" "$PYTHON" -B -m unittest discover -s tests "$@"
 }
 
 run_browser() {
@@ -50,7 +56,7 @@ run_browser() {
     name="$(basename "$suite")"
     case "$skip" in *" $name "*) continue ;; esac
     echo "=== $name"
-    node "$suite"
+    DART_STATE_FILE="$STATE_ROOT/$name/match.json" node "$suite"
     status=$?
     if [ "$status" -eq 0 ]; then
       passed+=("$name")

@@ -35,6 +35,10 @@ In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** wi
 
 Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
 
+## Restarting mid-match
+
+The match is saved after every dart, correction and turn (`.local/state/match.json`, written atomically). Restart Dart Room (or the Mac) and the same match, revision and undo history come back; only the pairing links change, so open the new links printed in Terminal. The camera calibration is saved next to it: after a restart the board position is checked against it as soon as the camera connects, and one tap on **Markers correct** makes the camera ready again. If the board or phone moved, set the four points again. `--fresh` starts with no match (the old file is kept as `match.previous-*.json`); `--state-file PATH` saves elsewhere. A damaged save file is kept as `match.corrupt-*.json` and the server starts empty.
+
 ## Recording the trial (footage stays on this Mac)
 
 Press **Start recording** on the setup page, or start with `bash start-mac.command --camera PHONE_IP --record ~/dart-trial/session1`. A session folder (default `recordings/<date-time>/`, gitignored) holds every received camera frame exactly as the phone sent it, the processed-frame detections, an event log (every dart with how it was recorded, corrections, filled misses, undo, calibration and alignment) and your notes (mount, lighting, phone settings). The page shows size, frames and free disk space; recording stops by itself below 5 GB free. In the sim, 1080p at 15 fps used about 100 MB per minute; real phone frames are usually larger. Nothing is uploaded; delete a session folder to remove it.

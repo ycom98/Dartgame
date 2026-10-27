@@ -41,7 +41,7 @@ function freePort() {
   });
 }
 function start(args, ready) {
-  const child = spawn(python, args, {cwd: root, stdio: ['ignore', 'pipe', 'pipe']});
+  const child = spawn(python, args, {cwd: root,env:{...process.env,DART_STATE_FILE:process.env.DART_STATE_FILE||require('path').join(require('os').tmpdir(),'dart-qa-'+process.pid+'-'+Date.now(),'match.json')}/* M1-16: never the real saved match */, stdio: ['ignore', 'pipe', 'pipe']});
   children.push(child);
   let output = '';
   child.stdout.on('data', chunk => { output += chunk.toString(); });

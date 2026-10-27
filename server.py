@@ -2,6 +2,7 @@
 """Dart Room server: a private home-LAN app. No cloud services or image retention."""
 import argparse
 import json
+import os
 import ipaddress
 import shutil
 from pathlib import Path
@@ -76,6 +77,43 @@ def switch_camera_source(uri):
     worker.set_source(source)
     return source
 
+CALIBRATION_DIR = None  # where the calibration is saved (M1-16); main() sets it next to the match file
+
+def save_calibration():
+    if CALIBRATION_DIR is None or vision is None: return
+    import persistence
+    try: worker.call(lambda v: persistence.save_calibration(v, CALIBRATION_DIR))
+    except (OSError, ValueError, WorkerBusy) as error: print('Could not save the calibration: '+str(error), flush=True)
+
+def restore_calibration():
+    """Load the saved calibration, then check the board position once the camera sends frames (M1-16).
+    A match gives the overlay-review phase: one tap on Verify and the camera is ready again."""
+    import persistence
+    try: data = worker.call(lambda v: persistence.load_calibration(v, CALIBRATION_DIR))
+    except (OSError, ValueError, KeyError) as error:
+        print('Saved calibration not used: '+str(error), flush=True); return
+    if data is None: return
+    print('Saved calibration loaded; the board position is checked when the camera connects.', flush=True)
+    def check_when_camera_ready():
+        while not vision.current_state()['fresh']: time.sleep(0.2)
+        time.sleep(0.5)  # a few frames, so the image has settled
+        def realign(v):
+            if v.frame.shape[:2] != v.reference.shape[:2]:
+                v.message = 'Camera resolution changed since the saved calibration. Set four points again.'
+                return False
+            try: v.align()
+            except ValueError as error:
+                v.message = 'Saved calibration does not match the board (moved?): set four points again. ' + str(error)
+                return False
+            v.message = 'Board position matches the saved calibration. Check the live overlay, then verify.'
+            return True
+        try:
+            ok = worker.call(realign)
+            print('Board position check after restart: '+('matches the saved calibration' if ok else 'failed'), flush=True)
+        except Exception as error:
+            print('Board position check after restart failed: '+str(error), flush=True)
+    threading.Thread(target=check_when_camera_ready, name='calibration-recheck', daemon=True).start()
+
 def recording_state():
     """Recording status for /api/state. Free disk space is included only while recording, so an idle state
     does not change on its own (the setup page reads it from /api/record/disk)."""
@@ -116,6 +154,16 @@ class App:
         self.game = None; self.game_lock = threading.RLock(); self.camera_game = False; self.revision = 0
         self.flow = CameraFlow(AUTO_COMMIT_SECONDS)  # pending camera dart and auto-commit (M1-12)
         self.events = EventLog()
+        self.store = None  # persistence.MatchStore when the match is saved to disk (M1-16; main() sets it)
+    def bump(self):
+        """The match changed: new revision, saved to disk. Call with game_lock held."""
+        self.revision += 1
+        if self.store is not None:
+            try: self.store.save(self)
+            except OSError as error:  # the write already happened: warn, never fail it half-way (as QA Q2)
+                self.store.error = f'Could not save the match: {error}'
+                print(self.store.error, flush=True)
+            else: self.store.error = None
     def game_state(self):
         with self.game_lock:
             return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
@@ -220,7 +268,7 @@ class Handler(BaseHTTPRequestHandler):
             uri = body['uri']
             if uri is not None and not isinstance(uri,str): raise ValueError('uri must be a string or null')
             set_camera_source(uri)
-            with app.game_lock: app.revision += 1  # other controllers see the change (QA N2)
+            with app.game_lock: app.bump()  # other controllers see the change (QA N2)
             return None
         if path == '/api/camera/test': return {'test':test_camera_source(body.get('uri'))}
         if path == '/api/record':
@@ -240,13 +288,14 @@ class Handler(BaseHTTPRequestHandler):
             if type(seconds) not in (int, float) or not 0 <= seconds <= 30: raise ValueError('seconds must be 0-30')
             with app.game_lock:
                 app.flow.paused, app.flow.delay = paused, float(seconds)
-                app.revision += 1
+                app.bump()
             app.events.add('auto_commit', paused=paused, seconds=float(seconds))
             return None
         if path == '/api/camera/mount_side':
             if vision is None: raise ValueError(vision_error)
             side = body.get('mount_side')
             worker.call(lambda v: v.set_mount_side(side))
+            save_calibration()
             return None
         actions = {
             '/api/camera/reset': lambda v: v.reset_camera(),
@@ -262,6 +311,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
             raise ValueError('Select Set four points to capture a calibration image first')
         result = worker.call(actions[path])
+        if path in ('/api/calibrate', '/api/align', '/api/verify'): save_calibration()
         return {'snapshot':result} if path == '/api/calibration/start' else None
 
 NOT_FOUND = object()
@@ -289,7 +339,7 @@ def game_write(path, body):
             worker.call(recheck_before_camera_game)
         with app.game_lock:
             check_revision(body)
-            app.game = candidate; app.camera_game = camera; app.revision += 1
+            app.game = candidate; app.camera_game = camera; app.bump()
             app.events.add('game', names=candidate.data['names'], mode=candidate.mode.id,
                            options=candidate.options, camera=camera)
         if vision is not None: worker.submit(reset_base_if_ready)
@@ -334,7 +384,7 @@ def game_write(path, body):
         else:
             count = g.fill_misses()
             event = ('fill_misses', dict(count=count, **turn_info(before)))
-        app.revision += 1
+        app.bump()  # new revision and the match saved to disk (M1-16), before the event is logged
         app.events.add(event[0], **event[1])
     # The new empty-board image is taken on the worker; the reply does not wait for it. Not after an undo
     # while a camera dart is pending: that dart would become part of the empty board (QA Q5).
@@ -376,7 +426,7 @@ def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=
             before = g.snapshot()
             value, multiplier = replacement or (pending['value'], pending['multiplier'])
             g.throw(value, multiplier)
-            app.revision += 1
+            app.bump()
             app.flow.close(proposal_id)  # before anything that could fail: never commit this dart twice (QA Q2)
             proposal = {key:val for key,val in pending.items() if key != 'seen_at'}
             app.events.add('commit', source=source, dart=last_dart(g), proposal=proposal,
@@ -437,6 +487,23 @@ def recheck_before_camera_game(v):
 def reset_base_if_ready(v):
     if v.aligned and v.fresh(): v.reset_base()
 
+def setup_persistence(state_file, fresh=False):
+    """Load the saved match (unless fresh) and calibration; save every later change. Returns a message."""
+    global CALIBRATION_DIR
+    import persistence
+    store = persistence.MatchStore(state_file)
+    message = None
+    if fresh and state_file.exists():
+        kept = state_file.with_name(f'match.previous-{time.strftime("%Y%m%d-%H%M%S")}.json')
+        os.replace(state_file, kept)
+        message = f'Starting with no match (--fresh); the saved one is kept as {kept}.'
+    elif not fresh:
+        with app.game_lock: message = store.load(app)
+    app.store = store
+    CALIBRATION_DIR = state_file.parent
+    if vision is not None: restore_calibration()
+    return message
+
 def local_ip():
     # Resolve LAN address without contacting an Internet service.
     try:
@@ -456,6 +523,11 @@ def main():
                         help='pull frames from a camera: http://PHONE:8080/video (IP Webcam), http://PHONE:4747/video '
                              '(DroidCam), snapshot:http://PHONE:8080/shot.jpg, file:VIDEO, dir:FOLDER, or just the phone IP')
     parser.add_argument('--camera-fps',type=float,default=15.0,help='maximum frames per second processed (default 15)')
+    parser.add_argument('--state-file',metavar='PATH',
+                        default=os.environ.get('DART_STATE_FILE') or str(ROOT/'.local'/'state'/'match.json'),
+                        help='where the match is saved after every change (default .local/state/match.json); '
+                             'the calibration is kept in the same folder')
+    parser.add_argument('--fresh',action='store_true',help='start with no match (the saved one is kept as match.previous-*.json)')
     parser.add_argument('--record',metavar='DIR',
                         help='record the camera stream and event log into DIR from the start (stays on this Mac)')
     parser.add_argument('--auto-commit',type=float,default=DEFAULT_AUTO_COMMIT_SECONDS,metavar='SECONDS',
@@ -476,6 +548,7 @@ def main():
     except ipaddress.AddressValueError: parser.error('--lan-ip must be the Mac Wi-Fi IPv4 address')
     if args.https and not shutil.which('openssl'):
         parser.exit(1,'OpenSSL was not found. Install it or restore the macOS /usr/bin tools, or run without --https.\n')
+    restore_message = setup_persistence(Path(args.state_file), args.fresh)
     if args.camera:
         try: set_camera_source(args.camera)
         except ValueError as error: parser.error(f'--camera: {error}')
@@ -505,6 +578,7 @@ def main():
         print('Local CA: '+certificate_info['ca_subject'],flush=True)
         print('CA SHA-256: '+certificate_info['sha256_fingerprint'],flush=True)
         print('Device trust setup: see README. Public CA helper: .venv/bin/python local_https.py serve --lan-ip '+ip,flush=True)
+    if restore_message: print(restore_message,flush=True)
     if args.record:
         try: start_recording(args.record); print('Recording to: '+str(recorder.directory),flush=True)
         except ValueError as error: print('Recording not started: '+str(error),flush=True)
