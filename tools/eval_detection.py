@@ -115,8 +115,14 @@ class FrameFeeder:
                 self.ingest_seconds.append(time.perf_counter() - started)
 
 
-def make_vision(rule=None, tip_bias=None, factory=None):
+def make_vision(rule=None, tip_bias=None, factory=None, refine=None):
     vision = (factory or vision_module.Vision)()
+    if refine is not None:
+        if not hasattr(vision, 'refine_calibration'):
+            if refine:
+                raise SystemExit('This vision.py has no calibration refinement')
+        else:
+            vision.refine_calibration = refine
     if rule is not None:
         if not hasattr(vision, 'rule'):
             raise SystemExit('This vision.py has no selectable tip rule; omit --rule')
@@ -126,16 +132,65 @@ def make_vision(rule=None, tip_bias=None, factory=None):
     return vision
 
 
-def calibrate(vision, camera, degradation, feeder, empty, brightness, click_rng, empty_frames):
+def calibrate(vision, camera, degradation, feeder, empty, brightness, click_rng, empty_frames, log=None):
+    """Calibrate Vision from (noisy) clicks on an empty frame; append a calibration record to log."""
     feeder.ingest(empty, brightness, 1, timed=False)
     points = calibration_points(camera).astype(np.float64)
     if degradation.click_noise:
         points = points + click_rng.normal(0.0, degradation.click_noise, points.shape)
+    started = time.perf_counter()
     vision.calibrate(points.tolist())
+    seconds = time.perf_counter() - started
+    if log is not None:
+        log.append(calibration_record(vision, camera, seconds))
     vision.verify(vision.version)
     feeder.ingest(empty, brightness, empty_frames, timed=False)
     vision.reset_base()
     return points
+
+
+def calibration_error_mm(vision, camera):
+    """Harness-only check of Vision's board map against the true camera: (mean, max) mm within r <= 170.
+
+    True image positions of probe points on the board are mapped through vision.H; the
+    error is the distance from where they land to where they are. Uses ground truth, so
+    it is only ever reported, never fed back to the detector.
+    """
+    angles = np.radians(np.arange(0, 360, 10))
+    probes = np.vstack([[0.0, 0.0]] + [np.column_stack([r * np.sin(angles), -r * np.cos(angles)])
+                                       for r in (40, 80, 120, 170)])
+    image = camera.project_plane(probes).reshape(-1, 1, 2)
+    warp = cv2.perspectiveTransform(image, np.asarray(vision.H, np.float64)).reshape(-1, 2)
+    errors = np.linalg.norm((warp - vision_module.CENTER) / vision_module.SCALE - probes, axis=1)
+    return float(errors.mean()), float(errors.max())
+
+
+def calibration_record(vision, camera, seconds):
+    mean, worst = calibration_error_mm(vision, camera)
+    quality = getattr(vision, 'calibration_quality', None) or {}
+    return {'method': quality.get('method', 'clicks'), 'reason': quality.get('reason'),
+            'residual_mm': quality.get('residual_mm'), 'click_offset_mm': quality.get('click_offset_mm'),
+            'edge_points': quality.get('edge_points'), 'refine_seconds': quality.get('seconds'),
+            'calibrate_seconds': round(seconds, 3),
+            'true_error_mm': {'mean': round(mean, 3), 'max': round(worst, 3)}}
+
+
+def calibration_summary(log):
+    """Summary of every calibration in a run (the first one plus any after an invalidation)."""
+    if not log:
+        return None
+    refined = [r for r in log if r['method'] == 'refined']
+    residuals = [r['residual_mm'] for r in refined if r['residual_mm'] is not None]
+    seconds = [r['refine_seconds'] for r in log if r['refine_seconds'] is not None]
+    return {'n': len(log), 'refined': len(refined),
+            'kept_clicks_reasons': dict(collections.Counter(r['reason'] for r in log if r['method'] != 'refined')),
+            'residual_mm_mean': rounded(statistics.fmean(residuals)) if residuals else None,
+            'refine_seconds_max': rounded(max(seconds)) if seconds else None,
+            'true_error_mm_mean': rounded(statistics.fmean(r['true_error_mm']['mean'] for r in log)),
+            'true_error_mm_max': rounded(max(r['true_error_mm']['max'] for r in log)),
+            'first': log[0],
+            'note': 'true_error_mm uses ground truth (harness only): distance between where vision.H maps '
+                    'the true image of board points within r <= 170 mm and where they are.'}
 
 
 def mount_stream_key(mount):
@@ -149,7 +204,7 @@ def camera_settings(camera):
 
 
 def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_frames=3, rule=None,
-                   tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0):
+                   tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0, refine=None):
     # Random streams are keyed by the mount's name, so adding or reordering mounts leaves the others' darts unchanged.
     mount_key = mount_stream_key(mount)
     dart_rng = np.random.default_rng([seed, mount_key, 0])
@@ -158,11 +213,12 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
     exposure_rng = np.random.default_rng([seed, mount_key, 3])
 
     camera = camera_for_mount(mount)
-    vision = make_vision(rule, tip_bias, vision_factory)
+    vision = make_vision(rule, tip_bias, vision_factory, refine)
     feeder = FrameFeeder(vision, degradation, noise_rng)
     empty = render_clean(camera, [])
     session_brightness = degradation.brightness
-    calibrate(vision, camera, degradation, feeder, empty, session_brightness, click_rng, empty_frames)
+    calibrations = []
+    calibrate(vision, camera, degradation, feeder, empty, session_brightness, click_rng, empty_frames, calibrations)
     foot = np.asarray(camera.foot_point)
 
     outcomes = collections.Counter()
@@ -184,7 +240,7 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
 
         if not vision.aligned:
             invalidations += 1
-            calibrate(vision, camera, degradation, feeder, empty, brightness, click_rng, empty_frames)
+            calibrate(vision, camera, degradation, feeder, empty, brightness, click_rng, empty_frames, calibrations)
         # Re-establish the empty base at this trial's exposure (exposure is locked within a trial).
         feeder.ingest(empty, brightness, 2, timed=False)
         vision.reset_base()
@@ -258,7 +314,8 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
         },
         'trials': trials,
     }
-    session = TrialSession(vision, camera, degradation, feeder, empty, click_rng, empty_frames, frames_per_trial)
+    session = TrialSession(vision, camera, degradation, feeder, empty, click_rng, empty_frames, frames_per_trial,
+                           calibrations)
     if empty_trials:
         drift_rng = np.random.default_rng([seed, mount_key, 4])
         result['false_proposals'] = session.empty_trials(empty_trials, drift_rng)
@@ -266,6 +323,7 @@ def evaluate_mount(mount, darts, seed, degradation, frames_per_trial=4, empty_fr
         pair_rng = np.random.default_rng([seed, mount_key, 5])
         result['two_darts'] = session.pair_trials(pair_trials, pair_rng)
     result['calibration_invalidations'] += session.invalidations
+    result['calibration'] = calibration_summary(calibrations)
     return result
 
 
@@ -276,7 +334,8 @@ EMPTY_TRIAL_EXPOSURE_DRIFT = 0.10
 class TrialSession:
     """Extra trial kinds on an already calibrated Vision (run after the single-dart trials)."""
 
-    def __init__(self, vision, camera, degradation, feeder, empty, click_rng, empty_frames, frames_per_trial):
+    def __init__(self, vision, camera, degradation, feeder, empty, click_rng, empty_frames, frames_per_trial,
+                 calibrations=None):
         self.vision = vision
         self.camera = camera
         self.degradation = degradation
@@ -286,6 +345,7 @@ class TrialSession:
         self.empty_frames = empty_frames
         self.frames_per_trial = frames_per_trial
         self.invalidations = 0
+        self.calibrations = calibrations
 
     def rebase(self, brightness):
         """Recalibrate if the last trial invalidated the geometry, then re-establish the empty base."""
@@ -293,7 +353,7 @@ class TrialSession:
             if not self.vision.aligned:
                 self.invalidations += 1
                 calibrate(self.vision, self.camera, self.degradation, self.feeder, self.empty, brightness,
-                          self.click_rng, self.empty_frames)
+                          self.click_rng, self.empty_frames, self.calibrations)
             self.feeder.ingest(self.empty, brightness, 2, timed=False)
             if self.vision.aligned:
                 self.vision.reset_base()
@@ -356,7 +416,7 @@ def git_commit():
 
 
 def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=None, progress=None,
-        tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0):
+        tip_bias=None, vision_factory=None, empty_trials=0, pair_trials=0, refine=None):
     degradation = PROFILES[profile]
     if shadow:
         degradation = degradation.with_options(shadow=DEFAULT_LIGHT)
@@ -366,7 +426,7 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
         mount_started = time.perf_counter()
         results[mount] = evaluate_mount(mount, darts, seed, degradation, frames_per_trial, rule=rule,
                                         tip_bias=tip_bias, vision_factory=vision_factory,
-                                        empty_trials=empty_trials, pair_trials=pair_trials)
+                                        empty_trials=empty_trials, pair_trials=pair_trials, refine=refine)
         results[mount]['wall_seconds'] = round(time.perf_counter() - mount_started, 2)
         if progress:
             progress(results[mount])
@@ -385,6 +445,8 @@ def run(mounts, darts, seed, profile, shadow=False, frames_per_trial=4, rule=Non
             'frames_per_trial': frames_per_trial,
             'rule': rule or getattr(vision_module, 'DEFAULT_RULE', 'centre (only rule in this vision.py)'),
             'tip_bias_mm': tip_bias if tip_bias is not None else getattr(vision_module, 'TIP_BIAS_MM', None),
+            'calibration_refinement': (refine if refine is not None
+                                       else getattr(vision_module, 'CALIBRATION_REFINEMENT', False)),
             'camera': camera_settings(camera_for_mount(mounts[0])) if mounts else None,
             'random_streams': 'numpy default_rng([seed, crc32(mount name), stream])',
             'dart_tips': 'uniform by area within r <= 170 mm (all darts stay in the board)',
@@ -413,13 +475,21 @@ def summary_line(result):
         wire=result['near_wire']['exact_accuracy'], ms=result['time_per_frame_ms']['mean']) + extra_summary(result)
 
 
+def calibration_text(result):
+    calibration = result.get('calibration')
+    if not calibration:
+        return ''
+    return '  calib {}/{} refined, true err mean {} max {} mm'.format(
+        calibration['refined'], calibration['n'], calibration['true_error_mm_mean'], calibration['true_error_mm_max'])
+
+
 def extra_summary(result):
     text = ''
     if 'false_proposals' in result:
         text += '  false-proposal {:.1%}'.format(result['false_proposals']['false_proposal_rate'])
     if 'two_darts' in result:
         text += '  two-darts declined {:.1%}'.format(result['two_darts']['no_proposal_rate'])
-    return text
+    return text + calibration_text(result)
 
 
 def main(argv=None):
@@ -438,6 +508,8 @@ def main(argv=None):
     parser.add_argument('--rule', choices=getattr(vision_module, 'TIP_RULES', None),
                         help='tip rule (default: vision.DEFAULT_RULE)')
     parser.add_argument('--tip-bias', type=float, help='override vision.TIP_BIAS_MM (mm)')
+    parser.add_argument('--no-refine', action='store_true',
+                        help='keep the four-click calibration (M1-05b) instead of refining it (M1-05c)')
     parser.add_argument('--recording', metavar='DIR', help='replay recorded real footage (M1-14)')
     parser.add_argument('--out', help='write the JSON report here')
     parser.add_argument('--quiet', action='store_true')
@@ -458,7 +530,7 @@ def main(argv=None):
     progress = None if args.quiet else (lambda result: print(summary_line(result), flush=True))
     report = run(mounts, args.darts, args.seed, args.profile, args.shadow, args.frames, rule=args.rule,
                  progress=progress, tip_bias=args.tip_bias, empty_trials=args.empty_trials,
-                 pair_trials=args.pair_trials)
+                 pair_trials=args.pair_trials, refine=False if args.no_refine else None)
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)

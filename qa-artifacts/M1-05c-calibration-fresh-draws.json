@@ -1,0 +1,170 @@
+{
+ "draws": 30,
+ "click_sigma_px": 2.0,
+ "profile": "realistic",
+ "results": {
+  "top": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    6.0,
+    2.59
+   ],
+   "after_max_med": [
+    0.24,
+    0.17
+   ],
+   "seconds_max": 0.581,
+   "seconds_median": 0.402
+  },
+  "bottom": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    4.26,
+    2.75
+   ],
+   "after_max_med": [
+    0.22,
+    0.17
+   ],
+   "seconds_max": 0.537,
+   "seconds_median": 0.347
+  },
+  "left": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    5.49,
+    2.38
+   ],
+   "after_max_med": [
+    0.23,
+    0.18
+   ],
+   "seconds_max": 0.68,
+   "seconds_median": 0.388
+  },
+  "right": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    5.06,
+    2.43
+   ],
+   "after_max_med": [
+    0.23,
+    0.16
+   ],
+   "seconds_max": 0.835,
+   "seconds_median": 0.411
+  },
+  "steep-topleft": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    6.43,
+    3.54
+   ],
+   "after_max_med": [
+    0.41,
+    0.33
+   ],
+   "seconds_max": 0.747,
+   "seconds_median": 0.445
+  },
+  "near-frontal": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    5.42,
+    3.55
+   ],
+   "after_max_med": [
+    0.5,
+    0.39
+   ],
+   "seconds_max": 0.561,
+   "seconds_median": 0.259
+  },
+  "ceiling-0.5ft": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    14.78,
+    5.84
+   ],
+   "after_max_med": [
+    0.28,
+    0.12
+   ],
+   "seconds_max": 0.399,
+   "seconds_median": 0.3
+  },
+  "ceiling-1.5ft": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    5.84,
+    3.22
+   ],
+   "after_max_med": [
+    0.31,
+    0.25
+   ],
+   "seconds_max": 0.637,
+   "seconds_median": 0.31
+  },
+  "ceiling-2ft": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    5.25,
+    2.98
+   ],
+   "after_max_med": [
+    0.35,
+    0.25
+   ],
+   "seconds_max": 0.465,
+   "seconds_median": 0.31
+  },
+  "ceiling-3ft": {
+   "refined": 30,
+   "n": 30,
+   "kept": {},
+   "refined_bad_gt1mm": 0,
+   "before_max_med": [
+    7.25,
+    3.59
+   ],
+   "after_max_med": [
+    0.52,
+    0.38
+   ],
+   "seconds_max": 0.615,
+   "seconds_median": 0.347
+  }
+ },
+ "tool": "calibration-only check (scratch script; vision_calibrate.refine on rendered frames)",
+ "disclaimer": "Synthetic rendered scenes only; not evidence of real-board accuracy.",
+ "note": "Fresh click draws (seeds 101-130, stream 9), not the gate seeds. before/after: largest error (mm) of the board map within r <= 170 mm, against the true camera (harness only). refined_bad_gt1mm: refined but still more than 1 mm off. Timing measured on a loaded 4-CPU container."
+}

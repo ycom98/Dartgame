@@ -1,8 +1,102 @@
-# M1-03 to M1-05b: synthetic detection results
+# M1-03 to M1-05c: synthetic detection results
 
 **All numbers below come from synthetic rendered scenes (`sim/`). They measure the vision code against a model of a board and darts. They are not evidence of real-board accuracy; the Thursday trial is the real gate.**
 
-## M1-05b: robust dart segmentation (current)
+## M1-05c: calibration refinement (current)
+
+Same harness, darts and seeds as M1-05b: 200 single-dart trials per mount and seed, 1920×1080, HFOV 70°, tuned on **seed 1 only**, with seeds 2 and 3 **held out**. The segmentation is unchanged from M1-05b. The only change is that the four-click homography is refined from the image (`vision_calibrate.py`). With refinement off, the same code reproduces the M1-05b trials exactly (checked trial for trial on two cells), so the M1-05b columns below are M1-05b's own evidence.
+
+Evidence:
+- `qa-artifacts/M1-05c-detection.json`: all trials, seeds 1–3, four profiles, six mounts, with false-proposal and two-dart trials. Its `evidence_note` says which code produced it.
+- `qa-artifacts/M1-05c-calibration-fresh-draws.json`: calibration only, 30 fresh click draws per mount (seeds 101–130, not the gate seeds), all ten mounts.
+
+### Result in one paragraph
+
+Calibration error is no longer an accuracy factor in the harness.
+- **Calibration error:** with σ = 2 px click noise, the error of the board map within the double ring falls from 2.4–3.6 mm (median of the worst point) to 0.16–0.39 mm. The largest error over all 72 gate calibrations is 0.43 mm.
+- **Exact score:** held-out realistic rises from 87.5–94.5% to **94.8–97.5%** on the gated mounts (pooled 95.9%; M1-05b 92.1%), which equals the M1-05b no-click-noise ablation. Realistic + shadow rises from 83.7–86.5% to 86.8–92.8%.
+- **No change where clicks were exact:** ideal and ideal + shadow are unchanged (they have no click noise).
+- **Targets:** the ≥ 95% realistic target is met on four of the five gated mounts. **Steep-topleft is 94.8% (379 of 400), one dart short.**
+- **Cost:** refinement takes 0.13–0.40 s per calibration on this container unloaded (at most 1.3 s with the CPU 8× oversubscribed).
+
+### Targets (held-out seeds 2+3, gated mounts)
+
+| Target | Result | Met? |
+|---|---|---|
+| ≥ 95% exact, realistic, gated off-axis mounts | 95.8 / 95.5 / 96.0 / 97.5 / **94.8%** (top / bottom / left / right / steep-topleft) | 4 of 5 (steep-topleft misses by 1 dart in 400) |
+| Calibration residual reported in mm | Fit residual (RMS distance of the found edges from the board model) 0.13 mm ideal (0.32 steep-topleft), 0.39–0.44 mm realistic. True map error (harness only) at most 0.13 mm ideal and 0.43 mm realistic | Yes |
+| Refinement < 2 s (Mac-class CPU) | Median 0.13–0.22 s, max 0.40 s unloaded (10 draws per mount); max 1.3 s in the loaded gate run | Yes |
+| Confidence/residual in `vision.state()` | `state()['calibration']` = `{method: refined\|clicks, confidence: high\|low, reason, residual_mm, click_offset_mm, click_error_px, edge_points, sampled_points, ring_sectors, spokes, seconds}` | Yes |
+| Graceful fallback | Blank, random-texture and mostly covered images keep the clicks and give a reason (tests). Every gate and fresh-draw calibration was refined (372 of 372) | Yes |
+| Tuned on seed 1 only | Pooled realistic: seed 1 94.5%, seeds 2/3 95.8% / 96.0% (seed 1 is the lowest; no tuning advantage) | Yes |
+
+### Exact score, held-out seeds 2+3 (400 darts per mount; seed 1 in brackets)
+
+| Mount | ideal M1-05b | **ideal M1-05c** | realistic M1-05b | **realistic M1-05c** | ideal+shadow M1-05c | realistic+shadow M1-05b | **realistic+shadow M1-05c** |
+|---|---|---|---|---|---|---|---|
+| top | 95.2% | **95.2%** (94.5) | 92.0% | **95.8%** (92.5) | 95.8% | 86.0% | **90.3%** (88.0) |
+| bottom | 96.8% | **96.8%** (98.5) | 93.8% | **95.5%** (96.0) | 94.0% | 85.0% | **86.8%** (87.0) |
+| left | 96.2% | **96.2%** (95.5) | 94.5% | **96.0%** (93.0) | 96.2% | 86.5% | **89.0%** (84.5) |
+| right | 96.5% | **96.5%** (95.5) | 92.8% | **97.5%** (95.5) | 94.0% | 85.0% | **87.5%** (85.5) |
+| steep-topleft | 97.8% | **97.8%** (99.0) | 87.5% | **94.8%** (95.5) | 97.5% | 83.7% | **92.8%** (90.5) |
+| near-frontal (not gated) | 50.8% | 51.2% (49.5) | 50.7% | 49.8% (46.5) | 50.8% | 39.0% | 38.0% (38.0) |
+
+The ideal profile has exact clicks, so the refined map moves by at most 0.13 mm there. Held-out ideal is identical to M1-05b on every gated mount. Ideal + shadow is within 0.7 points of M1-05b on every mount (M1-05b: 96.0 / 94.2 / 96.5 / 94.2 / 96.8%).
+
+#### Realistic, M1-05c, held-out seeds 2+3: other metrics
+
+| Mount | no proposal | tip median / p95 (mm) | near-wire exact | not-near-wire exact | calibration residual (mm) | true map error, max (mm) |
+|---|---|---|---|---|---|---|
+| top | 1.0% | 0.77 / 1.77 | 86.2% | 97.9% | 0.40 | 0.20 |
+| bottom | 0.8% | 0.68 / 1.35 | 82.3% | 99.1% | 0.39 | 0.22 |
+| left | 2.0% | 0.78 / 1.49 | 85.8% | 97.9% | 0.40 | 0.19 |
+| right | 0.8% | 0.78 / 1.63 | 91.4% | 98.8% | 0.39 | 0.21 |
+| steep-topleft | 0.5% | 1.22 / 2.39 | 76.7% | 99.4% | 0.44 | 0.30 |
+
+M1-05b realistic tip median was 1.03–2.55 mm; it is now 0.68–1.22 mm. No-proposal: realistic 0.5–2.0%, realistic + shadow 1.5–6.0% (left 6.0% and top 5.2% still miss the 5% target). False proposals: 0 of 7,200 empty-board trials. Two-dart frames are declined 79–91% of the time, as in M1-05b.
+
+### How the refinement works (`vision_calibrate.py`)
+
+1. **Model edges.** About 2,240 sample points on the board's own edges: the outer-bull, treble and double ring circles (3 mm apart, kept ≥ 3 mm from the wires that cross them), and the 20 radial wires between r = 30 and 168 mm (2 mm apart, away from the rings). Each point carries its edge normal.
+2. **Find each edge in the image.**
+   - Under the current homography, sample the colour across the edge (±window, 0.1 mm steps), plus one colour well inside each neighbouring region.
+   - Project the profile onto the difference of the two region colours. This gives a 0 → 1 step whatever the colours are (black/cream, red/green, ring/number ring).
+   - The edge is the sub-sample peak of the step's slope. When the wire itself is visible (colour off the line between the two sides, within 1.2 mm of the step), the edge is the wire's centre instead. The step alone sits up to half a wire width (±0.5 mm) toward one side, which biased the outer double ring outward.
+   - Flat, weak (< 25 colour units), reversed or out-of-frame profiles are dropped.
+3. **Fit.** Gauss-Newton over the 8 homography parameters, minimising the distance of each found point (mapped to the board) from its model curve: |q| − R for a ring, the perpendicular distance for a wire. Residuals are weighted by pixels per mm, with Tukey robust weights, so darts or occlusions in the calibration image are outliers.
+4. **Coarse to fine.** The search window is ±6, then ±3, then ±1.5 mm. 6 mm covers 2 px click noise even on the grazing ceiling-0.5ft view.
+5. **Accept or keep the clicks.** The refined fit is used only when all of these hold:
+   - ≥ 300 inliers and ≥ 40% of the sampled points;
+   - inliers in ≥ 10 of 12 ring sectors and on ≥ 14 of 20 wires;
+   - RMS residual ≤ 0.6 mm;
+   - the fit moves no clicked point by more than 12 px (6σ of the harness's click noise).
+
+   Otherwise the clicks are kept and the setup message names the reason.
+
+   The last check was first written as "≤ 10 mm change of the board map". On the grazing `ceiling-0.5ft` view, 2 px of click noise is 11 mm of board, and that rule rejected one correct refinement (held-out seed 3, M1-05d). It now uses pixels, because clicks are made in pixels. That change was prompted by a held-out observation, so it was validated on fresh draws (`M1-05c-calibration-fresh-draws.json`: 300 of 300 refined, worst map error 0.52 mm). Re-running every gate calibration with the new rule gives identical results except that one.
+
+It uses only the calibration image and the clicks; nothing from the harness. A refined calibration also becomes the alignment reference (`align()` composes onto it) and feeds the pose solver.
+
+### What limits accuracy now
+
+With calibration error at 0.1–0.4 mm, the remaining realistic errors are the detector's:
+- near-wire darts with 1–1.5 mm tip error (realistic tip median 0.7–1.2 mm vs 0.6–0.9 mm ideal);
+- no-proposals, mostly realistic + shadow;
+- low-confidence darts nearly along the view ray.
+
+Of the 82 held-out realistic errors on the gated mounts:
+- 59 are near-wire darts (steep-topleft: 19 of 21);
+- 20 have no proposal;
+- 6 are low-confidence (not-elongated) proposals.
+
+Not-near-wire darts score 97.9–99.4%. The next lever is tip localisation under noise, not calibration. The renderer bias (about +0.5 mm toward the foot point, M1-05b) is still not corrected, on purpose.
+
+### Not covered
+
+- **Real boards:** wires are raised 1–2 mm off the surface (parallax on steep views), worn colours, a number ring that may be rotated, and lens distortion. The S22 main lens has little distortion, but a homography cannot absorb any that is left; it would show up as a larger residual.
+- **Thresholds:** the window and acceptance thresholds were set on synthetic seed 1 and must be checked on Thursday's calibration frames. The setup UI should show `residual_mm` and the reason when the clicks are kept.
+
+## M1-05b: robust dart segmentation
 
 200 single-dart trials per mount and seed, 1920×1080, HFOV 70°, every dart in the board (r ≤ 170 mm). Thresholds were tuned on **seed 1 only**; seeds 2 and 3 are **held out**, and the tables quote them (400 darts per mount) next to seed 1. The old rule and M1-05 columns are the M1-05 `vision.py` (commit 9af1ad3) run through today's harness on the same darts (`tools/run_detection_gate.py --pipelines m105-foot,m105-centre`). Shipped `TIP_BIAS_MM` is 0.0 (QA D1).
 

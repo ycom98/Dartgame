@@ -147,6 +147,23 @@ If C1 fails but C5 passes, the product still works with "camera-assisted" scorin
   3. If targets are missed, report the numbers and the remaining failure modes honestly; do not overfit.
   4. All existing Python tests pass; new tests cover the segmentation.
 
+#### M1-05c — Calibration refinement
+- **Why:** After M1-05b, the main remaining error in the realistic profile is a 1–3 mm calibration offset from about 2 px of noise in the four user clicks. Without click noise, realistic reached 95–97 % on every gated mount (ablation, `docs/M1-DETECTION-RESULTS.md`). Approved by the coordinator after M1-05b.
+- **Scope:**
+  - Refine the calibration automatically, to sub-pixel accuracy, from the image itself. The four clicks give the initial homography. Then fit the board's actual ring edges (double, treble and bull rings) and the 20 radial sector wires, and solve a refined homography by robust least squares.
+  - Degrade gracefully: if the refinement has low confidence, keep the click homography and say so.
+  - Use no harness ground truth.
+  - Expose a confidence/residual value in `vision.state()` for the setup UI.
+  - The harness reports the calibration residual (mm) and the true calibration error (ground truth, harness only). Add an `m105b` gate pipeline (refinement off) for comparison.
+- **Files:** new `vision_calibrate.py`, `vision.py`, `tools/eval_detection.py`, `tools/run_detection_gate.py`, new `tests/test_calibration_refine.py`, `tests/test_eval_harness.py`, `docs/M1-DETECTION-RESULTS.md`, `qa-artifacts/M1-05c-*.json`.
+- **Depends on:** M1-05b.
+- **Acceptance:** tune on seed 1 only; report on held-out seeds 2 and 3, with the realistic click-noise profile.
+  1. ≥ 95 % exact on `realistic` for the gated off-axis mounts. If this is not met, report it honestly.
+  2. Calibration residual reported in mm.
+  3. Refinement adds < 2 s on this container's CPU (Mac class).
+  4. Confidence/residual exposed in `vision.state()`. A low-confidence refinement keeps the clicks and reports the reason.
+  5. All existing Python tests pass; new tests cover the refinement and its fallback.
+
 #### M1-06 — Split the global lock; a background vision worker
 - **Why:** `server.py` holds one `RLock` across game writes, `/api/state`, image encoding and ORB `align()`. A slow alignment freezes `/api/state` polling and the TV. A pulled stream also needs a long-lived worker thread.
 - **Scope:**

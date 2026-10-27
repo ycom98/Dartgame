@@ -4,6 +4,7 @@ import time
 import cv2
 import numpy as np
 from core import score_point, near_wire
+import vision_calibrate
 import vision_pose
 import vision_segment
 
@@ -31,6 +32,9 @@ BOARD_CHANGE_RADIUS_MM = 200.0
 TIP_REFINE_MM = 12.0
 # How far beyond the pixel end the half-contrast edge search looks (mm).
 EDGE_SEARCH_MM = 2.0
+# Refine the four-click homography from the board's own ring edges and wires (M1-05c).
+# The harness turns it off to reproduce M1-05b (click-only calibration).
+CALIBRATION_REFINEMENT = True
 SEGMENTATION_MESSAGES = {
     'none': 'Ready',
     'multiple': 'More than one new dart; enter scores manually',
@@ -106,6 +110,9 @@ class Vision:
         self.pose = None
         self.rule = DEFAULT_RULE
         self.tip_bias_mm = TIP_BIAS_MM
+        # Calibration refinement (M1-05c): report of the last calibrate(), shown by the setup UI.
+        self.refine_calibration = CALIBRATION_REFINEMENT
+        self.calibration_quality = None
     def decode(self, data):
         arr = np.frombuffer(data, dtype=np.uint8)
         frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -157,6 +164,7 @@ class Vision:
         if min(lengths) < 40 or max(lengths) / min(lengths) > 4:
             raise ValueError('Board is too small or camera angle too steep')
         self.H = cv2.getPerspectiveTransform(p, TARGETS)
+        self.calibration_quality = self.refine_clicks(source)
         self.update_pose()
         self.reference = source.copy(); self.reference_H = self.H.copy()
         self.reference_mask = np.zeros((h,w), np.uint8)
@@ -174,7 +182,20 @@ class Vision:
         else:
             self.aligned = True; self.version += 1; self.reset_base()
         self.message = 'Calibration complete. Check the four markers on the LIVE image, then verify.'
-        return {'ok': True, 'message': self.message}
+        if self.calibration_quality['method'] == 'clicks' and self.refine_calibration:
+            self.message = ('Calibration complete from your four points only (automatic board fit not confident: '
+                            + self.calibration_quality['reason'] + '). Check the markers on the LIVE image, then verify.')
+        return {'ok': True, 'message': self.message, 'calibration': dict(self.calibration_quality)}
+
+    def refine_clicks(self, source):
+        """Refine self.H (from the four clicks) on the calibration image; returns the quality report.
+
+        Keeps the click homography when the refinement is not confident (vision_calibrate.refine).
+        """
+        if not self.refine_calibration:
+            return {'method': 'clicks', 'confidence': None, 'reason': 'refinement disabled'}
+        self.H, quality = vision_calibrate.refine(source, self.H, SCALE, CENTER)
+        return quality
     def overlay(self):
         if self.H is None: return None
         try: return cv2.perspectiveTransform(TARGETS.reshape(1,-1,2),np.linalg.inv(self.H))[0]
@@ -360,4 +381,5 @@ class Vision:
                 'version':self.version, 'width':int(self.frame.shape[1]) if self.frame is not None else 0,
                 'height':int(self.frame.shape[0]) if self.frame is not None else 0,
                 'pose':dict(self.pose) if self.pose is not None else None,
-                'foot':self.foot_point(), 'mount_side':self.mount_side}
+                'foot':self.foot_point(), 'mount_side':self.mount_side,
+                'calibration':dict(self.calibration_quality) if self.calibration_quality is not None else None}

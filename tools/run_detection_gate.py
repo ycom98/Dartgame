@@ -2,7 +2,8 @@
 """Run the detection gate matrix (pipelines x profiles x seeds x mounts) in parallel.
 
 Each cell is one tools/eval_detection.py run. Pipelines:
-  current          vision.py in this working tree (default rule and tip bias)
+  current          vision.py in this working tree (default rule and tip bias; M1-05c calibration refinement)
+  m105b            the same vision.py with calibration refinement off: the M1-05b pipeline (four clicks only)
   m105-foot        vision.py from --baseline-commit (default 9af1ad3, M1-05), rule 'foot', its own tip bias
   m105-centre      the same file with the old 'centre' rule
 
@@ -36,13 +37,14 @@ if str(ROOT) not in sys.path:
 from sim.camera import MOUNTS  # noqa: E402
 from tools import eval_detection  # noqa: E402
 
-PIPELINES = ('current', 'm105-foot', 'm105-centre')
+PIPELINES = ('current', 'm105b', 'm105-foot', 'm105-centre')
 GATED_MOUNTS = ('top', 'bottom', 'left', 'right', 'steep-topleft')
+POOLED_GROUPS = {'gated_pooled': GATED_MOUNTS}
 BASELINE_MODULE = 'vision_baseline'
 SUMMARY_KEYS = ('exact_accuracy', 'wrong_sector_rate', 'wrong_ring_rate', 'no_proposal_rate', 'exact_given_proposal',
                 'tip_error_mm', 'tip_signed_error_toward_foot_mm', 'near_wire', 'not_near_wire',
                 'no_proposal_reasons', 'false_proposals', 'two_darts', 'calibration_invalidations',
-                'time_per_frame_ms')
+                'time_per_frame_ms', 'calibration')
 
 
 def load_baseline(path):
@@ -56,14 +58,17 @@ def run_cell(cell):
     pipeline, profile, seed, mount, darts, empty_trials, pair_trials, baseline_path, current_tip_bias = cell
     shadow = profile.endswith('+shadow')
     base_profile = profile.replace('+shadow', '')
-    factory, rule, tip_bias = None, None, current_tip_bias
-    if pipeline != 'current':
+    factory, rule, tip_bias, refine = None, None, current_tip_bias, None
+    if pipeline == 'm105b':
+        refine = False
+    elif pipeline != 'current':
         baseline = load_baseline(baseline_path)
         factory = baseline.Vision
         rule = 'foot' if pipeline == 'm105-foot' else 'centre'
         tip_bias = baseline.TIP_BIAS_MM
     report = eval_detection.run([mount], darts, seed, base_profile, shadow, rule=rule, tip_bias=tip_bias,
-                                vision_factory=factory, empty_trials=empty_trials, pair_trials=pair_trials)
+                                vision_factory=factory, empty_trials=empty_trials, pair_trials=pair_trials,
+                                refine=refine)
     result = report['mounts'][mount]
     summary = {key: result[key] for key in SUMMARY_KEYS if key in result}
     summary['tip_bias_mm'] = tip_bias if tip_bias is not None else report['settings']['tip_bias_mm']
@@ -84,8 +89,9 @@ def main(argv=None):
     parser.add_argument('--seeds', default='1')
     parser.add_argument('--mounts', default=','.join(MOUNTS))
     parser.add_argument('--darts', type=int, default=200)
-    parser.add_argument('--empty-trials', type=int, default=0, help='false-proposal trials per cell (current only)')
-    parser.add_argument('--pair-trials', type=int, default=0, help='two-dart trials per cell (current only)')
+    parser.add_argument('--empty-trials', type=int, default=0,
+                        help='false-proposal trials per cell (current and m105b only)')
+    parser.add_argument('--pair-trials', type=int, default=0, help='two-dart trials per cell (current and m105b only)')
     parser.add_argument('--tip-bias', type=float, help="override the 'current' pipeline's tip bias (mm)")
     parser.add_argument('--baseline-commit', default='9af1ad3')
     parser.add_argument('--workers', type=int, default=os.cpu_count() or 1)
@@ -104,14 +110,14 @@ def main(argv=None):
 
     with tempfile.TemporaryDirectory() as directory:
         baseline_path = None
-        if any(p != 'current' for p in pipelines):
+        if any(p.startswith('m105-') for p in pipelines):
             baseline_path = os.path.join(directory, BASELINE_MODULE + '.py')
             source = subprocess.run(['git', 'show', args.baseline_commit + ':vision.py'], cwd=ROOT,
                                     capture_output=True, text=True, check=True).stdout
             Path(baseline_path).write_text(source)
         cells = []
         for pipeline in pipelines:
-            extra = (args.empty_trials, args.pair_trials) if pipeline == 'current' else (0, 0)
+            extra = (args.empty_trials, args.pair_trials) if pipeline in ('current', 'm105b') else (0, 0)
             for profile in profiles:
                 for seed in seeds:
                     for mount in mounts:
@@ -131,14 +137,17 @@ def main(argv=None):
     for pipeline in results.values():
         for profile in pipeline.values():
             for seed_results in profile.values():
-                rows = [seed_results[m] for m in GATED_MOUNTS if m in seed_results]
-                seed_results['gated_pooled'] = {
-                    'mounts': [m for m in GATED_MOUNTS if m in seed_results],
-                    'exact_accuracy': pooled(rows, 'exact_accuracy'),
-                    'no_proposal_rate': pooled(rows, 'no_proposal_rate'),
-                    'near_wire_exact': pooled([r['near_wire'] for r in rows], 'exact_accuracy'),
-                    'not_near_wire_exact': pooled([r['not_near_wire'] for r in rows], 'exact_accuracy'),
-                }
+                for group, group_mounts in POOLED_GROUPS.items():
+                    rows = [seed_results[m] for m in group_mounts if m in seed_results]
+                    if not rows:
+                        continue
+                    seed_results[group] = {
+                        'mounts': [m for m in group_mounts if m in seed_results],
+                        'exact_accuracy': pooled(rows, 'exact_accuracy'),
+                        'no_proposal_rate': pooled(rows, 'no_proposal_rate'),
+                        'near_wire_exact': pooled([r['near_wire'] for r in rows], 'exact_accuracy'),
+                        'not_near_wire_exact': pooled([r['not_near_wire'] for r in rows], 'exact_accuracy'),
+                    }
     report = {
         'tool': 'tools/run_detection_gate.py',
         'disclaimer': eval_detection.DISCLAIMER,
