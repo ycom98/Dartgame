@@ -34,8 +34,9 @@ Pipeline:
   5. Decision: groups of at least MIN_DART_MM2 that are plausibly a dart (a
      core fragment, mean width MIN_MEAN_WIDTH_MM) are candidates. Exactly one
      candidate is a dart; two or more are reported as 'multiple'. More than
-     MAX_FRAGMENTS fragments, or one candidate beside MAX_IMPLAUSIBLE_BESIDE_DART
-     dart-sized implausible groups, is 'noisy' (no proposal); the fragment cap
+     MAX_FRAGMENTS fragments (or MAX_CORE_FRAGMENTS core-sized ones), only
+     implausible dart-sized groups, or one candidate beside MAX_IMPLAUSIBLE_BESIDE_DART
+     dart-sized implausible groups, is 'noisy' (no proposal); the fragment caps
      also bounds the grouping time.
 
 No ground truth is used: the same code runs on real frames. Every threshold
@@ -79,8 +80,9 @@ MIN_DART_MM2 = 40.0
 MAX_DART_MM2 = 8000.0
 # Dart plausibility (M1-05e). On synthetic seed 1 (all ten mounts, ideal, realistic and realistic +
 # shadow) every accepted dart had a largest fragment of at least 62 mm2 holding at least 26% of the
-# dart's pixels, a mean width (area / length) of at least 3.3 mm and a length of at least 17 mm
-# (12 mm on near-frontal, where a dart can point at the lens). Chained specks are thin; a single
+# dart's pixels, a mean width (area / length) of at least 3.3 mm and a length of at least 17 mm.
+# On near-frontal (ungated), where a dart can point at the lens, darts were as short as 12 mm; the
+# 15 mm minimum rejects those few (near-frontal 49.8 -> 49.3%). Chained specks are thin; a single
 # fleck is short.
 CORE_MIN_MM2 = 50.0  # a group needs a fragment this large to join pieces across a gap or to be a dart
 MIN_CORE_FRACTION = 0.15  # the core fragment's share of the group's pixels
@@ -89,6 +91,10 @@ MIN_DART_LENGTH_MM = 15.0
 # More fragments than this is a noisy scene (sensor noise, debris, a moving shadow), not one new dart.
 # Synthetic dart frames have at most 8. The cap also bounds the grouping time (pairwise checks).
 MAX_FRAGMENTS = 40
+# Core-sized fragments (>= CORE_MIN_MM2) are the expensive ones to group (each may join across a
+# gap). More than this many is also a noisy scene, such as an arm or hand shadow broken into
+# pieces (QA D4: 30-40 large strokes took 0.16-0.38 s and occasionally gave a false dart).
+MAX_CORE_FRAGMENTS = 12
 # A plausible dart next to this many dart-sized implausible groups is a noisy scene too. On grazing
 # views the warp stretches a 3-4 mm fleck to 15-18 mm, as long as the shortest darts; a lone such
 # fleck still passes, but flecks rarely come alone. Chosen on seed 1: speckle false proposals on
@@ -499,7 +505,8 @@ def segment(frame, base, scale, center, board_radius_mm=172.0, foot=None):
     pieces = [piece for piece in pieces
               if len(piece.points) >= MIN_DART_MM2 * pixels_per_mm2 or not inside_shadow(piece, corrected, base)]
     result.fragment_count = len(pieces)
-    if len(pieces) > MAX_FRAGMENTS:
+    cores = sum(len(piece.points) >= CORE_MIN_MM2 * pixels_per_mm2 for piece in pieces)
+    if len(pieces) > MAX_FRAGMENTS or cores > MAX_CORE_FRAGMENTS:
         result.kind = 'noisy'
         return result
     groups = FragmentGrouper(scale, foot).group(pieces)
@@ -508,6 +515,9 @@ def segment(frame, base, scale, center, board_radius_mm=172.0, foot=None):
     candidates = [g for g in sized if plausible_dart(g, scale)]
     result.implausible = len(sized) - len(candidates)
     if not candidates:
+        if result.implausible:
+            # Dart-sized change that is not dart-shaped: say so rather than a silent "Ready" (QA D5).
+            result.kind = 'noisy'
         return result
     if len(candidates) > 1:
         result.kind = 'multiple'

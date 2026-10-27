@@ -98,6 +98,21 @@ class FragmentCap(unittest.TestCase):
             # About 60 ms unloaded; M1-05b took about 1 s at 200 specks. Loose bound for loaded CI.
             self.assertLess(time.perf_counter() - started, 0.5)
 
+    def test_many_large_fragments_are_noisy_and_fast(self):
+        base = board_base()
+        rng = np.random.default_rng(21)
+        frame = base.copy()
+        for _ in range(30):  # 25 x 3 mm strokes, each core-sized: an arm shadow broken into pieces
+            x, y = rng.uniform(-150, 120, 2)
+            angle = rng.uniform(0, np.pi)
+            end = (x + 25 * np.cos(angle), y + 25 * np.sin(angle))
+            cv2.line(frame, mm(x, y), mm(*end), GREEN, int(3 * SCALE))
+        segment(frame, base)
+        started = time.perf_counter()
+        result = segment(frame, base)
+        self.assertEqual(result.kind, 'noisy')
+        self.assertLess(time.perf_counter() - started, 0.5)
+
     def test_vision_reports_a_noisy_scene(self):
         vision = Vision()
         vision.segmentation = object()
@@ -159,6 +174,14 @@ class DartPlausibility(unittest.TestCase):
             cv2.circle(frame, mm(40, y), int(4.5 * SCALE), (200, 120, 20), -1)
         result = segment(frame, base)
         self.assertEqual(result.implausible, 2)
+        self.assertEqual(result.kind, 'noisy')
+
+    def test_a_rejected_dart_sized_change_is_not_a_silent_ready(self):
+        base = board_base()
+        frame = base.copy()
+        cv2.circle(frame, mm(-60, -60), int(5 * SCALE), GREEN, -1)  # 78 mm2 but only 10 mm long
+        result = segment(frame, base)
+        self.assertEqual(result.implausible, 1)
         self.assertEqual(result.kind, 'noisy')
 
     def test_specks_do_not_chain_without_a_core(self):
