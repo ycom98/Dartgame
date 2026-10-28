@@ -12,6 +12,7 @@ The full protocol and pass criteria are in `docs/PLAN.md` §3 (M2) and the "conc
 - [ ] Quick rehearsal: phone and Mac on the same Wi-Fi (not a guest network), start the IP Webcam server, run `bash start-mac.command --camera <phone IP>`, open the **Setup** link, confirm "Camera stream ✓" and a live picture.
 - [ ] Phone charger and a cable long enough to reach the ceiling mount.
 - [ ] Optional: a diffuse light near the board (ring light or LED strip) to cut shadows.
+- [ ] If a Controller or Presentation link was ever shared by mistake, start once with `--new-links` to make new ones.
 
 ## Setup (≈30 min)
 
@@ -50,8 +51,8 @@ Record continuously. Do these in order and note the time each block starts (or s
 | 7 | People in frame | during 1–2 | Second person walks past, thrower leans in, someone stands in front for 5 s |
 | 8 | Pulling darts | every turn | Normal pull; once, pull only 1 of 3 darts mid-turn |
 | 9 | Phone bump | 3 | Tap the mount lightly; nudge ~1 cm; rotate slightly. The app should ask to re-check or recalibrate, never score silently on a moved board |
-| 10 | Wi-Fi drop | 2 | Phone Wi-Fi off for 10 s; lock the phone screen for 10 s. When the picture is back, if the Setup page asks for a board check: press **Check / realign board**, look at the overlay, then **Markers correct · Ready to play** |
-| 11 | Restart | 1 | Close Terminal mid-turn and start it again, but with a **new recording folder** (e.g. `--record ~/dart-trial/session1-restart`). The match should come back exactly. If the controller or TV says **PAIRING LINK REQUIRED**, open the new Controller and Presentation links printed in Terminal. On the Setup page press **Markers correct · Ready to play** after checking the overlay |
+| 10 | Wi-Fi drop | 2 | Phone Wi-Fi off for 10 s; lock the phone screen for 10 s. The controller shows **Camera reconnecting…**; keep tapping darts meanwhile. When the picture is back, the camera is ready again by itself within a few seconds if nothing moved. If the controller says **Board check needed** (or the Setup page asks), press **Check / realign board** on the Mac, look at the overlay, then **Markers correct · Ready to play** |
+| 11 | Restart | 1 | Close Terminal mid-turn and start it again with the **same command** (the same `--record` folder is fine: the recording continues as a new part). The match should come back exactly, and the Controller and Presentation pages keep working with the same links (reload them if they look stuck). On the Setup page press **Markers correct · Ready to play** after checking the overlay |
 | 12 | Calibration timing | 3 | Three cold calibrations with a stopwatch |
 
 If time is short, do blocks **1, 2, 3, 4, 9, 11** — they matter most.
@@ -61,7 +62,7 @@ Optional if the mount allows: 15 normal throws at **2 ft from the wall** to comp
 ## Wrap-up (≈15 min)
 
 - [ ] Stop recording on the Setup page.
-- [ ] Optional, in Terminal in the `Dartgame` folder (one line per session folder):
+- [ ] Optional, in Terminal in the `Dartgame` folder:
   ```sh
   .venv/bin/python tools/make_labels.py ~/dart-trial/session1
   .venv/bin/python tools/replay_recording.py ~/dart-trial/session1
