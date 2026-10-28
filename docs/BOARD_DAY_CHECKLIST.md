@@ -1,4 +1,4 @@
-# Board day checklist (Thursday, Oct 29)
+# Board day checklist (first hardware trial)
 
 Purpose: find out whether one ceiling-mounted phone can score real darts well enough, and record labelled footage so detection can be tuned on the real board afterwards. Plan for about 2 hours: 30 min setup, 75 min throwing, 15 min wrap-up.
 
@@ -6,6 +6,8 @@ The full protocol and pass criteria are in `docs/PLAN.md` §3 (M2) and the "conc
 
 ## The night before
 
+- [ ] Mac has **Python 3.10 or newer**: run `python3 --version` in Terminal (install from python.org if missing or older).
+- [ ] **First run needs internet:** the first `bash start-mac.command` downloads the camera libraries (numpy, OpenCV) — a few minutes. After that it works offline.
 - [ ] Mac has **at least 20 GB free** (recording uses about 100 MB per minute, ~6 GB per hour).
 - [ ] Latest code on the Mac: `git pull` in the `Dartgame` folder (or `git clone https://github.com/ycom98/Dartgame.git`).
 - [ ] S22: **IP Webcam** (Pavel Khlebovich) installed. Video preferences: 1920×1080, quality 80, FPS limit 15, stabilisation off, keep screen awake, exempt from battery optimisation.
