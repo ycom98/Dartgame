@@ -177,7 +177,7 @@ footer {
 /* System fonts are wider than Arial: tighten numbers by em, not fixed pixels, so digits never overlap. */
 .score,
 .score-instrument .score,
-.host .score-instrument .score { letter-spacing: -0.045em; }
+.host .score-instrument .score { letter-spacing: -0.03em; }
 .lobby h1,
 .stage-big { letter-spacing: -0.04em; }
 
@@ -428,3 +428,82 @@ footer {
 
 .reconnect-banner strong { color: var(--dr-red-hi); white-space: nowrap; }
 .reconnect-banner span { color: var(--dr-ink-dim); }
+
+/* ---- M3 UI-07: the TV fills one screen at 1280x720, 1920x1080 and 3840x2160 ---------------------------
+   Sizes follow the viewport height as well as the width, so nothing scrolls on a 16:9 screen. All margins
+   come from --dr-safe (overscan-safe on TVs that crop the picture edge). Very large CSS viewports (a 4K
+   screen at 100 %) are zoomed so text stays readable across the room. */
+body.tv {
+  /* Viewport units that ignore the zoom below (zoom scales vw and vh too). */
+  --z: 1;
+  --vw: calc(1vw / var(--z));
+  --vh: calc(1vh / var(--z));
+  --dr-safe: max(24px, calc(var(--vw) * 3.5));
+  display: flex;
+  flex-direction: column;
+  min-height: calc(var(--vh) * 100);
+}
+
+.tv header { padding: min(calc(var(--vh) * 2.4), 26px) var(--dr-safe); }
+.tv footer { padding: min(calc(var(--vh) * 1.6), 18px) var(--dr-safe); margin-top: auto; }
+.tv main#match { padding: min(calc(var(--vh) * 2.8), 32px) var(--dr-safe) min(calc(var(--vh) * 2), 22px); width: 100%; max-width: none; }
+.tv .match-top { margin-bottom: min(calc(var(--vh) * 1.5), 24px); }
+.tv .arena { min-height: 0; gap: calc(var(--vw) * 3); }
+.tv .hero { padding: min(calc(var(--vh) * 1.5), 28px) 0; }
+.tv .hero h1 { font-size: clamp(30px, min(calc(var(--vw) * 4), calc(var(--vh) * 7)), 72px); margin-top: min(calc(var(--vh) * 1.2), 16px); }
+.tv .score-instrument { margin: min(calc(var(--vh) * 1.2), 15px) 0 min(calc(var(--vh) * 1.4), 18px); }
+.tv .score-instrument .score { font-size: clamp(96px, min(calc(var(--vw) * 13), calc(var(--vh) * 21)), 230px); }
+.tv .score-instrument .remaining { margin-top: min(calc(var(--vh) * 1.4), 18px); }
+.tv .reservoir-track { height: clamp(90px, calc(var(--vh) * 15), 200px); }
+.tv .visit-line { padding: min(calc(var(--vh) * 1.4), 18px) 0; min-height: 0; }
+.tv .turn-points { font-size: clamp(32px, min(calc(var(--vw) * 3.4), calc(var(--vh) * 6)), 56px); }
+.tv .dart { padding: min(calc(var(--vh) * 1.3), 14px) 20px; }
+.tv .dart strong { font-size: clamp(20px, min(calc(var(--vw) * 2), calc(var(--vh) * 3.6)), 34px); }
+.tv .checkout-line { margin-top: min(calc(var(--vh) * 1.4), 16px); min-height: min(calc(var(--vh) * 4.4), 50px); }
+.tv .hero .cue { margin-top: min(calc(var(--vh) * 1.6), 20px); font-size: clamp(15px, min(calc(var(--vw) * 1.3), calc(var(--vh) * 2.4)), 24px); }
+.tv .board-wrap { max-width: min(560px, calc(var(--vw) * 44), calc(var(--vh) * 58)); }
+.tv .players { margin-top: min(calc(var(--vh) * 1.4), 30px); }
+.tv .player { padding: min(calc(var(--vh) * 1.6), 18px) 18px; }
+.tv .player-name { font-size: clamp(15px, min(calc(var(--vw) * 1.3), calc(var(--vh) * 2.4)), 26px); }
+.tv .player-score { font-size: clamp(28px, min(calc(var(--vw) * 2.6), calc(var(--vh) * 5)), 52px); }
+.tv .player .avatar { width: 1.9em; height: 1.9em; font-size: clamp(11px, calc(var(--vw) * 1), 18px); }
+.tv .eyebrow { font-size: clamp(11px, calc(var(--vw) * 0.75), 16px); }
+.tv .rule { font-size: clamp(13px, calc(var(--vw) * 0.85), 18px); }
+.tv .stats-table th,
+.tv .stats-table td { padding: min(calc(var(--vh) * 1), 0.55em) 0.6em; }
+.tv .lobby-live { gap: min(calc(var(--vh) * 4), 48px); padding: min(calc(var(--vh) * 2), 24px) 0; }
+.tv .lobby-live .lobby-title { font-size: clamp(64px, min(calc(var(--vw) * 9), calc(var(--vh) * 15)), 200px); }
+.tv .game-tile { min-height: min(calc(var(--vh) * 13), 140px); }
+
+/* Short screens (720p): the footer steps aside and the match tightens up. */
+@media (max-height: 820px) {
+  .tv footer { display: none; }
+  .tv .match-top { margin-bottom: 0; }
+  .tv .hero h1 { margin-top: 4px; }
+  .tv .score-instrument .score { font-size: clamp(90px, min(calc(var(--vw) * 13), calc(var(--vh) * 19)), 230px); }
+  .tv .score-instrument .remaining { margin-top: 6px; }
+  .tv .reservoir-track { height: calc(var(--vh) * 14); }
+  .tv .dart small { margin-bottom: 3px; }
+  .tv .dart-points { margin-top: 4px; }
+  .tv .checkout-line { margin-top: 8px; }
+  .tv .hero .cue { margin-top: 8px; }
+  .tv .players { margin-top: 10px; }
+  .tv .stats-table { font-size: 14px; }
+  .tv .stats-table th,
+  .tv .stats-table td { padding: 5px 8px; }
+  .tv .game-shot-name { font-size: 44px; }
+}
+
+@media (min-width: 2400px) {
+  body.tv { zoom: 1.5; --z: 1.5; }
+}
+
+@media (min-width: 3200px) {
+  body.tv { zoom: 2; --z: 2; }
+}
+
+/* Reduced motion on the TV: no stages or count-ups, but the moments stay readable as static states. */
+@media (prefers-reduced-motion: reduce) {
+  .tv .bust-badge { transform: none; }
+  .tv .game-tile.chosen { transform: none; }
+}
