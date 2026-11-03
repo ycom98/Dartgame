@@ -107,7 +107,9 @@ class ServerStartup(unittest.TestCase):
 
 class StaticPages(unittest.TestCase):
     def test_no_browser_camera_code_remains(self):
-        for path in (ROOT / 'static').iterdir():
+        for path in (ROOT / 'static').rglob('*'):  # UI-06b: includes static/vendor/
+            if path.is_dir():
+                continue
             self.assertNotIn('getUserMedia', path.read_text(encoding='utf-8'), path.name)
 
 
@@ -139,9 +141,33 @@ class SetupApi(unittest.TestCase):
         return status, json.loads(data) if 'json' in mime else data
 
     def test_setup_assets_and_old_phone_link(self):
-        for path in ('/', '/phone', '/static/setup.js', '/static/setup.css'):
+        for path in ('/', '/phone', '/static/setup.js', '/static/setup.css', '/static/vendor/qrcode.js'):
             status, _ = self.request(path)
             self.assertEqual(status, 200, path)
+
+    def test_share_links_for_the_qr_codes(self):
+        # UI-06: the Setup page shows the Controller and TV links (Mac Wi-Fi address) as QR codes.
+        status, links = self.request('/api/links')
+        self.assertEqual(status, 200)
+        port = self.httpd.server_address[1]
+        self.assertEqual(links['controller'], f'http://127.0.0.1:{port}/control?t={TOKEN}')
+        self.assertEqual(links['presentation'], f'http://127.0.0.1:{port}/play?t={self.server_module.app.display_token}')
+        self.assertFalse(links['lan'])
+        previous = self.server_module.PUBLIC_ORIGIN
+        self.server_module.PUBLIC_ORIGIN = 'http://192.168.1.20:8000'
+        try:
+            links = self.request('/api/links')[1]
+            self.assertEqual(links['controller'], 'http://192.168.1.20:8000/control?t=' + TOKEN)
+            self.assertTrue(links['lan'])
+        finally:
+            self.server_module.PUBLIC_ORIGIN = previous
+        # Only the full controller token may read the controller link; the TV's display token may not.
+        connection = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
+        connection.request('GET', '/api/links', headers={'Authorization': 'Bearer ' + self.server_module.app.display_token})
+        response = connection.getresponse()
+        response.read()
+        connection.close()
+        self.assertEqual(response.status, 401)
 
     def test_connection_test_reports_size_without_switching_source(self):
         from fake_ipwebcam import FakeIPWebcam, sim_frames

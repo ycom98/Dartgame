@@ -48,6 +48,16 @@ AUTO_COMMIT_SECONDS = DEFAULT_AUTO_COMMIT_SECONDS
 # held while taking app.game_lock (camera-proposal commit); app.game_lock is never held while taking
 # vision.lock or waiting for the vision worker.
 GAME_PATHS = ('/api/game', '/api/throw', '/api/next', '/api/undo')
+# UI-06: Setup page files besides setup.js/setup.css, and the address other devices use (main() sets it).
+SETUP_STATIC = {'/static/sound.js':'sound.js', '/static/vendor/qrcode.js':'vendor/qrcode.js'}
+PUBLIC_ORIGIN = None  # e.g. http://192.168.1.20:8000; None when the Handler runs without main() (tests)
+
+def share_links(host_header):
+    """UI-06: full Controller and TV links (Mac Wi-Fi address) for the Setup page's QR codes."""
+    origin = PUBLIC_ORIGIN or 'http://'+(host_header or 'localhost')
+    on_wifi = PUBLIC_ORIGIN is not None and '//127.0.0.1:' not in PUBLIC_ORIGIN  # False: other devices can't reach it
+    return {'origin':origin, 'controller':origin+'/control?t='+app.token,
+            'presentation':origin+'/play?t='+app.display_token, 'lan':on_wifi}
 
 def vision_state():
     """Latest vision state without waiting for the vision lock."""
@@ -252,6 +262,7 @@ class Handler(BaseHTTPRequestHandler):
                   **{'/static/'+name:name for name in ('presentation.css','presentation.js','control.js','showcase.js',
                                                        'setup.css','setup.js','board.js')},
                   '/':'index.html', '/phone':'index.html'}  # /phone: old links open the setup page
+        public.update(SETUP_STATIC)
         if path in public:
             content = (ROOT/'static'/public[path]).read_bytes()
             mime = 'text/css' if path.endswith('.css') else 'text/javascript' if path.endswith('.js') else 'text/html'
@@ -261,6 +272,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers(); self.wfile.write(content); return
         if not self.authenticated(display=path == '/api/state'): return self.reply({'error':'Open the complete pairing link printed in Terminal'},401)
         if path == '/api/state': return self.reply(app.state())
+        if path == '/api/links': return self.reply(share_links(self.headers.get('Host')))
         if path == '/api/modes':
             import modes
             return self.reply({'modes':modes.catalog()})
@@ -630,6 +642,8 @@ def main():
         worker.stop()
         parser.exit(1,f'Could not start Dart Room: {error}\nIf port {port} is busy, stop the other instance or use --port {port+1}.\n')
     scheme='https' if args.https else 'http'
+    global PUBLIC_ORIGIN
+    PUBLIC_ORIGIN = f'{scheme}://{ip}:{port}'
     print(f'Computer: Dart Room is listening on {args.host}:{port} ({scheme.upper()})',flush=True)
     print(f'Setup:        {scheme}://localhost:{port}/?t={app.token}',flush=True)
     print(f'Controller:   {scheme}://{ip}:{port}/control?t={app.token}',flush=True)

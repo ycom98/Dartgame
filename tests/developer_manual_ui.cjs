@@ -13,7 +13,7 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
   async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await pause(50);}throw Error('Condition timed out');}
   browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(origin+'/?t='+token);await page.locator('#cameraGame').uncheck();await page.locator('#newGame').click();await until(async()=>!!(await game()));
+  await page.goto(origin+'/?t='+token);await page.evaluate(()=>{document.getElementById('legacyGame').open=true;});await page.locator('#cameraGame').uncheck();await page.locator('#newGame').click();await until(async()=>!!(await game()));
   async function dart(v,m=1){
    const n=(await game()).darts.length;await page.locator('#value').selectOption(String(v));
    if(v!==0)await page.locator('#multiplier').selectOption(String(m));
