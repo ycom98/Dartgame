@@ -211,6 +211,11 @@ class App:
         self.flow = CameraFlow(AUTO_COMMIT_SECONDS)  # pending camera dart and auto-commit (M1-12)
         self.events = EventLog()
         self.store = None  # persistence.MatchStore when the match is saved to disk (M1-16; main() sets it)
+        # The controller's game setup in progress, shown live on the TV lobby (M3 UI-02). A draft: it is not
+        # part of the match, so changing it does not move the revision.
+        self.lobby = new_lobby()
+        self.recent_players = []  # newest first; saved next to the match file (M3 UI-02)
+        self.recent_dir = None
     def bump(self):
         """The match changed: new revision, saved to disk. Call with game_lock held."""
         self.revision += 1
@@ -222,16 +227,34 @@ class App:
             else: self.store.error = None
     def game_state(self):
         with self.game_lock:
-            return {'game':self.game.snapshot() if self.game else None, 'revision':self.revision,
-                    'camera_game':self.camera_game, 'display':self.game.hints() if self.game else None,
-                    'turn_over':self.game.turn_over() if self.game else False}
+            game = self.game
+            return {'game':game.snapshot() if game else None, 'revision':self.revision,
+                    'camera_game':self.camera_game, 'display':game.hints() if game else None,
+                    'turn_over':game.turn_over() if game else False,
+                    # M3 UI-03: the suggested finish, and the match statistics once someone has won.
+                    'checkout':game.checkout_hint() if game else None,
+                    'stats':game.stats() if game and game.data['winner'] is not None else None}
+    def lobby_state(self):
+        with self.game_lock:
+            return {**self.lobby, 'players':list(self.lobby['players']), 'recent':list(self.recent_players)}
+    def remember_players(self, names):
+        """Put a new game's players at the front of the recent names, and save them. Call with game_lock held."""
+        import persistence
+        self.recent_players = persistence.remember_players(self.recent_players, names)
+        if self.recent_dir is not None:
+            try: persistence.save_recent_players(self.recent_dir, self.recent_players)
+            except OSError as error: print('Could not save the recent player names: '+str(error), flush=True)
     def state(self):
         game = self.game_state()
         return {'game':game['game'], 'revision':game['revision'],
                 'presentation_path':'/play?t='+self.display_token,
                 'display':game['display'],  # the game mode's layout hints for /play and /control (M1-15)
+                'checkout':game['checkout'], 'stats':game['stats'], 'lobby':self.lobby_state(),
                 'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view(game['turn_over']),
                 'recording':recording_state()}
+
+def new_lobby():
+    return {'open':False, 'players':[], 'start':301, 'double_out':False}
 
 app = App()
 
@@ -250,7 +273,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         public = {'/play':'presentation.html', '/control':'control.html', '/showcase':'showcase.html',
                   **{'/static/'+name:name for name in ('presentation.css','presentation.js','control.js','showcase.js',
-                                                       'setup.css','setup.js','board.js')},
+                                                       'setup.css','setup.js','board.js','theme.css','control.css')},
                   '/':'index.html', '/phone':'index.html'}  # /phone: old links open the setup page
         if path in public:
             content = (ROOT/'static'/public[path]).read_bytes()
@@ -300,8 +323,9 @@ class Handler(BaseHTTPRequestHandler):
             # M1-10: every write names the revision it was based on.
             if 'expected_revision' not in body or type(body['expected_revision']) is not int:
                 raise ValueError('expected_revision (an integer) is required')
+            # The lobby is a draft of the next game, not the match: last write wins, so it never conflicts.
             with app.game_lock:
-                if body['expected_revision'] != app.revision:
+                if path != '/api/lobby' and body['expected_revision'] != app.revision:
                     raise Conflict('Match changed on another controller. Review the current turn.')
             result = self.route_post(path, body)
             if result is NOT_FOUND: return self.reply({'error':'Not found'},404)
@@ -325,6 +349,9 @@ class Handler(BaseHTTPRequestHandler):
             if uri is not None and not isinstance(uri,str): raise ValueError('uri must be a string or null')
             set_camera_source(uri)
             with app.game_lock: app.bump()  # other controllers see the change (QA N2)
+            return None
+        if path == '/api/lobby':
+            update_lobby(body)
             return None
         if path == '/api/camera/test': return {'test':test_camera_source(body.get('uri'))}
         if path == '/api/record':
@@ -372,6 +399,30 @@ class Handler(BaseHTTPRequestHandler):
 
 NOT_FOUND = object()
 
+def update_lobby(body):
+    """Change the game setup shown on the TV lobby (M3 UI-02). Every field is optional:
+    open (bool: the controller is setting up a game), players (up to 4 names, partial names allowed),
+    start (301 or 501) and double_out (bool)."""
+    changes = {}
+    if 'open' in body:
+        if type(body['open']) is not bool: raise ValueError('open must be true or false')
+        changes['open'] = body['open']
+    if 'players' in body:
+        players = body['players']
+        if not isinstance(players, list) or len(players) > 4:
+            raise ValueError('players must be a list of up to 4 names')
+        if any(not isinstance(name, str) or len(name.strip()) > 30 for name in players):
+            raise ValueError('Player names must contain 1–30 characters')
+        changes['players'] = [name.strip() for name in players if name.strip()]
+    if 'start' in body:
+        if type(body['start']) is not int or body['start'] not in (301, 501): raise ValueError('Choose 301 or 501')
+        changes['start'] = body['start']
+    if 'double_out' in body:
+        if type(body['double_out']) is not bool: raise ValueError('double_out must be true or false')
+        changes['double_out'] = body['double_out']
+    with app.game_lock:
+        app.lobby = {**app.lobby, **changes}
+
 def clean_notes(notes):
     """Session notes from the setup page: a few short text fields."""
     if not isinstance(notes, dict) or len(notes) > 10: raise ValueError('notes must be an object with up to 10 fields')
@@ -396,6 +447,9 @@ def game_write(path, body):
         with app.game_lock:
             check_revision(body)
             app.game = candidate; app.camera_game = camera; app.bump()
+            app.lobby = {**new_lobby(), 'players':list(candidate.data['names']), 'start':candidate.options.get('start', 301),
+                         'double_out':candidate.options.get('double_out', False)}
+            app.remember_players(candidate.data['names'])
             app.events.add('game', names=candidate.data['names'], mode=candidate.mode.id,
                            options=candidate.options, camera=camera)
         if vision is not None: worker.submit(reset_base_if_ready)
@@ -560,6 +614,8 @@ def setup_persistence(state_file, fresh=False, new_links=False):
     elif not fresh:
         with app.game_lock: message = store.load(app)
     app.store = store
+    app.recent_dir = state_file.parent
+    app.recent_players = persistence.load_recent_players(state_file.parent)
     CALIBRATION_DIR = state_file.parent
     if vision is not None: restore_calibration()
     return message
