@@ -65,6 +65,16 @@ class GameMode:
         It may carry per-mode display data (Cricket: marks per number; Killer: lives)."""
         return {'kind': self.id}
 
+    def checkout_hint(self, state):
+        """A suggested finish for the player at the oche (x01: e.g. {'remaining': 121, 'darts': [...]}),
+        or None. Shown on the TV and the controller (M3 UI-03)."""
+        return None
+
+    def match_stats(self, turns, state):
+        """Per-player statistics for the winner screen, or None. `turns` is every completed turn in
+        order (each the state at the end of that turn, see core.Game.turns()); `state` is the current one."""
+        return None
+
     # ---- persistence ---------------------------------------------------------------------
     def to_json(self, state):
         return copy.deepcopy(state)

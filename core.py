@@ -49,6 +49,23 @@ class Game:
         self.data = self.mode.new_state([n.strip() for n in names], self.options)
         self.history = []
     def snapshot(self): return {**copy.deepcopy(self.data), 'mode': self.mode.id}
+
+    def turns(self):
+        """Every turn played so far, oldest first: the state at the end of each finished turn, then the
+        current turn (M3 UI-03). Read from the undo history, where next_turn() saves the end of each turn:
+        the last saved state of turn t is that turn's final state (undo only removes states from the end)."""
+        last_of_turn = {}
+        for state in self.history:
+            if state['turn'] < self.data['turn']:
+                last_of_turn[state['turn']] = state
+        return [last_of_turn[turn] for turn in sorted(last_of_turn)] + [self.data]
+
+    def checkout_hint(self):
+        return self.mode.checkout_hint(self.data)
+
+    def stats(self):
+        """The mode's match statistics (x01: averages, 180s, checkout...), computed from the turn history."""
+        return self.mode.match_stats(copy.deepcopy(self.turns()), self.data)
     def hints(self): return self.mode.presentation_hints(self.data)
     def turn_over(self): return self.mode.turn_over(self.data)
     def _save(self): self.history.append(copy.deepcopy(self.data))

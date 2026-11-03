@@ -1,0 +1,171 @@
+/* Dart Room shared theme (M3 UI-01). Loaded first by /play (TV) and /control (host controller).
+
+   Design tokens
+   -------------
+   Colour (social-darts club: warm cream, gold and red on dark teal)
+     --dr-bg            page background (deepest teal)
+     --dr-surface       raised panel; --dr-surface-2 a second level; --dr-surface-hi hover/selected
+     --dr-line          hairline border; --dr-line-strong a visible border
+     --dr-ink           main text (cream); --dr-ink-dim secondary text; --dr-muted captions
+     --dr-gold          accent (active player, scores, primary buttons); --dr-gold-hi lighter, --dr-gold-lo darker
+     --dr-on-gold       text on a gold fill
+     --dr-red           board red, bust, errors; --dr-red-hi lighter
+     --dr-green         board green, success, "camera watching"
+     --dr-board-light / --dr-board-dark   the board's single segments
+     --dr-player-1..4   player colours (avatars, lobby, scoreboard rule)
+   Type
+     --dr-font          system UI stack (fully offline, no web fonts); --dr-font-num tabular numbers
+     --dr-text-xs .. --dr-text-3xl   fixed steps for UI text; --dr-display-* fluid sizes for TV numbers
+     --dr-track-wide    letter spacing for small capitals
+   Space   --dr-space-1 (4 px) .. --dr-space-8 (64 px)
+   Radius  --dr-radius-sm / -md / -lg / -pill
+   Shadow  --dr-shadow-1 (cards), --dr-shadow-2 (overlays), --dr-glow-gold (highlights)
+   Motion  --dr-dur-fast / -base / -slow / -scene, --dr-ease-out (deliberate, settles softly)
+           Every duration is 0 ms under prefers-reduced-motion.
+   Layout  --dr-safe   overscan-safe margin for TVs (UI-07); --dr-touch minimum touch target (44 px)
+
+   The short names used by presentation.css since M1 (--ink, --gold, --muted, --line, --red, --teal) are kept
+   as aliases of these tokens. */
+
+:root {
+  color-scheme: dark;
+
+  --dr-bg: #0d1c1b;
+  --dr-bg-glow: #24443c;
+  --dr-surface: #132826;
+  --dr-surface-2: #1a3330;
+  --dr-surface-hi: #21403b;
+  --dr-line: #f3ead31f;
+  --dr-line-strong: #f3ead345;
+
+  --dr-ink: #f1ead8;
+  --dr-ink-dim: #cfc6b0;
+  --dr-muted: #98aba4;
+
+  --dr-gold: #dcb767;
+  --dr-gold-hi: #f0d595;
+  --dr-gold-lo: #8f6b2e;
+  --dr-on-gold: #15241f;
+
+  --dr-red: #b5473e;
+  --dr-red-hi: #e08a7d;
+  --dr-green: #4f8a74;
+  --dr-green-hi: #8cc7ae;
+  --dr-board-light: #c6bfa9;
+  --dr-board-dark: #25322e;
+
+  --dr-player-1: #dcb767;
+  --dr-player-2: #d0675b;
+  --dr-player-3: #6fae95;
+  --dr-player-4: #8fa6d8;
+
+  --dr-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --dr-font-num: var(--dr-font);
+  --dr-text-xs: 11px;
+  --dr-text-sm: 13px;
+  --dr-text-md: 15px;
+  --dr-text-lg: 18px;
+  --dr-text-xl: 24px;
+  --dr-text-2xl: 32px;
+  --dr-text-3xl: 48px;
+  --dr-display-sm: clamp(40px, 5vw, 96px);
+  --dr-display-md: clamp(64px, 9vw, 180px);
+  --dr-display-lg: clamp(120px, 14vw, 260px);
+  --dr-track-wide: 0.22em;
+
+  --dr-space-1: 4px;
+  --dr-space-2: 8px;
+  --dr-space-3: 12px;
+  --dr-space-4: 16px;
+  --dr-space-5: 24px;
+  --dr-space-6: 32px;
+  --dr-space-7: 48px;
+  --dr-space-8: 64px;
+
+  --dr-radius-sm: 6px;
+  --dr-radius-md: 10px;
+  --dr-radius-lg: 16px;
+  --dr-radius-pill: 999px;
+
+  --dr-shadow-1: 0 6px 18px #0006;
+  --dr-shadow-2: 0 18px 50px #000a;
+  --dr-glow-gold: 0 0 0 1px #dcb76766, 0 0 28px #dcb76733;
+
+  --dr-dur-fast: 150ms;
+  --dr-dur-base: 300ms;
+  --dr-dur-slow: 650ms;
+  --dr-dur-scene: 1000ms;
+  --dr-ease-out: cubic-bezier(.16, 1, .3, 1);
+
+  --dr-safe: max(24px, 3.5vw);
+  --dr-touch: 44px;
+
+  /* M1 aliases used throughout presentation.css. */
+  --ink: var(--dr-ink);
+  --gold: var(--dr-gold);
+  --muted: var(--dr-muted);
+  --line: var(--dr-line);
+  --red: var(--dr-red);
+  --teal: var(--dr-surface);
+
+  font-family: var(--dr-font);
+  background: var(--dr-bg);
+  color: var(--dr-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dr-dur-fast: 0ms;
+    --dr-dur-base: 0ms;
+    --dr-dur-slow: 0ms;
+    --dr-dur-scene: 0ms;
+  }
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 85% -10%, #24443c88, transparent 55%),
+    radial-gradient(ellipse at -10% 110%, #3a1d1a55, transparent 50%),
+    var(--dr-bg);
+}
+
+/* Avatars: a coloured disc with initials. Colour comes from the seat (data-seat 0-3). */
+.avatar[data-seat="0"] { background: var(--dr-player-1); }
+.avatar[data-seat="1"] { background: var(--dr-player-2); }
+.avatar[data-seat="2"] { background: var(--dr-player-3); }
+.avatar[data-seat="3"] { background: var(--dr-player-4); }
+
+/* Toasts (controller): short confirmations that never move the page or take a tap. */
+.toast-stack {
+  position: fixed;
+  top: var(--dr-space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dr-space-2);
+  width: min(92vw, 420px);
+  pointer-events: none;
+}
+
+.toast {
+  padding: var(--dr-space-3) var(--dr-space-4);
+  border-radius: var(--dr-radius-md);
+  background: var(--dr-surface-2);
+  border: 1px solid var(--dr-line-strong);
+  box-shadow: var(--dr-shadow-2);
+  color: var(--dr-ink);
+  font-size: var(--dr-text-md);
+  font-weight: 600;
+  animation: toast-in var(--dr-dur-base) var(--dr-ease-out) both;
+}
+
+.toast.good { border-color: #4f8a7499; }
+.toast.bad { border-color: #e08a7d99; color: var(--dr-red-hi); }
+.toast.leaving { opacity: 0; transition: opacity var(--dr-dur-base) ease; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
