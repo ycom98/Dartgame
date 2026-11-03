@@ -168,3 +168,36 @@ def save_links(directory, token, display_token):
         os.fsync(handle.fileno())
     os.chmod(temporary, 0o600)
     os.replace(temporary, path)
+
+
+RECENT_PLAYERS_FILE = 'recent_players.json'
+RECENT_PLAYERS_MAX = 12
+
+
+def remember_players(recent, names):
+    """The recent-names list with `names` (a new game's players) moved to the front, case-insensitively
+    unique, at most RECENT_PLAYERS_MAX long (M3 UI-02)."""
+    merged, seen = [], set()
+    for name in list(names) + list(recent):
+        key = name.casefold()
+        if key not in seen:
+            seen.add(key)
+            merged.append(name)
+    return merged[:RECENT_PLAYERS_MAX]
+
+
+def load_recent_players(directory):
+    """The saved recent player names (newest first), or [] if there are none or the file is damaged."""
+    path = Path(directory) / RECENT_PLAYERS_FILE
+    try:
+        names = json.loads(path.read_text(encoding='utf-8')).get('names', [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    if not isinstance(names, list):
+        return []
+    clean = [name.strip() for name in names if isinstance(name, str) and 0 < len(name.strip()) <= 30]
+    return remember_players([], clean)
+
+
+def save_recent_players(directory, names):
+    atomic_write(Path(directory) / RECENT_PLAYERS_FILE, json.dumps({'schema': SCHEMA, 'names': names}))

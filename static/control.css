@@ -1,0 +1,242 @@
+/* Host controller (/control), M3 UI-02 and UI-05. Loaded after theme.css and presentation.css.
+
+   Rules that matter for the tap board (QA M1-11, R1/R2, M1-16 L4): nothing above the board changes height
+   during a turn. Everything new above it (status chip, checkout line) has a fixed height. */
+
+/* ---- Touch targets: every main action is at least 44 px ---- */
+.host button,
+.host select,
+.host input:not([type=checkbox]) {
+  min-height: var(--dr-touch);
+}
+
+.host .actions button,
+.host #new-game,
+.host #cancel {
+  min-height: 48px;
+}
+
+.host .ghost {
+  background: transparent;
+  border: 1px dashed var(--dr-line-strong);
+  color: var(--dr-ink-dim);
+}
+
+/* ---- Camera status chip in the header ---- */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--dr-radius-pill);
+  border: 1px solid var(--dr-line-strong);
+  font-size: var(--dr-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--dr-ink-dim);
+  background: var(--dr-surface);
+}
+
+.status-chip:empty { display: none; }
+
+.status-chip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dr-muted);
+  flex-shrink: 0;
+}
+
+.status-chip[data-status="watching"] { color: var(--dr-green-hi); border-color: #8cc7ae66; }
+.status-chip[data-status="watching"]::before { background: var(--dr-green-hi); }
+.status-chip[data-status="pending"] { color: var(--dr-gold); border-color: #dcb76788; }
+.status-chip[data-status="pending"]::before { background: var(--dr-gold); animation: chip-pulse 1s ease-in-out infinite; }
+.status-chip[data-status="lost"],
+.status-chip[data-status="check"] { color: var(--dr-red-hi); border-color: #e08a7d88; }
+.status-chip[data-status="lost"]::before,
+.status-chip[data-status="check"]::before { background: var(--dr-red-hi); }
+
+@keyframes chip-pulse { 50% { opacity: 0.3; } }
+
+#connection[data-kind="lost"] { color: var(--dr-red-hi); }
+
+/* ---- Game setup ---- */
+.host #setup { display: grid; gap: var(--dr-space-5); }
+
+.setup-block { display: grid; gap: var(--dr-space-3); }
+
+.setup-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--dr-text-xs);
+  font-weight: 800;
+  letter-spacing: var(--dr-track-wide);
+  text-transform: uppercase;
+  color: var(--dr-gold);
+}
+
+.setup-label span { color: var(--dr-muted); letter-spacing: 0.08em; }
+
+#names { display: grid; gap: var(--dr-space-2); }
+
+.player-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 44px;
+  gap: var(--dr-space-2);
+  align-items: center;
+}
+
+.player-row .avatar {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.player-row input { width: 100%; min-width: 0; font-size: 17px; }
+
+.remove-player {
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  background: transparent;
+  color: var(--dr-muted);
+}
+
+.recent-chips { display: flex; flex-wrap: wrap; gap: var(--dr-space-2); }
+
+.recent-chip {
+  border-radius: var(--dr-radius-pill);
+  padding: 8px 16px;
+  background: var(--dr-surface);
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-chip[aria-pressed="true"] {
+  background: var(--dr-gold);
+  border-color: var(--dr-gold);
+  color: var(--dr-on-gold);
+}
+
+.recent-chip[aria-pressed="true"]::before { content: '✓ '; }
+
+.game-choice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--dr-space-2);
+}
+
+.game-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  text-align: left;
+  min-height: 64px;
+}
+
+.game-option strong { font-size: 22px; font-weight: 900; }
+.game-option span { font-size: var(--dr-text-xs); color: var(--dr-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.game-option[aria-pressed="true"] { border-color: var(--dr-gold); box-shadow: var(--dr-glow-gold); background: linear-gradient(180deg, #dcb76722, var(--dr-surface-2)); }
+.game-option[aria-pressed="true"] strong { color: var(--dr-gold); }
+.game-option.soon { min-height: 48px; padding: 8px 14px; border-style: dashed; opacity: 0.5; }
+.game-option.soon strong { font-size: 15px; }
+.game-option:disabled { opacity: 0.45; }
+
+.option-row { display: flex; gap: var(--dr-space-2); flex-wrap: wrap; }
+
+.toggle[aria-pressed="true"],
+.segmented button[aria-pressed="true"] {
+  background: var(--dr-gold);
+  border-color: var(--dr-gold);
+  color: var(--dr-on-gold);
+  font-weight: 800;
+}
+
+.toggle[aria-pressed="true"]::before { content: '✓ '; }
+.toggle { flex: 1 1 auto; }
+
+.segmented { display: flex; flex: 1 1 auto; }
+.segmented button { flex: 1; border-radius: 0; }
+.segmented button:first-child { border-radius: var(--dr-radius-sm) 0 0 var(--dr-radius-sm); }
+.segmented button:last-child { border-radius: 0 var(--dr-radius-sm) var(--dr-radius-sm) 0; border-left: 0; }
+
+#scoring-note { margin: 0; min-height: 3em; }
+
+.start-button { min-height: 56px !important; font-size: 18px; margin-top: 0; }
+#back-to-match { width: 100%; }
+
+/* ---- Win panel: Rematch / New game ---- */
+.win-panel {
+  border: 1px solid var(--dr-gold);
+  border-radius: var(--dr-radius-md);
+  background: linear-gradient(180deg, #dcb76722, transparent);
+  padding: var(--dr-space-4);
+  margin: var(--dr-space-3) 0;
+}
+
+.win-panel p { margin: 0 0 var(--dr-space-3); color: var(--dr-ink-dim); }
+.win-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--dr-space-2); }
+.win-actions button { min-height: 56px; margin: 0; font-size: 17px; }
+
+/* After a win the board and entry tools step aside; Undo stays for a mistaken winning dart. */
+#entry.won .camera-panel,
+#entry.won .turn-darts,
+#entry.won #tap-hint,
+#entry.won .tap-board,
+#entry.won .tap-actions,
+#entry.won #keypad { display: none; }
+
+/* ---- Checkout line in the phone status box (fixed height) ---- */
+.host .compact-checkout {
+  height: 1.4em;
+  line-height: 1.4em;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dr-green-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Layouts ---- */
+/* Landscape tablet (e.g. 1024 x 768): a wide console with the tap board, the scoreboard beside it. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .host.in-game .control-layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--dr-space-5); }
+  .host .control-layout { padding-left: var(--dr-space-5); padding-right: var(--dr-space-5); }
+}
+
+/* Phones (portrait). */
+@media (max-width: 700px) {
+  .host header { gap: var(--dr-space-2); }
+  .host .header-meta { gap: 6px; }
+  .host .status-chip { height: 24px; padding: 0 9px; font-size: 10px; }
+  /* In a match the header is one short row, so the tap board starts high on the screen (M1-16 L4). */
+  .host.in-game header { padding: 8px 16px; align-items: center; }
+  .host.in-game .brand { font-size: 18px; }
+  .host.in-game .brand i,
+  .host.in-game #display-link,
+  .host.in-game #connection:not([data-kind="lost"]) { display: none; }
+  .host.in-game #entry-mode { display: none; }
+  .host.in-game .compact-status { padding: 4px 10px; }
+  .host .control-layout { padding-left: 16px; padding-right: 16px; }
+  .host .console { padding: var(--dr-space-4); }
+  .host.in-game .console { padding: 12px; }
+  .game-option.soon { min-height: 44px; }
+  .host footer { padding-bottom: 60px; }
+}
+
+/* In a match the console's welcome copy steps aside on every screen size. */
+.host.in-game .console > .eyebrow,
+.host.in-game .console > h1,
+.host.in-game .console > p.muted { display: none; }

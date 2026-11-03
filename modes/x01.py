@@ -1,4 +1,5 @@
 """301 / 501, straight or double out: the original core.Game rules, unchanged (M1-15)."""
+from . import checkout
 from .base import GameMode
 
 STARTS = (301, 501)
@@ -66,3 +67,47 @@ class X01(GameMode):
 
     def presentation_hints(self, d):
         return {'kind': 'x01', 'start': d['start'], 'double_out': d['double_out']}
+
+    def checkout_hint(self, d):
+        """The recommended finish with the darts left this turn, or None (M3 UI-03)."""
+        if d['winner'] is not None or self.turn_over(d):
+            return None
+        remaining = d['scores'][d['player']]
+        darts_left = 3 - len(d['darts'])
+        route = checkout.suggest(remaining, darts_left, d['double_out'])
+        if route is None:
+            return None
+        return {'player': d['player'], 'remaining': remaining, 'darts_left': darts_left, 'route': route}
+
+    def match_stats(self, turns, d):
+        """Per player: 3-dart average, highest turn, darts thrown, 100+ / 140+ / 180 counts, checkout.
+
+        A bust turn counts its darts and scores 0. The 100+ band is 100-139 and 140+ is 140-179, as on a
+        darts scoreboard; 180 is counted on its own."""
+        players = []
+        for _ in d['names']:
+            players.append({'darts': 0, 'points': 0, 'turns': 0, 'highest': 0, 'tons': 0, 'ton_forties': 0,
+                            'maximums': 0, 'busts': 0, 'checkout': None, 'checkout_darts': None})
+        for turn in turns:
+            stats = players[turn['player']]
+            darts = len(turn['darts'])
+            if darts == 0:
+                continue
+            scored = 0 if turn['bust'] else turn['turn_start'] - turn['scores'][turn['player']]
+            stats['darts'] += darts
+            stats['points'] += scored
+            stats['turns'] += 1
+            stats['highest'] = max(stats['highest'], scored)
+            stats['busts'] += 1 if turn['bust'] else 0
+            if scored == 180:
+                stats['maximums'] += 1
+            elif scored >= 140:
+                stats['ton_forties'] += 1
+            elif scored >= 100:
+                stats['tons'] += 1
+            if turn['winner'] == turn['player']:
+                stats['checkout'] = scored
+                stats['checkout_darts'] = darts
+        for stats in players:
+            stats['average'] = round(stats['points'] / stats['darts'] * 3, 1) if stats['darts'] else 0.0
+        return {'kind': 'x01', 'players': players}

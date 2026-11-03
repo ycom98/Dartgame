@@ -1,1 +1,119 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dart Room · Host</title><link rel="stylesheet" href="/static/presentation.css"></head><body class="host"><header><a class="brand" href="/control">DART <span>ROOM</span><i>HOST CONTROLLER</i></a><div class="header-meta"><span id="connection">Connecting</span><a id="display-link" target="_blank" rel="noopener" href="/play">Open display ↗</a></div></header><div id="notice" role="status" aria-live="polite"></div><main class="control-layout"><section class="console"><div class="eyebrow">YOUR NIGHT AT THE OCHE</div><h1>Make it a match.</h1><p class="muted">Throw a dart, then tap where it landed.</p><form id="setup"><div class="form-row"><label>Game<select id="start"><option value="301">301 · A quick round</option><option value="501">501 · The classic</option></select></label><label>Finish<select id="finish"><option value="straight">Straight out</option><option value="double">Double out</option></select></label></div><label>Players<select id="count"><option>2</option><option>3</option><option>4</option></select></label><div id="names"></div><button class="primary" type="submit">Start the match →</button></form><section id="entry" hidden><div id="entry-mode" class="eyebrow">MANUAL SCORE ENTRY</div><div id="compact-status" class="compact-status" aria-live="polite"></div><h2 id="prompt"></h2><div id="camera-panel" class="camera-panel" hidden><div id="pending" class="pending" aria-live="polite">Camera: waiting for a dart</div><div id="pending-detail" class="pending-detail"></div><div class="pending-row"><button id="accept" type="button" class="primary">Accept</button><button id="auto-pause" type="button">Pause auto-accept</button></div><div id="auto-status" class="auto-status muted"></div></div><div id="turn-darts" class="turn-darts" aria-label="Darts this turn: tap one to correct it"></div><p id="tap-hint" class="muted">Tap where the dart landed.</p><div id="tap-board" class="tap-board"></div><div class="tap-actions"><button id="miss" type="button">Miss</button><button id="end-turn" type="button" hidden aria-label="End turn and fill in the missed darts" title="End turn: record the undetected darts as misses">End turn · misses</button><span id="tap-feedback" aria-live="polite"></span></div><details id="keypad" open><summary>Keypad entry</summary><form id="dart-form"><label>Board number<select id="value"><option value="20">20</option></select></label><div class="rings" role="group" aria-label="Scoring ring"><button type="button" data-ring="1" aria-pressed="true">Single</button><button type="button" data-ring="2" aria-pressed="false">Double</button><button type="button" data-ring="3" aria-pressed="false">Triple</button></div><p id="entry-preview" class="muted"></p><button id="record" class="primary" type="submit">Record dart</button></form></details><div class="actions"><button id="undo">Undo last action</button><button id="next">Next player →</button></div><label class="auto"><input id="auto" type="checkbox" checked> Auto handoff after each turn</label><div id="handoff" role="status" aria-live="polite"></div><button id="cancel" hidden>Pause handoff</button><button id="new-game">Set up a new match</button></section></section><section class="preview"><div id="match"></div></section></main><footer><span>THE NEXT GREAT THROW IS YOURS.</span><a href="/">Camera & legacy setup</a></footer><script src="/static/board.js"></script><script src="/static/presentation.js"></script><script src="/static/control.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1c1b">
+  <title>Dart Room · Host</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <link rel="stylesheet" href="/static/presentation.css">
+  <link rel="stylesheet" href="/static/control.css">
+</head>
+<body class="host">
+  <header>
+    <a class="brand" href="/control">DART <span>ROOM</span><i>HOST CONTROLLER</i></a>
+    <div class="header-meta">
+      <span id="camera-chip" class="status-chip" data-status="none" role="status" aria-live="polite"></span>
+      <span id="connection">Connecting</span>
+      <a id="display-link" target="_blank" rel="noopener" href="/play">Open display ↗</a>
+    </div>
+  </header>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <div id="toasts" class="toast-stack" aria-live="polite"></div>
+  <main class="control-layout">
+    <section class="console">
+      <div class="eyebrow">YOUR NIGHT AT THE OCHE</div>
+      <h1>Make it a match.</h1>
+      <p class="muted">Pick the players and the game, then press Start.</p>
+
+      <form id="setup" novalidate>
+        <div class="setup-block">
+          <div class="setup-label">Players <span id="player-count"></span></div>
+          <div id="names"></div>
+          <button type="button" id="add-player" class="ghost">+ Add player</button>
+          <div id="recent" class="recent-chips" aria-label="Recent players: tap to add"></div>
+        </div>
+        <div class="setup-block">
+          <div class="setup-label">Game</div>
+          <div class="game-choice" role="group" aria-label="Game">
+            <button type="button" class="game-option" data-start="301" aria-pressed="true"><strong>301</strong><span>A quick round</span></button>
+            <button type="button" class="game-option" data-start="501" aria-pressed="false"><strong>501</strong><span>The classic</span></button>
+            <button type="button" class="game-option soon" disabled><strong>Cricket</strong><span>Coming soon</span></button>
+            <button type="button" class="game-option soon" disabled><strong>Killer</strong><span>Coming soon</span></button>
+            <button type="button" class="game-option soon" disabled><strong>Shanghai</strong><span>Coming soon</span></button>
+            <button type="button" class="game-option soon" disabled><strong>Around the Clock</strong><span>Coming soon</span></button>
+          </div>
+          <div class="option-row">
+            <button type="button" id="double-out" class="toggle" aria-pressed="false">Double out</button>
+            <div id="scoring" class="segmented" role="group" aria-label="Scoring">
+              <button type="button" data-scoring="camera" aria-pressed="false">Camera</button>
+              <button type="button" data-scoring="manual" aria-pressed="true">Manual</button>
+            </div>
+          </div>
+          <p id="scoring-note" class="muted"></p>
+        </div>
+        <button class="primary start-button" type="submit">Start the match →</button>
+      </form>
+
+      <section id="entry" hidden>
+        <div id="entry-mode" class="eyebrow">MANUAL SCORE ENTRY</div>
+        <div id="compact-status" class="compact-status" aria-live="polite"></div>
+        <h2 id="prompt"></h2>
+        <div id="win-panel" class="win-panel" hidden>
+          <p id="win-summary"></p>
+          <div class="win-actions">
+            <button id="rematch" type="button" class="primary">Rematch</button>
+            <button id="new-match" type="button">New game</button>
+          </div>
+        </div>
+        <div id="camera-panel" class="camera-panel" hidden>
+          <div id="pending" class="pending" aria-live="polite">Camera: waiting for a dart</div>
+          <div id="pending-detail" class="pending-detail"></div>
+          <div class="pending-row">
+            <button id="accept" type="button" class="primary">Accept</button>
+            <button id="auto-pause" type="button">Pause auto-accept</button>
+          </div>
+          <div id="auto-status" class="auto-status muted"></div>
+        </div>
+        <div id="turn-darts" class="turn-darts" aria-label="Darts this turn: tap one to correct it"></div>
+        <p id="tap-hint" class="muted">Tap where the dart landed.</p>
+        <div id="tap-board" class="tap-board"></div>
+        <div class="tap-actions">
+          <button id="miss" type="button">Miss</button>
+          <button id="end-turn" type="button" hidden aria-label="End turn and fill in the missed darts" title="End turn: record the undetected darts as misses">End turn · misses</button>
+          <span id="tap-feedback" aria-live="polite"></span>
+        </div>
+        <details id="keypad" open>
+          <summary>Keypad entry</summary>
+          <form id="dart-form">
+            <label>Board number<select id="value"><option value="20">20</option></select></label>
+            <div class="rings" role="group" aria-label="Scoring ring">
+              <button type="button" data-ring="1" aria-pressed="true">Single</button>
+              <button type="button" data-ring="2" aria-pressed="false">Double</button>
+              <button type="button" data-ring="3" aria-pressed="false">Triple</button>
+            </div>
+            <p id="entry-preview" class="muted"></p>
+            <button id="record" class="primary" type="submit">Record dart</button>
+          </form>
+        </details>
+        <div class="actions">
+          <button id="undo">Undo last action</button>
+          <button id="next">Next player →</button>
+        </div>
+        <label class="auto"><input id="auto" type="checkbox" checked> Auto handoff after each turn</label>
+        <div id="handoff" role="status" aria-live="polite"></div>
+        <button id="cancel" hidden>Pause handoff</button>
+        <button id="new-game">Set up a new match</button>
+      </section>
+    </section>
+    <section class="preview"><div id="match"></div></section>
+  </main>
+  <footer>
+    <span>THE NEXT GREAT THROW IS YOURS.</span>
+    <a href="/">Camera &amp; legacy setup</a>
+  </footer>
+  <script src="/static/board.js"></script>
+  <script src="/static/presentation.js"></script>
+  <script src="/static/control.js"></script>
+</body>
+</html>
