@@ -12,6 +12,7 @@
     <a class="brand" href="/play">DART <span>ROOM</span><i>THE GOOD THROW CLUB</i></a>
     <div class="header-meta">
       <span id="connection">Connecting</span>
+      <button id="sound" aria-pressed="false">Sound on</button>
       <button id="fullscreen">Full screen</button>
     </div>
   </header>
@@ -25,6 +26,13 @@
   </footer>
   <script src="/static/board.js"></script>
   <script src="/static/presentation.js"></script>
-  <script>DartRoom.live();</script>
+  <script src="/static/sound.js"></script>
+  <script>
+    DartRoom.live();
+    // TV moments (presentation.js) → offline sounds (sound.js). Muted until someone presses Sound on.
+    const SOUND_FOR_MOMENT = {dart: 'dart', turn: 'turn', bust: 'bust', maximum: '180', 'game-shot': 'gameshot'};
+    DartSound.attachToggle(document.querySelector('#sound'));
+    DartRoom.onMoment(name => { if (SOUND_FOR_MOMENT[name]) DartSound.play(SOUND_FOR_MOMENT[name]); });
+  </script>
 </body>
 </html>
