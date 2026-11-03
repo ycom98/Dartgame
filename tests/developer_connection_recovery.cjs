@@ -16,7 +16,7 @@ const {chromium}=require('playwright');
    if(path==='/api/throw'&&rejectScore)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Invalid board score'})});
    return route.fulfill({contentType:'application/json',body:JSON.stringify(state)});
   });
-  await page.goto('http://127.0.0.1:9876/?t=isolated-recovery-test');
+  await page.goto('http://127.0.0.1:9876/?t=isolated-recovery-test');await page.evaluate(()=>{document.getElementById('legacyGame').open=true;});
   await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Camera setup unavailable');
   offline=true;await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Server disconnected');
   offline=false;await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Camera setup unavailable');

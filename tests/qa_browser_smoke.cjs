@@ -39,7 +39,7 @@ async function waitCheck(fn,timeout=5000){const start=Date.now();while(Date.now(
   browser=await chromium.launch(process.env.DART_CHROME?{executablePath:process.env.DART_CHROME}:undefined);
   const page=await browser.newPage({viewport:{width:1100,height:1000}});
   page.on('pageerror',error=>errors.push('Desktop: '+error.message));
-  await page.goto(origin+'/?t='+token);await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Connect your phone');
+  await page.goto(origin+'/?t='+token);await page.evaluate(()=>{document.getElementById('legacyGame').open=true;});await page.waitForFunction(()=>document.getElementById('setupTitle').textContent==='Connect your phone');
   check('camera game disabled before calibration',await page.locator('#newGame').isDisabled());
   await page.screenshot({path:path.join(artifactDir,'setup-desktop.png'),fullPage:true});
   await resetManual(page);

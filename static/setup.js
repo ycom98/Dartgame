@@ -1,7 +1,9 @@
 'use strict';
-// Camera setup page (M1-13). The Mac pulls frames from the phone's IP Webcam stream; this page picks the
-// stream, shows it live, takes the four calibration clicks, draws the full board overlay for checking,
-// and shows readiness. Sections 2 and 3 (start a game, play) are unchanged from the prototype page.
+// Camera setup page (M1-13, redesigned as three steps in UI-06). The Mac pulls frames from the phone's IP Webcam
+// stream; this page picks the stream, shows it live, takes the four calibration clicks, draws the full board
+// overlay for checking, shows readiness, and finally shows the Controller and TV links as QR codes.
+// Step 1 Connect phone -> 2 Calibrate -> 3 Ready follows the camera phase reported by the server (currentStep).
+// The older game controls (start a game, play) are unchanged, in a collapsible section.
 
 const $ = id => document.getElementById(id);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -18,10 +20,12 @@ const PRESETS = {
   droidcam: host => 'http://' + withPort(host, 4747) + '/video',
 };
 const STORAGE_KEY = 'dartroom.cameraUri';
+const OPEN_KEY = 'dartroom.setupOpen.';  // + details id: remembered open/closed sections
 
 let state = null, points = [], selecting = false, calibrationBusy = false, snapshotId = null, frozenImage = null;
 let lastImage = null, pollBusy = false, actionBusy = false, stateEpoch = 0, scoreLockUntil = 0;
 let serverConnected = false, displayedVersion = null, errorSource = null, sourceFieldTouched = false;
+let shownStep = null, links = null;
 
 // ---- server calls ----
 const error = (message, source = 'action') => {
@@ -101,6 +105,7 @@ function controls() {
   $('verify').hidden = v.phase !== 'review_overlay' || selecting;
   $('verify').disabled = blocked || !v.fresh || displayedVersion !== v.version;
   $('cancelCalibration').hidden = !selecting;
+  document.body.classList.toggle('selecting', selecting);
   $('cancelCalibration').disabled = blocked;
   $('mountSide').disabled = blocked || unavailable;
   $('recordToggle').disabled = blocked || unavailable;
@@ -173,7 +178,7 @@ function describeSource(source) {
   if (!source) return ['No camera connected. Enter the phone address above and press Connect.', ''];
   const where = source.url_redacted;
   if (!source.connected) {
-    const reason = source.error || (source.ended ? 'The recording finished.' : 'Waiting for the first image…');
+    const reason = plainError(source.error) || (source.ended ? 'The recording finished.' : 'Waiting for the first image…');
     return [where + ' · not connected · ' + reason + (source.reconnects ? ' · retries: ' + source.reconnects : ''),
       'problem'];
   }
@@ -182,12 +187,56 @@ function describeSource(source) {
     ' fps checked · newest image ' + Math.round((source.last_frame_age || 0) * 1000) + ' ms old', 'ok'];
 }
 
+// The server's camera error without Python exception names ("gaierror: ...", "ConnectionError: ..."), for the
+// owner; /api/state keeps the raw text.
+function plainError(message) {
+  return String(message || '')
+    .replace(/^(?:[A-Za-z_]\w*\.)*(?:\w*(?:Error|Exception)|gaierror|herror|timeout):\s*/, '')
+    .replace(/\[Errno -?\d+\]\s*/g, '');
+}
+
+// A plain-English next step for a camera error (the server's message is shown as well).
+function friendlyHint(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return '';
+  if (text.includes('no image parts') || text.includes('no content-length') || text.includes('could not be decoded') ||
+      text.includes('closed the stream') || /answered http (4|5)\d\d/.test(text)) {
+    return "That address answered but isn't sending camera video. Check the app on the phone is IP Webcam and its " +
+      'server is started, and that a typed address ends in /video.';
+  }
+  if (text.includes('refused')) {
+    return 'The address was reached, but nothing is listening there. On the phone, open IP Webcam and tap Start server, then try again.';
+  }
+  if (text.includes('timed out') || text.includes('no image within') || text.includes('no images arrived')) {
+    return 'No picture came back. Check the phone screen is on, IP Webcam is running, and the phone and Mac are on the same Wi-Fi.';
+  }
+  if (text.includes('no route') || text.includes('unreachable') || text.includes('name or service') ||
+      text.includes('nodename') || text.includes('getaddrinfo')) {
+    return 'This Mac cannot find that address. Check the numbers on the phone screen, and that both are on the same Wi-Fi (not a guest network).';
+  }
+  if (text.includes('login')) return 'IP Webcam has a password set. Type the address as http://USER:PASSWORD@PHONE:8080/video.';
+  if (text.includes('single images')) return 'That address sends single photos: choose "IP Webcam · single photos" as the App.';
+  if (text.includes('must start with') || text.includes('camera address')) {
+    return 'Type only the numbers from the phone screen, for example 192.168.1.23.';
+  }
+  return 'Check that IP Webcam is running on the phone and that the phone and Mac are on the same Wi-Fi.';
+}
+
+function showHint(text) {
+  $('sourceHint').textContent = text;
+  $('sourceHint').hidden = !text;
+}
+
 act('testSource', async () => {
   const uri = $('sourceUri').value.trim();
   $('sourceStatus').textContent = 'Testing ' + uri + ' …';
   $('sourceStatus').className = 'muted';
+  showHint('');
   const result = (await api('camera/test', {uri})).test;
-  if (!result.ok) throw Error('Connection test failed: ' + result.error);
+  if (!result.ok) {
+    showHint(friendlyHint(result.error));
+    throw Error('Connection test failed: ' + plainError(result.error));
+  }
   $('sourceStatus').textContent = 'Connection OK · ' + result.width + '×' + result.height + ' · first image in ' +
     result.first_frame_ms + ' ms. Press Connect to use it.';
   $('sourceStatus').className = 'ok';
@@ -206,6 +255,120 @@ act('disconnectSource', async () => {
   await api('camera/source', {uri: null, expected_revision: state?.revision ?? 0});
 });
 
+// ---- steps (UI-06) ----
+// Which step the owner is on, from the real camera phase.
+function currentStep(v) {
+  if (!serverConnected || ['unavailable', 'waiting_camera', 'camera_disconnected'].includes(v.phase) || !v.phase) return 1;
+  if (v.phase === 'ready' && !selecting && !calibrationBusy) return 3;
+  return 2;
+}
+
+function renderSteps(v) {
+  const step = currentStep(v);
+  const done = {1: step > 1, 2: !!v.verified && step === 3, 3: false};
+  const labels = {
+    1: {current: 'Do this now', done: 'Done · phone connected', todo: ''},
+    2: {current: 'Do this now', done: 'Done · board checked', todo: 'After the phone is connected'},
+    3: {current: 'Ready to play', done: '', todo: 'After calibration'},
+  };
+  for (const n of [1, 2, 3]) {
+    const kind = n === step ? 'current' : done[n] ? 'done' : 'todo';
+    $('step' + n).classList.toggle('current', kind === 'current');
+    $('step' + n).classList.toggle('done', kind === 'done');
+    $('stepNav' + n).classList.toggle('current', kind === 'current');
+    $('stepNav' + n).classList.toggle('done', kind === 'done');
+    $('stepNav' + n).querySelector('a').toggleAttribute('aria-current', kind === 'current');
+    $('step' + n + 'State').textContent = labels[n][kind];
+  }
+  $('desktop').classList.toggle('at-step-3', step === 3);
+  // When the step changes (or the page opens past step 1), bring the new step into view if it is off screen.
+  if (step !== shownStep && !(shownStep === null && step === 1)) {
+    const top = $('step' + step).getBoundingClientRect().top;
+    if (top < 0 || top > innerHeight * 0.45) {
+      const smooth = shownStep === 2 && step === 3 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      $('step' + step).scrollIntoView({behavior: smooth ? 'smooth' : 'auto', block: 'start'});
+    }
+  }
+  shownStep = step;
+}
+
+// ---- links and QR codes (UI-06b) ----
+async function loadLinks() {
+  if (links) return;
+  try {
+    const data = await api('links');
+    if (typeof data.controller !== 'string' || typeof data.presentation !== 'string') return;
+    links = data;
+  } catch (e) {
+    return;  // the state poll reports connection problems; try again on the next poll
+  }
+  showLink('controllerLink', 'qrController', links.controller);
+  showLink('presentationLink', 'qrPresentation', links.presentation);
+  $('linkWarning').hidden = links.lan;
+  $('linkWarning').textContent = links.lan ? '' : 'These links use ' + links.origin + ', which only works on this Mac. ' +
+    'Connect the Mac to your Wi-Fi and restart Dart Room. If the address is still wrong, start it with ' +
+    '--lan-ip and the Mac\'s Wi-Fi address.';
+}
+
+function showLink(linkId, canvasId, url) {
+  $(linkId).href = url;
+  $(linkId).textContent = url;
+  drawQr($(canvasId), url);
+}
+
+// Draw `text` as a QR code (error correction M, 4-module quiet zone) with dark modules on cream.
+function drawQr(canvas, text) {
+  if (typeof qrcode !== 'function') return;
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const modules = qr.getModuleCount(), quiet = 4, total = modules + 2 * quiet;
+  const scale = Math.max(4, Math.floor(528 / total));  // crisp on a Retina screen
+  canvas.width = canvas.height = total * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f6f1e3';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#0c1716';
+  for (let row = 0; row < modules; row++) {
+    for (let col = 0; col < modules; col++) {
+      if (qr.isDark(row, col)) ctx.fillRect((col + quiet) * scale, (row + quiet) * scale, scale, scale);
+    }
+  }
+  canvas.dataset.text = text;
+}
+
+async function copyLink(linkId, buttonId) {
+  const url = $(linkId).href, button = $(buttonId);
+  if (!links) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    button.textContent = 'Copied';
+  } catch (e) {
+    // No clipboard access: select the link text so Cmd-C copies it.
+    const range = document.createRange();
+    range.selectNodeContents($(linkId));
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    button.textContent = 'Press Cmd-C';
+  }
+  setTimeout(() => { button.textContent = 'Copy link'; }, 2000);
+}
+$('copyController').onclick = () => copyLink('controllerLink', 'copyController');
+$('copyPresentation').onclick = () => copyLink('presentationLink', 'copyPresentation');
+
+// Collapsible sections remember whether they were open (this browser only).
+function rememberOpenSections() {
+  for (const section of document.querySelectorAll('details[data-remember]')) {
+    try {
+      const saved = localStorage.getItem(OPEN_KEY + section.id);
+      if (saved !== null) section.open = saved === '1';
+    } catch (e) { /* storage unavailable: keep the default */ }
+    section.addEventListener('toggle', () => {
+      try { localStorage.setItem(OPEN_KEY + section.id, section.open ? '1' : '0'); } catch (e) { /* not remembered */ }
+    });
+  }
+}
+
 // ---- readiness ----
 function setupStatus() {
   const v = state?.vision || {}, phase = v.phase;
@@ -216,7 +379,7 @@ function setupStatus() {
     calibrating: ['Select four points', 'The image is frozen. Keep the camera streaming while you select the four markers.'],
     needs_alignment: ['Check alignment', 'Empty the board, then Check / realign board. If that fails, set four points again.'],
     review_overlay: ['Check the live markers', 'Every ring and sector line must sit on the board wires. Then press Markers correct.'],
-    ready: ['Ready to play', 'Camera connected and overlay verified. Choose a game below.'],
+    ready: ['Ready to play', 'Camera connected and checked. Scan a code in step 3 to open the Controller and the TV.'],
     unavailable: ['Camera setup unavailable', v.message || 'Install camera dependencies using start-mac.command.'],
   };
   let [title, detail] = phases[phase] || ['Connecting…', 'Checking the local server.'];
@@ -245,7 +408,10 @@ function setupStatus() {
     const [text, kind] = describeSource(source);
     $('sourceStatus').textContent = text;
     $('sourceStatus').className = kind || 'muted';
+    // With no source, keep any hint from a failed Test connection until the address is edited.
+    if (source) showHint(source.connected ? '' : friendlyHint(source.error));
   }
+  renderSteps(v);
   footPoint(v);
   calibrationQuality(v.calibration);
 }
@@ -437,6 +603,7 @@ function draw() {
   c.width = image.width;
   c.height = image.height;
   ctx.drawImage(image, 0, 0);
+  $('stageEmpty').hidden = true;
   if (selecting) {
     drawMarkers(ctx, points, image.width);
     return;
@@ -490,6 +657,8 @@ async function refresh() {
     serverConnected = true;
     if (errorSource === 'connection') error('');
     $('connection').textContent = state.vision.fresh ? 'Camera connected' : 'Camera offline';
+    $('connection').className = 'chip ' + (state.vision.fresh ? 'ok' : 'problem');
+    loadLinks();
     if (selecting && !state.vision.calibration_active) {
       selecting = false; snapshotId = null; frozenImage = null; $('loupe').hidden = true;
       error('Calibration image expired or was replaced. Select Freeze and set four points again.');
@@ -510,11 +679,13 @@ async function refresh() {
     if (epoch !== stateEpoch) return;
     serverConnected = false;
     $('connection').textContent = 'Disconnected';
+    $('connection').className = 'chip problem';
     error(e.message, 'connection');
     if (state) state = {...state, vision: {...state.vision, fresh: false, aligned: false, verified: false}};
     controls();
     $('setupTitle').textContent = 'Server disconnected';
     $('setupDetail').textContent = 'Check that Dart Room is still running in Terminal.';
+    renderSteps({});
   } finally {
     pollBusy = false;
   }
@@ -611,7 +782,8 @@ act('align', async () => {
 });
 act('verify', async () => {
   await api('verify', {version: state.vision.version});
-  $('guide').textContent = 'Calibration verified. Choose a game and press Start game. After phone or board movement, check alignment and verify again.';
+  $('guide').textContent = 'Calibration verified. Start a game from the Controller (scan the code in step 3), or press ' +
+    'Start game in the older controls. After phone or board movement, check alignment and verify again.';
 });
 act('baseline', () => api('baseline', {}));
 
@@ -667,17 +839,20 @@ $('value').onchange = manualRingChoices;
 manualRingChoices();
 $('phoneIp').oninput = () => {
   sourceFieldTouched = true;
+  showHint('');
   delete $('sourceStatus').dataset.tested;
   if ($('sourcePreset').value === 'custom') $('sourcePreset').value = 'ipwebcam';  // an IP means a phone app
   sourceFromPreset();
 };
-$('sourcePreset').onchange = () => { sourceFieldTouched = true; delete $('sourceStatus').dataset.tested; sourceFromPreset(); };
+$('sourcePreset').onchange = () => { sourceFieldTouched = true; showHint(''); delete $('sourceStatus').dataset.tested; sourceFromPreset(); };
 $('sourceUri').oninput = () => {
   sourceFieldTouched = true;
+  showHint('');
   delete $('sourceStatus').dataset.tested;
   $('sourcePreset').value = presetFromUri($('sourceUri').value.trim());
   controls();
 };
+rememberOpenSections();
 const remembered = rememberedSource();
 if (remembered) fillSourceField(remembered);
 controls();

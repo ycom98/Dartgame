@@ -4,22 +4,24 @@ A small local 301/501 game for a **Winmau Diamond Plus**, **Samsung Galaxy S22 (
 
 **This is a prototype for physical testing, not production-ready automatic scoring. Every camera proposal requires human confirmation.** The archive includes prior Linux tests. This milestone is being validated locally on the Mac; the physical S22 (SM-S901U) and mounted board still need supervised live testing.
 
-## Quickstart: Mac + Galaxy S22 with IP Webcam
+## Quick start
 
-The phone streams video with the free Android app **IP Webcam**; the Mac pulls the stream over plain HTTP on your home Wi-Fi and does everything else. No certificates or phone browser page are needed.
+You need the Mac, an Android phone with the free **IP Webcam** app (by Pavel Khlebovich, from the Play Store), and both on the **same home Wi-Fi** (not a guest network). The very first start needs the Internet for a few minutes; after that Dart Room works offline.
 
-1. On the Mac, install Python 3.10+ from python.org if `python3 --version` is missing or older. Extract this folder.
-2. On the S22, install **IP Webcam** (by Pavel Khlebovich) from the Play Store. Mount the phone (main 1× lens, whole board in view, 20 at the top) and plug it in.
-3. In IP Webcam → **Video preferences**: resolution 1920×1080 (1280×720 if the stream is slow), quality about 80, FPS limit 15; turn video stabilisation off. Then scroll to the bottom and tap **Start server**. Note the address it shows, e.g. `http://192.168.1.23:8080`.
-4. Mac and phone must be on the same, non-guest Wi-Fi. In Terminal, in this folder, run `bash start-mac.command --camera 192.168.1.23` (your phone's numbers; `http://192.168.1.23:8080/video` works too). The first run installs dependencies, which needs Internet.
-5. Allow Python's incoming connections if macOS asks. Open the **Setup** link printed in Terminal on the Mac.
-6. The checklist shows **Camera stream ✓** with fps. (No `--camera`? Type the phone IP under **Phone stream**, press **Test connection**, then **Connect**.) Lock focus and exposure in IP Webcam once framed.
-7. Empty the board. Press **Freeze and set four points** and click the outer edge of the double ring at the centre of 20, 6, 3, 11 (a magnifier follows the cursor).
-8. Check that the drawn rings and sector lines sit on the wires, then press **Markers correct · Ready to play**.
-9. Open the **Controller** link on a phone/tablet and the **Presentation** link on the TV (both printed in Terminal), or start a game in section 2 of the setup page.
-10. Stop with **Ctrl-C** in Terminal.
+1. **Mount the phone** above the board: main 1× camera, the whole board in view, 20 at the top. Plug it in.
+2. **On the phone**, open IP Webcam, scroll to the bottom and tap **Start server**. The phone shows an address such as `http://192.168.1.23:8080`.
+3. **On the Mac**, double-click **start-mac.command** in this folder (if macOS refuses, right-click it and choose **Open**). Keep the window that opens. If it says Python is missing or too old, install Python 3.10 or newer from python.org and double-click again. Allow incoming connections if macOS asks.
+4. The **Setup** page opens in your browser by itself.
+5. **1 Connect phone:** type the numbers from the phone (for example `192.168.1.23`) into **Phone IP address**, press **Test connection**, then **Connect**. The phone's picture appears under **Live view**. Stuck? Open **Can't connect? Things to check**.
+6. **2 Calibrate:** take all darts out, press **Freeze and set four points**, then click the outer edge of the double ring at the middle of 20 (top), 6 (right), 3 (bottom) and 11 (left).
+7. Check the drawn rings sit on the board's wires, then press **Markers correct · Ready to play**.
+8. **3 Ready:** scan the **Controller** code with the phone or tablet you score on, and open the **TV** link on the TV (scan its code, or type the link shown under it).
+9. Start a game on the Controller and play. Camera darts are accepted after 3 seconds; tap the board on the Controller to fix one.
+10. To stop, close the Dart Room window (or press Ctrl-C in it). The match and calibration are saved: next time, start the same way, check the rings and press **Markers correct · Ready to play**.
 
-DroidCam is the fallback: use `http://PHONE:4747/video`. Other sources: `snapshot:http://PHONE:8080/shot.jpg` (single photos), `file:clip.avi` and `dir:frames/` (replay). The default port is 8000; `--port` changes it. If the printed LAN address is wrong, add `--lan-ip YOUR_MAC_WIFI_IPV4`. The stream reconnects by itself after a Wi-Fi drop; after more than 5 s without images, press **Check / realign board** and verify again. To rehearse without a phone, run `.venv/bin/python tests/fake_ipwebcam.py --port 8080` and connect to `127.0.0.1`.
+More options: `bash start-mac.command --camera 192.168.1.23` connects to the phone straight away, `--record ~/dart-trial/session1` records the session, and `--no-browser` skips opening the Setup page. The phone's video settings are under **Phone settings checklist (IP Webcam)** in step 1 (1920×1080, quality about 80, FPS limit 15, stabilisation off; lock focus and exposure once framed). If the Controller and TV links show `127.0.0.1`, the Mac is not on Wi-Fi: connect it and start again, or add `--lan-ip YOUR_MAC_WIFI_IPV4`. If the window says the port is in use, Dart Room is already running in another window.
+
+DroidCam is the fallback: use `http://PHONE:4747/video`. Other sources: `snapshot:http://PHONE:8080/shot.jpg` (single photos), `file:clip.avi` and `dir:frames/` (replay). The default port is 8000; `--port` changes it. If the printed LAN address is wrong, add `--lan-ip YOUR_MAC_WIFI_IPV4`. The stream reconnects by itself after a Wi-Fi drop, and the camera usually recovers to Ready by itself when the board didn't move; if it asks for a board check, press **Check / realign board**, check the rings and press **Markers correct · Ready to play**. To rehearse without a phone, run `.venv/bin/python tests/fake_ipwebcam.py --port 8080` and connect to `127.0.0.1`.
 
 Plain HTTP on the home LAN is the default (owner decision #7): the links carry the access token unencrypted, so anyone on your Wi-Fi who sees a link can control the match. Use `--https` if you want encryption (below).
 
@@ -41,7 +43,7 @@ The match is saved after every dart, correction and turn (`.local/state/match.js
 
 ## Recording the trial (footage stays on this Mac)
 
-Press **Start recording** on the setup page, or start with `bash start-mac.command --camera PHONE_IP --record ~/dart-trial/session1`. A session folder (default `recordings/<date-time>/`, gitignored) holds every received camera frame exactly as the phone sent it, the processed-frame detections, an event log (every dart with how it was recorded, corrections, filled misses, undo, calibration and alignment) and your notes (mount, lighting, phone settings). The page shows size, frames and free disk space; recording stops by itself below 5 GB free. In the sim, 1080p at 15 fps used about 100 MB per minute; real phone frames are usually larger. Nothing is uploaded; delete a session folder to remove it.
+Press **Start recording** in step 3 of the Setup page (notes go under **Notes saved with the recording**), or start with `bash start-mac.command --camera PHONE_IP --record ~/dart-trial/session1`. A session folder (default `recordings/<date-time>/`, gitignored) holds every received camera frame exactly as the phone sent it, the processed-frame detections, an event log (every dart with how it was recorded, corrections, filled misses, undo, calibration and alignment) and your notes (mount, lighting, phone settings). The page shows size, frames and free disk space; recording stops by itself below 5 GB free. In the sim, 1080p at 15 fps used about 100 MB per minute; real phone frames are usually larger. Nothing is uploaded; delete a session folder to remove it.
 
 Afterwards:
 
@@ -53,7 +55,7 @@ Afterwards:
 
 ## Test games without a board or camera
 
-Open the **Setup** link on the Mac. Under **Start a game**, uncheck **Camera game**, choose 301 or 501, select 2–4 players and enter their names. Select Double out if wanted, then press **Start game**. Manual games require no calibration.
+Open the **Setup** link on the Mac and open **Start or score a game on this Mac (older controls)** at the bottom. Under **Start a game**, uncheck **Camera game**, choose 301 or 501, select 2–4 players and enter their names. Select Double out if wanted, then press **Start game**. Manual games require no calibration.
 
 Use **Value** and **Ring**, then **Record manual score**. Miss records zero; bull Single is 25 and Double is 50. Record three darts, then press **Darts removed · Next player**. A bust also permits advancing. **Undo last action** reverses a score or turn change; record the corrected dart afterwards. Starting another game asks before replacing an unfinished game.
 
@@ -163,7 +165,7 @@ python3 server.py --host 127.0.0.1
 
 ## Milestone 1 readiness
 
-The setup panel shows camera waiting/disconnected, ready to calibrate, point-selection progress with elapsed seconds, overlay review, and ready to play. Readiness means fresh camera frames plus verified calibration; it does not establish dart-detection accuracy. Keep the board empty for calibration and realignment. After reconnecting, realign and verify again. A moved phone or board can still defeat the experimental movement detector; use the alignment control after any known movement.
+The setup panel shows camera waiting/disconnected, ready to calibrate, point-selection progress with elapsed seconds, overlay review, and ready to play. Readiness means fresh camera frames plus verified calibration; it does not establish dart-detection accuracy. Keep the board empty for calibration and realignment. After a reconnect it usually recovers by itself; if it asks for a board check, realign and verify again. A moved phone or board can still defeat the experimental movement detector; use the alignment control after any known movement.
 
 The agreed hardware is a Winmau Diamond Plus, MacBook, and confirmed Galaxy S22 (SM-S901U) using the rear camera. Game state is currently in memory only. Broader games, robust movement recovery, saved statistics and a dashboard are later decisions.
 

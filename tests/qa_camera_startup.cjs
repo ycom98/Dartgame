@@ -84,10 +84,12 @@ print(json.dumps({'points': calibration_points(camera).tolist(), 'ring170': np.a
   const title = () => page.locator('#setupTitle').textContent();
 
   await run('static pages contain no browser camera code', async () => {
-    const hits = fs.readdirSync(path.join(root, 'static'))
-      .filter(name => fs.readFileSync(path.join(root, 'static', name), 'utf8').includes('getUserMedia'));
+    // UI-06b: static/ has a vendor/ folder now, so scan files recursively.
+    const files = fs.readdirSync(path.join(root, 'static'), {recursive: true})
+      .filter(name => fs.statSync(path.join(root, 'static', name)).isFile());
+    const hits = files.filter(name => fs.readFileSync(path.join(root, 'static', name), 'utf8').includes('getUserMedia'));
     check(hits.length === 0, 'getUserMedia found in ' + hits.join(', '));
-    return {checked: fs.readdirSync(path.join(root, 'static')).length};
+    return {checked: files.length};
   });
 
   await run('A: source -> freeze -> four clicks -> verify reaches ready in at most 7 actions', async () => {
@@ -140,6 +142,7 @@ print(json.dumps({'points': calibration_points(camera).tolist(), 'ring170': np.a
   });
 
   await run('mount side override is shown and sent to the server', async () => {
+    await page.locator('#mountDetails summary').click();  // UI-06: the override is a collapsible section
     await page.locator('#mountSide').selectOption('left');
     await waitFor(async () => (await api('state')).vision.mount_side === 'left');
     await page.locator('#mountSide').selectOption('');
@@ -187,6 +190,7 @@ print(json.dumps({'points': calibration_points(camera).tolist(), 'ring170': np.a
   });
 
   await run('recording: one toggle starts and stops it, with size and free disk shown', async () => {
+    await page.locator('#recordNotes summary').click();  // UI-06: notes are a collapsible section
     await page.locator('#noteMount').fill('QA sim mount');
     await page.locator('#recordToggle').click();
     await waitFor(async () => (await page.locator('#recordStatus').textContent()).includes('Recording'));
