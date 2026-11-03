@@ -29,7 +29,7 @@ await check('manual host + two read-only spectators propagate scores and turn gu
  await spectatorSync(301);
  await host.locator('#value').selectOption('20');await host.locator('[data-ring="3"]').click();await host.locator('#record').click();await spectatorSync(241);
  assert((await state()).game.darts.length===1,'one click creates one dart');
- for(let p of spectators){assert((await p.locator('.dart.filled').count())===1,'one entered dart');assert((await p.locator('.cue').textContent()).includes('2 of 3'),'dart guide');assert(await p.locator('button').count()===1,'only fullscreen presenter control')}
+ for(let p of spectators){assert((await p.locator('.dart.filled').count())===1,'one entered dart');assert((await p.locator('.cue').textContent()).includes('2 of 3'),'dart guide');assert(await p.locator('button').count()===2&&await p.locator('#fullscreen').count()===1&&await p.locator('#sound').count()===1,'only fullscreen and sound presenter controls')}
  await host.locator('#record').click();await spectatorSync(181);await host.locator('#record').click();await spectatorSync(121);
  assert(await host.locator('#record').isDisabled(),'fourth dart blocked');await host.locator('#next').click();await spectatorSync(301);
  assert((await state()).game.player===1,'turn propagates');for(let p of spectators)assert((await p.locator('.hero h1').textContent()).includes('Lin'),'next player name');

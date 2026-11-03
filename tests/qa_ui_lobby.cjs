@@ -80,7 +80,8 @@ async function run(name, fn) {
     check(tiles[0].includes('301') && tiles[1].includes('501'), '301 and 501 first');
     check(await tv.locator('.game-tile.soon').count() === 4, 'four coming-soon tiles');
     check(await tv.locator('.game-tile.chosen').textContent().then(t => t.includes('301')), '301 chosen by default');
-    check(await tv.locator('button').count() === 1, 'only the full-screen button on the TV');
+    check(await tv.locator('button').count() === 2 && await tv.locator('#fullscreen').count() === 1
+      && await tv.locator('#sound').count() === 1, 'only the full-screen and sound buttons on the TV');
     await tv.screenshot({path: output.file('ui-lobby-tv-empty-1920.png')});
     return {tiles};
   });
