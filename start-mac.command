@@ -22,6 +22,7 @@ open_browser=1
 [ -n "${DART_NO_BROWSER:-}" ] && open_browser=0
 server_args=()
 port=''
+host=0.0.0.0  # server.py's default
 https=0
 camera=''
 previous=''
@@ -30,10 +31,12 @@ for arg in "$@"; do
     --no-browser) open_browser=0; continue ;;
     --https) https=1 ;;
     --port=*) port="${arg#--port=}" ;;
+    --host=*) host="${arg#--host=}" ;;
     --camera=*) camera="${arg#--camera=}" ;;
   esac
   case "$previous" in
     --port) port="$arg" ;;
+    --host) host="$arg" ;;
     --camera) camera="$arg" ;;
   esac
   previous="$arg"
@@ -65,7 +68,12 @@ else
 fi
 if ! "$python_bin" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
   found="$("$python_bin" --version 2>&1 || true)"
-  fail "  This Mac has ${found:-an old Python}. $too_old"
+  case "$found" in
+    'Python '[0-9]*) fail "  This Mac has $found. $too_old" ;;
+    # e.g. Apple's python3 placeholder on a Mac without developer tools ("xcode-select: note: ...")
+    *) fail '  Python is not installed on this Mac yet. Install Python 3.10+ from python.org:' \
+            '  https://www.python.org/downloads/ , then double-click start-mac.command again.' ;;
+  esac
 fi
 if [ ! -x .venv/bin/python ]; then
   say '  Getting things ready for the first time…'
@@ -87,12 +95,14 @@ fi
 case "$port" in
   ''|*[!0-9]*) ;;  # not a number: server.py explains
   *)
-    if ! .venv/bin/python - "$port" <<'PY' 2>/dev/null
-import socket, sys
+    if ! .venv/bin/python - "$host" "$port" <<'PY' 2>/dev/null
+import errno, socket, sys
 probe = socket.socket()
 probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # as the server does: a just-closed port is free
 try:
-    probe.bind(('0.0.0.0', int(sys.argv[1])))
+    probe.bind((sys.argv[1], int(sys.argv[2])))  # the address server.py will listen on (--host)
+except OSError as error:
+    sys.exit(1 if error.errno == errno.EADDRINUSE else 0)  # anything else: server.py explains it
 finally:
     probe.close()
 PY

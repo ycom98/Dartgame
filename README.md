@@ -21,7 +21,7 @@ You need the Mac, an Android phone with the free **IP Webcam** app (by Pavel Khl
 
 More options: `bash start-mac.command --camera 192.168.1.23` connects to the phone straight away, `--record ~/dart-trial/session1` records the session, and `--no-browser` skips opening the Setup page. The phone's video settings are under **Phone settings checklist (IP Webcam)** in step 1 (1920×1080, quality about 80, FPS limit 15, stabilisation off; lock focus and exposure once framed). If the Controller and TV links show `127.0.0.1`, the Mac is not on Wi-Fi: connect it and start again, or add `--lan-ip YOUR_MAC_WIFI_IPV4`. If the window says the port is in use, Dart Room is already running in another window.
 
-DroidCam is the fallback: use `http://PHONE:4747/video`. Other sources: `snapshot:http://PHONE:8080/shot.jpg` (single photos), `file:clip.avi` and `dir:frames/` (replay). The default port is 8000; `--port` changes it. If the printed LAN address is wrong, add `--lan-ip YOUR_MAC_WIFI_IPV4`. The stream reconnects by itself after a Wi-Fi drop; after more than 5 s without images, press **Check / realign board** and verify again. To rehearse without a phone, run `.venv/bin/python tests/fake_ipwebcam.py --port 8080` and connect to `127.0.0.1`.
+DroidCam is the fallback: use `http://PHONE:4747/video`. Other sources: `snapshot:http://PHONE:8080/shot.jpg` (single photos), `file:clip.avi` and `dir:frames/` (replay). The default port is 8000; `--port` changes it. If the printed LAN address is wrong, add `--lan-ip YOUR_MAC_WIFI_IPV4`. The stream reconnects by itself after a Wi-Fi drop, and the camera usually recovers to Ready by itself when the board didn't move; if it asks for a board check, press **Check / realign board**, check the rings and press **Markers correct · Ready to play**. To rehearse without a phone, run `.venv/bin/python tests/fake_ipwebcam.py --port 8080` and connect to `127.0.0.1`.
 
 Plain HTTP on the home LAN is the default (owner decision #7): the links carry the access token unencrypted, so anyone on your Wi-Fi who sees a link can control the match. Use `--https` if you want encryption (below).
 
@@ -165,7 +165,7 @@ python3 server.py --host 127.0.0.1
 
 ## Milestone 1 readiness
 
-The setup panel shows camera waiting/disconnected, ready to calibrate, point-selection progress with elapsed seconds, overlay review, and ready to play. Readiness means fresh camera frames plus verified calibration; it does not establish dart-detection accuracy. Keep the board empty for calibration and realignment. After reconnecting, realign and verify again. A moved phone or board can still defeat the experimental movement detector; use the alignment control after any known movement.
+The setup panel shows camera waiting/disconnected, ready to calibrate, point-selection progress with elapsed seconds, overlay review, and ready to play. Readiness means fresh camera frames plus verified calibration; it does not establish dart-detection accuracy. Keep the board empty for calibration and realignment. After a reconnect it usually recovers by itself; if it asks for a board check, realign and verify again. A moved phone or board can still defeat the experimental movement detector; use the alignment control after any known movement.
 
 The agreed hardware is a Winmau Diamond Plus, MacBook, and confirmed Galaxy S22 (SM-S901U) using the rear camera. Game state is currently in memory only. Broader games, robust movement recovery, saved statistics and a dashboard are later decisions.
 

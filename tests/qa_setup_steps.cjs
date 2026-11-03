@@ -130,7 +130,18 @@ function decodeQr(file) {
     await waitFor(async () => await page.locator('#sourceHint').isVisible());
     const hint = await page.locator('#sourceHint').textContent();
     check(/Start server/.test(hint), 'Refused connection explains the fix: ' + hint);
-    return {hint};
+    // QA L1: an address that answers but isn't a camera gets its own hint; Python exception names are hidden.
+    const notCamera = await page.evaluate(() => ({
+      hint: friendlyHint('Stream connected, but no image parts were found (unexpected format)'),
+      http: friendlyHint('Camera answered HTTP 404'),
+      plain: [plainError('gaierror: [Errno -2] Name or service not known'), plainError('ConnectionError: Camera closed the stream'),
+        plainError('socket.timeout: timed out')],
+    }));
+    check(/isn't sending camera video/.test(notCamera.hint) && /isn't sending camera video/.test(notCamera.http),
+      'Not-a-camera hint: ' + JSON.stringify(notCamera));
+    check(JSON.stringify(notCamera.plain) === JSON.stringify(['Name or service not known', 'Camera closed the stream', 'timed out']),
+      'Exception names stripped: ' + JSON.stringify(notCamera.plain));
+    return {hint, notCamera};
   });
 
   await run('step 2 becomes current once the phone is connected', async () => {

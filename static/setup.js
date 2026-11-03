@@ -178,7 +178,7 @@ function describeSource(source) {
   if (!source) return ['No camera connected. Enter the phone address above and press Connect.', ''];
   const where = source.url_redacted;
   if (!source.connected) {
-    const reason = source.error || (source.ended ? 'The recording finished.' : 'Waiting for the first image…');
+    const reason = plainError(source.error) || (source.ended ? 'The recording finished.' : 'Waiting for the first image…');
     return [where + ' · not connected · ' + reason + (source.reconnects ? ' · retries: ' + source.reconnects : ''),
       'problem'];
   }
@@ -187,10 +187,23 @@ function describeSource(source) {
     ' fps checked · newest image ' + Math.round((source.last_frame_age || 0) * 1000) + ' ms old', 'ok'];
 }
 
+// The server's camera error without Python exception names ("gaierror: ...", "ConnectionError: ..."), for the
+// owner; /api/state keeps the raw text.
+function plainError(message) {
+  return String(message || '')
+    .replace(/^(?:[A-Za-z_]\w*\.)*(?:\w*(?:Error|Exception)|gaierror|herror|timeout):\s*/, '')
+    .replace(/\[Errno -?\d+\]\s*/g, '');
+}
+
 // A plain-English next step for a camera error (the server's message is shown as well).
 function friendlyHint(message) {
   const text = String(message || '').toLowerCase();
   if (!text) return '';
+  if (text.includes('no image parts') || text.includes('no content-length') || text.includes('could not be decoded') ||
+      text.includes('closed the stream') || /answered http (4|5)\d\d/.test(text)) {
+    return "That address answered but isn't sending camera video. Check the app on the phone is IP Webcam and its " +
+      'server is started, and that a typed address ends in /video.';
+  }
   if (text.includes('refused')) {
     return 'The address was reached, but nothing is listening there. On the phone, open IP Webcam and tap Start server, then try again.';
   }
@@ -222,7 +235,7 @@ act('testSource', async () => {
   const result = (await api('camera/test', {uri})).test;
   if (!result.ok) {
     showHint(friendlyHint(result.error));
-    throw Error('Connection test failed: ' + result.error);
+    throw Error('Connection test failed: ' + plainError(result.error));
   }
   $('sourceStatus').textContent = 'Connection OK · ' + result.width + '×' + result.height + ' · first image in ' +
     result.first_frame_ms + ' ms. Press Connect to use it.';
