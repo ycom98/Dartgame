@@ -225,6 +225,18 @@ class LobbyAndRecentPlayers(unittest.TestCase):
         self.assertEqual(recent, ['Cy', 'ana', 'Ben'])
         self.assertEqual(persistence.load_recent_players(self.directory.name), recent)
 
+    def test_an_abandoned_setup_never_hides_a_running_match(self):
+        # QA UI release M1: "New game" opened mid-match, then the tab closed; the next dart must bring the TV back.
+        self.request('/api/game', {'names': ['Ana', 'Ben'], 'camera': False})
+        self.assertTrue(self.request('/api/lobby', {'open': True})[1]['lobby']['open'])
+        status, state = self.request('/api/throw', {'value': 20, 'multiplier': 3})
+        self.assertEqual(status, 200)
+        self.assertFalse(state['lobby']['open'])
+        self.assertEqual(state['game']['scores'][0], 241)
+
+    def test_lobby_names_are_distinct_ignoring_case(self):
+        self.assertEqual(self.request('/api/lobby', {'players': ['Ana', 'ana']})[0], 400)
+
     def test_checkout_and_stats_in_state(self):
         self.request('/api/game', {'names': ['Ana', 'Ben'], 'camera': False, 'start': 301, 'double_out': True})
         state = self.request('/api/state')[1]

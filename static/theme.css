@@ -149,6 +149,15 @@ body {
   pointer-events: none;
 }
 
+/* On phones the tap board sits near the top, so toasts rise from the bottom instead (QA UI release L6). */
+@media (max-width: 700px) {
+  .toast-stack {
+    top: auto;
+    bottom: calc(var(--dr-space-3) + env(safe-area-inset-bottom, 0px));
+    flex-direction: column-reverse;
+  }
+}
+
 .toast {
   padding: var(--dr-space-3) var(--dr-space-4);
   border-radius: var(--dr-radius-md);

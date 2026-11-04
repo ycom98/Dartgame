@@ -382,11 +382,12 @@ window.DartRoom = (() => {
       try {
         const s = await request('/api/state');
         healthy = true;
-        connection(s.camera_game ? 'LIVE · CAMERA SCORING' : 'LIVE · MANUAL SCORING', 'live');
+        const lobby = !s.game || (s.lobby && s.lobby.open);
+        // In the lobby the next game's scoring isn't decided yet, so the header just says LIVE (QA UI release L8).
+        connection(lobby ? 'LIVE' : s.camera_game ? 'LIVE · CAMERA SCORING' : 'LIVE · MANUAL SCORING', 'live');
         if (banner) banner.hidden = true;
         const footer = document.querySelector('#scoring-mode');
         if (footer) footer.textContent = s.camera_game ? 'Camera scoring · Darts shown on board' : 'Manual scoring · Entered darts shown on board';
-        const lobby = !s.game || (s.lobby && s.lobby.open);
         document.body.classList.toggle('in-lobby', lobby);
         const key = JSON.stringify(lobby ? ['lobby', s.lobby] : [s.game, s.checkout, s.stats]);
         if (shown !== key) {

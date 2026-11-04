@@ -229,6 +229,9 @@ class App:
     def bump(self):
         """The match changed: new revision, saved to disk. Call with game_lock held."""
         self.revision += 1
+        # A match write means play goes on: the TV shows the match again even if a setup was left open
+        # (QA UI release M1: an abandoned "New game" must never hide a running match).
+        self.lobby = {**self.lobby, 'open':False}
         if self.store is not None:
             try: self.store.save(self)
             except Exception as error:  # the write already happened: warn, never fail it half-way (QA Q2, M1-16 L2)
@@ -426,6 +429,8 @@ def update_lobby(body):
         if any(not isinstance(name, str) or len(name.strip()) > 30 for name in players):
             raise ValueError('Player names must contain 1–30 characters')
         changes['players'] = [name.strip() for name in players if name.strip()]
+        if len(set(name.casefold() for name in changes['players'])) != len(changes['players']):
+            raise ValueError('Player names must be distinct')
     if 'start' in body:
         if type(body['start']) is not int or body['start'] not in (301, 501): raise ValueError('Choose 301 or 501')
         changes['start'] = body['start']
