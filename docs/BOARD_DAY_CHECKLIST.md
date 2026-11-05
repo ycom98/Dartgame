@@ -26,7 +26,7 @@ The full protocol and pass criteria are in `docs/PLAN.md` §3 (M2) and the "conc
    - **Setup** on the Mac: check the live view, fill in the notes (step 3, **Notes saved with the recording**: mount "ceiling 1.5 ft", lighting, phone settings), press **Save notes**.
    - **Controller** on your phone or a tablet (this is where you accept or correct darts).
    - **Presentation** on the display PC or TV.
-6. **Calibrate (time it, target under 2 minutes):** **empty board** (no darts in it: the camera remembers this picture as the empty board) → **Freeze and set four points** → click the **outer edge of the double ring** at the centre of 20 (top), 6 (right), 3 (bottom), 11 (left) → check every ring and sector line sits on the wires → **Markers correct · Ready to play**. The app snaps the clicks to the board's ring edges automatically, so small click errors are fine.
+6. **Calibrate (time it, target under 2 minutes):** **empty board** (no darts in it: the camera remembers this picture as the empty board; if it says the board does not look empty, pull the darts and press **Board clear · reset image**) → **Freeze and set four points** → click the **outer edge of the double ring** at the centre of 20 (top), 6 (right), 3 (bottom), 11 (left) → check every ring and sector line sits on the wires → **Markers correct · Ready to play**. The app snaps the clicks to the board's ring edges automatically, so small click errors are fine.
 7. Start a **camera game** (301 or 501) with your name and a second player.
 
 ## How scoring works during the trial

@@ -69,6 +69,36 @@ PENDING_MESSAGE = 'Possible dart found — confirm or correct score'
 MAX_TRACKED_DARTS = 12
 
 
+@functools.lru_cache(maxsize=1)
+def board_cells():
+    """(cell index per warp pixel, mask of pixels away from wires and the board edge), for board_marks_mm2."""
+    yy, xx = np.mgrid[:SIZE, :SIZE]
+    x, y = (xx - CENTER) / SCALE, (yy - CENTER) / SCALE
+    radius = np.hypot(x, y)
+    angle = (np.degrees(np.arctan2(x, -y)) + 9) % 360
+    edges = [0.0, 6.35, 15.9, 99.0, 107.0, 162.0, 170.0]
+    ring = np.digitize(radius, edges) - 1
+    margin = 2.5  # mm from every wire
+    to_ring_wire = np.min([np.abs(radius - edge) for edge in edges[1:]], axis=0)
+    to_spoke = np.minimum(angle % 18, 18 - angle % 18) * np.pi / 180 * radius
+    usable = (radius < edges[-1] - margin) & (to_ring_wire > margin) & ((ring <= 1) | (to_spoke > margin))
+    cell = np.where(ring <= 1, ring, 2 + ring * 20 + (angle // 18).astype(int))
+    return cell, usable
+
+
+def board_marks_mm2(warped):
+    """Area (mm2) of marks on the board: pixels far from their cell's own colour (darts, debris)."""
+    cell, usable = board_cells()
+    pixels = warped.astype(np.int16)
+    marks = np.zeros((SIZE, SIZE), np.uint8)
+    for index in np.unique(cell[usable]):
+        inside = usable & (cell == index)
+        colour = np.median(pixels[inside], axis=0)
+        marks[inside] = np.abs(pixels[inside] - colour).max(axis=1) > vision_tuning.EMPTY_CELL_DELTA
+    marks = cv2.morphologyEx(marks, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    return float(marks.sum()) / SCALE ** 2
+
+
 @dataclass(eq=False)
 class TrackedDart:
     """A dart the camera saw this turn. region: its warp pixels (bool mask, grown a little); before: the
@@ -259,6 +289,13 @@ class Vision:
         if self.calibration_quality['method'] == 'clicks' and self.refine_calibration:
             self.message = ('Calibration complete from your four points only (automatic board fit not confident: '
                             + self.calibration_quality['reason'] + '). Check the markers on the LIVE image, then verify.')
+        # The calibration image is the camera's empty board (QA M4 M3): warp it, never block on it.
+        marks = board_marks_mm2(self.empty_board())
+        self.calibration_quality['board_marks_mm2'] = round(marks, 1)
+        self.calibration_quality['board_empty'] = marks <= vision_tuning.EMPTY_BOARD_MARKS_MM2
+        if not self.calibration_quality['board_empty']:
+            self.message += (' The board does not look empty: pull every dart, then press Board clear · reset image'
+                             ' (the camera uses this picture as the empty board).')
         return {'ok': True, 'message': self.message, 'calibration': dict(self.calibration_quality)}
 
     def refine_clicks(self, source):
@@ -366,6 +403,12 @@ class Vision:
         self.base = self.warp(self.frame); self.last_warp = self.base.copy(); self.turn_base = self.base
         self.stable = 0; self.pending = []; self.tracked = []; self.segmentation = None
         self.suspended_turn = None
+
+    def board_is_empty(self):
+        """The host says the board is empty now (Board clear · reset image): a new turn reference, and this
+        picture becomes the empty board (QA M4 M3: recovers a calibration made with darts in the board)."""
+        self.reset_base()
+        self.empty = self.base
 
     def empty_board(self):
         """The board with no darts (warp pixels), or None: the last cleared board seen, else the calibration

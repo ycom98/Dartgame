@@ -106,6 +106,16 @@ def save_calibration(vision, directory):
     temporary = directory / 'reference.png.tmp'
     temporary.write_bytes(png.tobytes())
     os.replace(temporary, directory / 'reference.png')
+    # The camera's empty board (QA M4 M3), when it is not just the calibration image warped again.
+    empty = getattr(vision, 'empty', None)
+    if empty is not None:
+        ok, png = cv2.imencode('.png', empty)
+        if ok:
+            temporary = directory / 'empty.png.tmp'
+            temporary.write_bytes(png.tobytes())
+            os.replace(temporary, directory / 'empty.png')
+    else:
+        (directory / 'empty.png').unlink(missing_ok=True)
     data = {'schema': SCHEMA, 'points': points.tolist(), 'reference_H': vision.reference_H.tolist(),
             'width': int(vision.reference.shape[1]), 'height': int(vision.reference.shape[0]),
             'mount_side': vision.mount_side, 'camera_hfov': vision.camera_hfov,
@@ -137,6 +147,8 @@ def load_calibration(vision, directory):
     cv2.fillConvexPoly(vision.reference_mask, np.asarray(data['points'], np.float32).astype(np.int32), 255)
     vision.ref_kp, vision.ref_desc = vision.orb.detectAndCompute(vision.reference, vision.reference_mask)
     vision.mount_side = data.get('mount_side')
+    empty = cv2.imread(str(directory / 'empty.png'), cv2.IMREAD_COLOR) if (directory / 'empty.png').exists() else None
+    vision.empty = empty  # None: the calibration image is the empty board
     quality = data.get('calibration_quality')
     vision.calibration_quality = dict(quality) if isinstance(quality, dict) else None
     vision.aligned = False

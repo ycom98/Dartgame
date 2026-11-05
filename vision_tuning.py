@@ -47,6 +47,13 @@ OCCLUSION_TOUCH_MM = 0.0         # REAL DATA: an earlier dart this close to the 
 OCCLUSION_CONE_DEG = 60.0        # REAL DATA: "camera side": within this angle of the tip-to-foot-point direction
 OCCLUSION_REACH_MM = 1.0         # REAL DATA: an earlier dart this close past the visible tip on the camera side
 OCCLUSION_SEARCH_MM = 15.0       # distances are measured (and logged with each proposal) up to this far
+# Calibration check (QA M4 M3): the calibration image becomes the camera's "empty board". A board cell (one
+# segment of one ring, wires excluded) has one colour; pixels far from it are marks such as darts. More marked
+# area than this warns (never blocks) that the board may not be empty. Synthetic: empty boards 0 mm2, boards
+# with a dart 100-2000 mm2. REAL DATA: worn boards and printed logos add marks.
+EMPTY_CELL_DELTA = 60            # REAL DATA: per-channel difference (0-255) from the cell's median colour
+EMPTY_BOARD_MARKS_MM2 = 30.0     # REAL DATA
+
 CHECK_HIDDEN_TIP = 'tip may be hidden'
 CHECK_PIECES = 'seen in pieces'
 CHECK_TIP_UNCLEAR = 'tip unclear'

@@ -37,7 +37,7 @@ MIN_FREE_BYTES = 5 * 1024 ** 3
 # Calls made inside these are part of them (ingest invalidates on a stale or resized frame) and are not logged.
 SILENT_CALLS = ('ingest',)
 VISION_ACTIONS = ('begin_calibration', 'cancel_calibration', 'calibrate', 'align', 'verify', 'reset_base',
-                  'reset_camera', 'set_mount_side', 'invalidate', 'commit_dart', 'absorb', 'end_turn')
+                  'reset_camera', 'set_mount_side', 'invalidate', 'commit_dart', 'absorb', 'end_turn', 'board_is_empty')
 
 
 def json_safe(value):

@@ -199,6 +199,40 @@ class RecoveryWithDartsInTheBoard(unittest.TestCase):
         self.assertEqual(vision.pending, [])
 
 
+class CalibratedWithDartsInTheBoard(unittest.TestCase):
+    """QA M4 M3: a calibration with darts in the board warns, and Board clear · reset image recovers."""
+    setUpClass = classmethod(TurnTracking.setUpClass.__func__)
+    frame, show = TurnTracking.frame, TurnTracking.show
+
+    def calibrate_on(self, darts):
+        vision = Vision()
+        vision.ingest(self.frame(darts))
+        result = vision.calibrate(self.points)
+        self.show(vision, darts, 3)
+        vision.reset_base()
+        return vision, result
+
+    def test_empty_board_calibrates_without_a_warning(self):
+        vision, result = self.calibrate_on([])
+        self.assertTrue(result['calibration']['board_empty'])
+        self.assertNotIn('does not look empty', result['message'])
+
+    def test_darts_in_the_board_warn_and_board_clear_recovers(self):
+        vision, result = self.calibrate_on(self.darts[:2])
+        self.assertFalse(result['calibration']['board_empty'])
+        self.assertIn('does not look empty', result['message'])
+        self.assertTrue(vision.aligned)  # a warning, never a block
+        self.show(vision, [])  # the darts are pulled ...
+        vision.board_is_empty()  # ... and the host presses Board clear · reset image
+        self.show(vision, self.darts[1:2])  # a real dart where a calibration-time dart was
+        self.assertEqual([p['label'] for p in vision.pending], self.labels[1:2])
+        vision.commit_dart(vision.proposal['id'])
+        self.show(vision, [])
+        self.assertEqual(vision.pending, [])
+        self.show(vision, self.darts[:1])
+        self.assertEqual([p['label'] for p in vision.pending], self.labels[:1])
+
+
 class OcclusionConfidence(unittest.TestCase):
     """M4-02: a dart whose visible part ends at an earlier dart (camera side) is flagged and not auto-committed."""
     setUpClass = classmethod(TurnTracking.setUpClass.__func__)

@@ -402,14 +402,14 @@ class Handler(BaseHTTPRequestHandler):
             '/api/calibrate': lambda v: v.calibrate(body.get('points'),body['snapshot_id']),
             '/api/verify': lambda v: v.verify(body.get('version')),
             '/api/align': lambda v: v.align(),
-            '/api/baseline': lambda v: v.reset_base(),
+            '/api/baseline': lambda v: v.board_is_empty(),
         }
         if path not in actions: return NOT_FOUND
         if vision is None: raise ValueError(vision_error)
         if path == '/api/calibrate' and not isinstance(body.get('snapshot_id'),str):
             raise ValueError('Select Set four points to capture a calibration image first')
         result = worker.call(actions[path])
-        if path in ('/api/calibrate', '/api/align', '/api/verify'): save_calibration()
+        if path in ('/api/calibrate', '/api/align', '/api/verify', '/api/baseline'): save_calibration()
         return {'snapshot':result} if path == '/api/calibration/start' else None
 
 NOT_FOUND = object()
