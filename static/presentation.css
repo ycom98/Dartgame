@@ -77,7 +77,7 @@
   .host.in-game .tap-board{margin-left:-27px;margin-right:-27px}
   .host.in-game #prompt{font-size:18px;min-height:1.3em;max-height:1.3em;white-space:nowrap;text-overflow:ellipsis;margin:4px 0}
   .host.in-game .compact-status{padding:6px 10px;margin:6px 0}
-  .host.in-game .camera-panel{height:118px;padding:8px 10px;margin:6px 0}
+  .host.in-game .camera-panel{height:128px;padding:8px 10px;margin:6px 0}  /* QA M4 L3: room for Accept */
   .host.in-game .camera-panel .auto-status{display:none}
 }
 .host #tap-feedback.refused{color:#efb3a9}

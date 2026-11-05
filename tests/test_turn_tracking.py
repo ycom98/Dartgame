@@ -191,13 +191,13 @@ class OcclusionConfidence(unittest.TestCase):
                 self.show(vision, [upper, second])
                 proposal = vision.proposal
                 self.assertIsNotNone(proposal, vision.message)
-                self.assertEqual('possibly hidden tip — check' in proposal['check'], flagged, proposal)
+                self.assertEqual('tip may be hidden' in proposal['check'], flagged, proposal)
                 self.assertEqual(proposal['confidence'] == 'low', flagged)
 
     def test_low_confidence_head_waits_for_accept(self):
         flow, vision = CameraFlow(delay=0.05), PendingOrder.FakeVision()
         dart = PendingOrder.dart('a-1', 'S20')
-        vision.pending = [{**dart, 'confidence': 'low', 'check': ['possibly hidden tip — check']}]
+        vision.pending = [{**dart, 'confidence': 'low', 'check': ['tip may be hidden']}]
         flow.observe(vision)
         time.sleep(0.1)
         self.assertIsNone(flow.due())

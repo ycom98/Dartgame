@@ -47,9 +47,9 @@ OCCLUSION_TOUCH_MM = 0.0         # REAL DATA: an earlier dart this close to the 
 OCCLUSION_CONE_DEG = 60.0        # REAL DATA: "camera side": within this angle of the tip-to-foot-point direction
 OCCLUSION_REACH_MM = 1.0         # REAL DATA: an earlier dart this close past the visible tip on the camera side
 OCCLUSION_SEARCH_MM = 15.0       # distances are measured (and logged with each proposal) up to this far
-CHECK_HIDDEN_TIP = 'possibly hidden tip — check'
-CHECK_PIECES = 'seen in pieces (one dart or two?) — check'
-CHECK_TIP_UNCLEAR = 'tip direction unclear — check'
+CHECK_HIDDEN_TIP = 'tip may be hidden'
+CHECK_PIECES = 'seen in pieces'
+CHECK_TIP_UNCLEAR = 'tip unclear'
 
 
 # ---- Registry for tools/tune_params.py ----------------------------------------------------------------------

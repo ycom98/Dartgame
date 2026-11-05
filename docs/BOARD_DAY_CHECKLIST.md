@@ -26,7 +26,7 @@ The full protocol and pass criteria are in `docs/PLAN.md` §3 (M2) and the "conc
    - **Setup** on the Mac: check the live view, fill in the notes (step 3, **Notes saved with the recording**: mount "ceiling 1.5 ft", lighting, phone settings), press **Save notes**.
    - **Controller** on your phone or a tablet (this is where you accept or correct darts).
    - **Presentation** on the display PC or TV.
-6. **Calibrate (time it, target under 2 minutes):** empty board → **Freeze and set four points** → click the **outer edge of the double ring** at the centre of 20 (top), 6 (right), 3 (bottom), 11 (left) → check every ring and sector line sits on the wires → **Markers correct · Ready to play**. The app snaps the clicks to the board's ring edges automatically, so small click errors are fine.
+6. **Calibrate (time it, target under 2 minutes):** **empty board** (no darts in it: the camera remembers this picture as the empty board) → **Freeze and set four points** → click the **outer edge of the double ring** at the centre of 20 (top), 6 (right), 3 (bottom), 11 (left) → check every ring and sector line sits on the wires → **Markers correct · Ready to play**. The app snaps the clicks to the board's ring edges automatically, so small click errors are fine.
 7. Start a **camera game** (301 or 501) with your name and a second player.
 
 ## How scoring works during the trial
@@ -34,8 +34,11 @@ The full protocol and pass criteria are in `docs/PLAN.md` §3 (M2) and the "conc
 - After each dart the controller shows **"Camera: T20 (60) · auto-accept in 3 s"**. If it's right, do nothing (or tap **Accept**). If it's wrong, **tap where the dart really is** on the controller board. That one tap is the correction, and it becomes the "truth" label for tuning.
 - A dart already recorded: tap its chip, then tap the board (2 taps).
 - Missed the board: tap **Miss**. If the camera saw fewer than 3 darts, **End turn · misses** records the rest as misses.
-- **Current limit:** the camera handles **one new dart at a time**. Let each dart get accepted (3 s) before throwing the next, or tap Accept. Multi-dart tracking (M1-08) is next on the list after Thursday's data.
-- Pull the darts, then let the turn hand over automatically after about 4 s. If it doesn't, tap **Next player →**.
+- **Throw all three darts at your own pace.** You don't need to wait for each one: the camera keeps watching while darts are waiting. With several waiting the controller shows **"Camera: T20 (60) · +2 waiting"**, and the later ones are dashed circles on the board. Darts are accepted **in throw order**: Accept and taps always apply to the first one shown, and the next one then gets its own countdown.
+- **Red darts need a tap.** If the camera is unsure (for example "check: tip may be hidden" when a dart lands just below an earlier one, or "seen in pieces"), the text and marker turn red and that dart is **not** accepted automatically. Look at the board, then tap **Accept** if it's right or tap where it really is.
+- A dart that falls out by itself (bounce-out) is withdrawn automatically. Pulling the darts tells the camera the next turn has started.
+- Pull the darts, then let the turn hand over automatically after about 4 s. If it doesn't, tap **Next player →**. Any camera dart still waiting at Next player is dropped, never given to the next player.
+- **After a server restart mid-turn** (block 11), a camera dart that was still waiting is not shown again: tap it in by hand (tap where it is). Darts already recorded are kept. A Wi-Fi drop keeps the waiting dart.
 - **Undo** removes the last dart; the camera won't propose it again, so tap where it really is.
 
 ## Throw script (≈130 throws, ≈75 min)
@@ -64,15 +67,13 @@ Optional if the mount allows: 15 normal throws at **2 ft from the wall** to comp
 ## Wrap-up (≈15 min)
 
 - [ ] Stop recording on the Setup page.
-- [ ] Optional, in Terminal in the `Dartgame` folder:
+- [ ] In Terminal in the `Dartgame` folder, make the report (about a minute per 10 minutes of footage):
   ```sh
-  .venv/bin/python tools/make_labels.py ~/dart-trial/session1
-  .venv/bin/python tools/replay_recording.py ~/dart-trial/session1
-  .venv/bin/python tools/contact_sheet.py ~/dart-trial/session1
+  .venv/bin/python tools/trial_report.py ~/dart-trial/session1
   ```
-  This makes the labels, replays the footage through the detector with an accuracy summary, and a contact sheet image of every dart.
-- [ ] Note anything odd (messages that confused you, darts it missed, how calibration felt).
-- [ ] Tell Claude the session is done. The footage stays on your Mac (`~/dart-trial/`); we'll decide together what, if anything, to share for tuning (for example running the replay tools locally and sharing only the numbers or a few frames).
+  It writes `~/dart-trial/session1/report/`: `trial_report.md` (accuracy overall, near wires, stacked and for darts 2–3, missed and false darts, latency, calibration quality, your notes, every wrong or corrected dart), a small `contact_sheet.png` and `crops/` with one small before/after crop per wrong or corrected dart.
+- [ ] **Send back the `report/` folder** (zip it). It has no video and no full frames, and no folder paths from your Mac; the footage stays on your Mac (`~/dart-trial/`).
+- [ ] Note anything odd (messages that confused you, darts it missed, how calibration felt) and send it with the report.
 
 ## What "pass" means (from docs/PLAN.md)
 

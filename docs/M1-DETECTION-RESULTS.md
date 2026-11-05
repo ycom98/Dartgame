@@ -25,7 +25,7 @@ Before M4 the camera compared each frame with the board as it was after the last
 
 ### M4-02: occlusion-aware confidence
 
-A new dart is flagged "possibly hidden tip — check" when an earlier dart lies within 1 mm past its visible tip on the camera side (within 60° of the direction from the tip toward the camera's foot point). Flagged darts, like every low-confidence dart, are not auto-committed: they wait for Accept or a tap, and the controller shows them in red with the reason.
+A new dart is flagged "tip may be hidden" when an earlier dart lies within 1 mm past its visible tip on the camera side (within 60° of the direction from the tip toward the camera's foot point). Flagged darts, like every low-confidence dart, are not auto-committed: they wait for Accept or a tap, and the controller shows them in red with the reason.
 
 | held-out seeds 2+3, darts 2-3 | value |
 |---|---|

@@ -35,13 +35,15 @@ In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** wi
 - **Fix a dart already recorded:** tap its chip (Dart 1: …), then tap the board (two taps).
 - **Darts off the board:** press **End turn · misses**; the missing darts are recorded as clearly marked misses, which you can still correct.
 - **"Check" darts:** a dart the camera is unsure of (for example its tip may be hidden behind an earlier dart, or it was seen in pieces) is shown in red with the reason and is **not** accepted automatically: tap Accept or tap the right place.
-- **Several darts at once:** the camera keeps watching while darts wait. Up to three camera darts can be pending (**Camera: T20 (60) · then S5, S1**, later ones marked dashed on the board); Accept and taps always apply to the first, and each next dart gets its own full countdown. A dart that falls out is withdrawn by itself; pulling the darts out starts the next turn's camera reference (no button needed).
+- **Several darts at once:** the camera keeps watching while darts wait. Up to three camera darts can be pending (**Camera: T20 (60) · +2 waiting**, the later ones marked dashed on the board); Accept and taps always apply to the first, and each next dart gets its own full countdown. A dart that falls out is withdrawn by itself; pulling the darts out starts the next turn's camera reference (no button needed).
 
 Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
 
 ## Restarting mid-match
 
 The match is saved after every dart, correction and turn (`.local/state/match.json`, written atomically). Restart Dart Room (or the Mac) and the same match, revision and undo history come back, and the controller and TV links keep working (they are saved too; `--new-links` makes new ones if a link was shared by mistake). The camera calibration is saved next to it: after a restart the board position is checked against it as soon as the camera connects, and one tap on **Markers correct** makes the camera ready again. If the board or phone moved, set the four points again. `--fresh` starts with no match and new links (the old file is kept as `match.previous-*.json`); `--state-file PATH` saves elsewhere. A damaged save file is kept as `match.corrupt-*.json` and the server starts empty.
+
+After a restart mid-turn a camera dart that was still waiting is not shown again; tap it in by hand. Darts already recorded are kept, and pulling the darts still starts the next turn (the camera compares with the empty board it saw at calibration, so calibrate with no darts in the board).
 
 ## Recording the trial (footage stays on this Mac)
 
@@ -55,7 +57,7 @@ Afterwards, one command makes the report to send back:
 
 It writes `~/dart-trial/session1/report/`: `trial_report.md` (accuracy overall, near a wire, stacked and for darts 2–3; no-proposal and false-proposal rates; latency; calibration quality; your mount and lighting notes; every wrong or corrected dart), `contact_sheet.png` and `crops/` (a small before/after crop of each wrong or corrected dart). **Send back the whole `report/` folder** (zip it). It holds no video and no full frames; the recording itself stays on the Mac. If you fixed a truth value or added tags (`wire`, `stacked`, `bounce`) in `labels.jsonl`, run it again: your edits are kept (`--relabel` rebuilds the labels from scratch).
 
-With the footage in hand, the thresholds (`vision_tuning.py`, all tuned on synthetic scenes so far) can be tuned in one command; it replays every session once per setting and prints which setting gives the most exact scores without more false proposals, checked on 30% of the throws held out (several minutes per session):
+With the footage in hand, the thresholds (`vision_tuning.py`, all tuned on synthetic scenes so far) can be tuned in one command; it replays every session once per setting and prints which setting gives the most exact scores without more false proposals, checked on 30% of the throws held out (several minutes per session). It recommends a change only if the held-out throws improve too; darts you tagged `stacked` are left out:
 
 ```sh
 .venv/bin/python tools/tune_params.py ~/dart-trial/session1 ~/dart-trial/session2

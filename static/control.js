@@ -509,16 +509,18 @@
       };
       return phases[v.phase] || ['Camera: not ready', v.message || 'Check the setup page on the Mac.'];
     }
+    // What to do comes first, so a narrow phone never cuts it off (QA M4 L3); then why.
     const notes = [];
-    (p.check || []).forEach(reason => notes.push(reason));  // low confidence (M4-02): waits for Accept
-    if (p.near_wire) notes.push('near a wire, check it');
-    if (p.together) notes.push(p.together + ' darts seen at once, check the order');
-    if (p.label_changes) notes.push('value changed, check it');
     if (p.turn_over) notes.push('turn is over: Undo, End turn or Next player');
     else if (p.commit_in == null) notes.push('waiting for Accept');
     else notes.push('auto-accept in ' + Math.max(0, p.commit_in - (performance.now() - polledAt) / 1000).toFixed(1) + ' s');
-    const later = pendingDarts().slice(1).map(d => d.label);
-    const queue = later.length ? ' · then ' + later.join(', ') : '';
+    const reasons = (p.check || []).slice();  // low confidence (M4-02): waits for Accept
+    if (p.near_wire) reasons.push('near a wire');
+    if (p.together) reasons.push(p.together + ' darts at once, order?');
+    if (p.label_changes) reasons.push('value changed');
+    if (reasons.length) notes.push('check: ' + reasons.join(', '));
+    const later = pendingDarts().length - 1;
+    const queue = later > 0 ? ' · +' + later + ' waiting' : '';  // the later darts are marked on the board
     return ['Camera: ' + p.label + ' (' + p.score + ')' + queue, notes.join(' · ')];
   }
 
