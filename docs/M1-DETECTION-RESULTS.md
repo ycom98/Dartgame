@@ -25,7 +25,7 @@ Before M4 the camera compared each frame with the board as it was after the last
 
 ### M4-02: occlusion-aware confidence
 
-A new dart is flagged "tip may be hidden" when an earlier dart lies within 1 mm past its visible tip on the camera side (within 60° of the direction from the tip toward the camera's foot point). Flagged darts, like every low-confidence dart, are not auto-committed: they wait for Accept or a tap, and the controller shows them in red with the reason.
+A new dart is flagged "tip may be hidden" (the ticket's "possibly hidden tip — check"; the controller shows it as "check: tip may be hidden" in red. `qa-artifacts/M4-occlusion.json` and `M4-03-synthetic-trial_report.md` were made before the rename and carry the old text) when an earlier dart lies within 1 mm past its visible tip on the camera side (within 60° of the direction from the tip toward the camera's foot point). Flagged darts, like every low-confidence dart, are not auto-committed: they wait for Accept or a tap, and the controller shows them in red with the reason.
 
 | held-out seeds 2+3, darts 2-3 | value |
 |---|---|
@@ -52,6 +52,7 @@ Seed 1 (tuning) gave 67% caught with 15% right ones flagged. An "any direction" 
 
 - No real footage: every threshold in `vision_tuning.py` is synthetic-tuned.
 - No hand-in-frame occluder in the sim; the occlusion and "something in front" paths are covered by unit tests only (black frame waits; a 15 px board shift needs alignment).
+- Darts the camera is not tracking (after a restart, or scored by hand) are recognised when pulled by comparing with the empty board: the calibration image, or the picture taken with **Board clear · reset image**, refreshed only from boards that match it. Calibrating with darts in the board gives a warning (marks on the board's single-colour cells; synthetic: 0 mm² empty vs 100–2,000 mm² with a dart); press Board clear · reset image once the board is empty.
 - Darts tracked when a recording starts mid-turn are not restored in the replay (they are part of the reference image); the replay stays identical in the tests, but removal of such a dart would not be recognised.
 - The false-flag share (21% of right later darts) is measured on deliberately clustered darts; real play needs measuring. Every flag costs one tap; a silent wrong score costs two.
 

@@ -129,7 +129,7 @@ class CameraFlow:
 
     @staticmethod
     def needs_check(dart):
-        """Low confidence (M4-02: e.g. a possibly hidden tip): never auto-committed; waits for Accept or a tap."""
+        """Low confidence (M4-02: e.g. 'tip may be hidden'): never auto-committed; waits for Accept or a tap."""
         return dart.get('confidence') == 'low' or bool(dart.get('check'))
 
     def due(self):
