@@ -2,7 +2,60 @@
 
 **All numbers below come from synthetic rendered scenes (`sim/`). They measure the vision code against a model of a board and darts. They are not evidence of real-board accuracy; the Thursday trial is the real gate.**
 
-## M1-05e: segmentation hardening (current)
+## M4: multi-dart turns, occlusion-aware confidence, tuning kit — SYNTHETIC
+
+**Synthetic only** (`sim/`, ceiling-1.5ft, realistic profile). No real-board footage has been seen yet. Every threshold that needs real data is in `vision_tuning.py`, marked `REAL DATA`, and can be swept with `tools/tune_params.py` once recordings exist. Evidence: `qa-artifacts/M4-occlusion.json`. Tuning used seed 1 only; numbers below are held-out seeds 2+3 (`tools/eval_occlusion.py`, 50 turns per scenario per seed: 300 turns, 900 darts).
+
+### M4-01: turn tracking (PLAN M1-08)
+
+Before M4 the camera compared each frame with the board as it was after the last *commit*. A second dart landing before the host confirmed the first gave "More than one new dart" (no proposal) for dart 2, and again for dart 3. The M1-05d occlusion numbers assumed a reset after every dart (`--tracking reset`), as if the host always committed in time. Now the reference rolls forward with every dart the camera sees (`--tracking rolling`, no commits needed):
+
+| darts 2-3, ceiling-1.5ft, held-out | before (reset after each dart, best case) | M4-01 rolling |
+|---|---|---|
+| dart 2 exact / wrong / no proposal | 85.3% / 9.3% / 5.3% | **89.3%** / 10.7% / 0.0% |
+| dart 3 exact / wrong / no proposal | 79.7% / 13.0% / 7.3% | **80.7%** / 15.7% / 3.7% |
+| dart 1 exact | 93.7% | 95.3% |
+| board cleared detected after pulling | — | **300 / 300 turns** |
+| extra (false) darts from one throw | — | 4 of 900 throws |
+
+- Most "no proposal" before M4 was "More than one new dart": one dart cut in two by an earlier dart in front of it. M4 merges blobs closer than 20 mm and flags the dart "seen in pieces" (seed 1: every single-throw split had a gap of 19 mm or less; 74 of 76 real two-dart frames were more than 20 mm apart). Those darts are now proposed, so some "no proposal" became wrong scores. M4-02 flags them.
+- Two darts in one still frame that are far apart become two pending darts (`together: 2`, order unknown).
+- A pending dart whose pixels go back to the board behind it is retracted (bounce-out); a committed one is forgotten (partial pull). Unit tests cover both, plus a partial pull followed by a full clear.
+- A large still change (a person in front, lights off) no longer invalidates calibration. One ORB check per episode decides: board moved (15 px synthetic shift: needs alignment) or wait.
+
+### M4-02: occlusion-aware confidence
+
+A new dart is flagged "possibly hidden tip — check" when an earlier dart lies within 1 mm past its visible tip on the camera side (within 60° of the direction from the tip toward the camera's foot point). Flagged darts, like every low-confidence dart, are not auto-committed: they wait for Accept or a tap, and the controller shows them in red with the reason.
+
+| held-out seeds 2+3, darts 2-3 | value |
+|---|---|
+| wrong scores caught by any flag | **60 / 79 (76%)** (occlusion rule alone 55 / 79) |
+| right scores flagged (an extra tap) | 106 / 510 (21%) |
+| silent wrong (wrong and auto-committed), dart 2 | 9.0% → **2.0%** of darts |
+| silent wrong, dart 3 | 13.7% → **4.3%** of darts |
+| darts whose tip is really hidden (geometry), flagged | 93 / 106 |
+
+Seed 1 (tuning) gave 67% caught with 15% right ones flagged. An "any direction" touch rule caught no more and flagged more, so it is off (`OCCLUSION_TOUCH_MM = 0`). The scenarios here are deliberately clustered (T20 groups, darts stacked below each other), so the false-flag share in normal play should be lower; that needs real footage.
+
+### M4-03: tuning kit
+
+`tools/trial_report.py SESSION_DIR` and `tools/tune_params.py SESSION_DIR...` (see the README). Validated on two synthetic recordings made through the real server, recorder and fake IP Webcam by a scripted host (`tests/synthetic_session.py`: ceiling-1.5ft at 1280x720, realistic noise, the three occlusion scenarios, one turn in three left to pile up before any confirmation, darts pulled before Next):
+
+| session | darts | exact | no proposal | false proposals | wrong caught by a flag | landing → proposal | replay |
+|---|---|---|---|---|---|---|---|
+| seed 2, 6 turns | 18 | 94.4% | 0% | 0 | 1 / 1 | median 0.20 s | identical (461 frames) |
+| seed 3, 15 turns | 44 | 90.7% | 2.3% | 0 | 1 / 4 (3 others near a wire or unflagged) | median 0.20 s, p90 0.27 s | identical (1,210 frames) |
+
+`tune_params.py` on both sessions (stable_frames, change_threshold, occlusion_reach_mm, one at a time, 30% of throws held out) kept the current values: tuning darts 91.1% exact, 0 false proposals, 3 silent wrong; no setting beat them. These are tool checks, not tuning results: the sessions are tiny and synthetic. A report and a crop pair are covered by `tests/test_recording.py`, which also checks that no frame-sized image is written.
+
+### Not covered / known limits
+
+- No real footage: every threshold in `vision_tuning.py` is synthetic-tuned.
+- No hand-in-frame occluder in the sim; the occlusion and "something in front" paths are covered by unit tests only (black frame waits; a 15 px board shift needs alignment).
+- Darts tracked when a recording starts mid-turn are not restored in the replay (they are part of the reference image); the replay stays identical in the tests, but removal of such a dart would not be recognised.
+- The false-flag share (21% of right later darts) is measured on deliberately clustered darts; real play needs measuring. Every flag costs one tap; a silent wrong score costs two.
+
+## M1-05e: segmentation hardening
 
 This ticket fixes the three medium defects QA found in M1-05b's `vision_segment.py` (`QA-M1-05b.md`), plus the low-severity items. It was re-gated on held-out seeds 2 and 3 (realistic and realistic + shadow, all ten mounts, 200 darts per cell, plus 50 speckle trials per cell). The comparison is against M1-05c on the **same darts**: 93–100% of trials are identical per mount and profile, and the rest are the frames the fixes target.
 

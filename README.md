@@ -34,6 +34,7 @@ In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** wi
 - **Dart the camera missed:** tap where it landed.
 - **Fix a dart already recorded:** tap its chip (Dart 1: …), then tap the board (two taps).
 - **Darts off the board:** press **End turn · misses**; the missing darts are recorded as clearly marked misses, which you can still correct.
+- **"Check" darts:** a dart the camera is unsure of (for example its tip may be hidden behind an earlier dart, or it was seen in pieces) is shown in red with the reason and is **not** accepted automatically: tap Accept or tap the right place.
 - **Several darts at once:** the camera keeps watching while darts wait. Up to three camera darts can be pending (**Camera: T20 (60) · then S5, S1**, later ones marked dashed on the board); Accept and taps always apply to the first, and each next dart gets its own full countdown. A dart that falls out is withdrawn by itself; pulling the darts out starts the next turn's camera reference (no button needed).
 
 Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
@@ -46,13 +47,22 @@ The match is saved after every dart, correction and turn (`.local/state/match.js
 
 Press **Start recording** in step 3 of the Setup page (notes go under **Notes saved with the recording**), or start with `bash start-mac.command --camera PHONE_IP --record ~/dart-trial/session1`. A session folder (default `recordings/<date-time>/`, gitignored) holds every received camera frame exactly as the phone sent it, the processed-frame detections, an event log (every dart with how it was recorded, corrections, filled misses, undo, calibration and alignment) and your notes (mount, lighting, phone settings). The page shows size, frames and free disk space; recording stops by itself below 5 GB free. In the sim, 1080p at 15 fps used about 100 MB per minute; real phone frames are usually larger. Nothing is uploaded; delete a session folder to remove it.
 
-Afterwards:
+Afterwards, one command makes the report to send back:
 
 ```sh
-.venv/bin/python tools/make_labels.py recordings/SESSION      # labels.jsonl: one line per dart; host corrections are the truth
-.venv/bin/python tools/replay_recording.py recordings/SESSION # replays through the detector; accuracy vs the labels
-.venv/bin/python tools/contact_sheet.py recordings/SESSION    # contact_sheet.png: before/after crop per dart
+.venv/bin/python tools/trial_report.py ~/dart-trial/session1
 ```
+
+It writes `~/dart-trial/session1/report/`: `trial_report.md` (accuracy overall, near a wire, stacked and for darts 2–3; no-proposal and false-proposal rates; latency; calibration quality; your mount and lighting notes; every wrong or corrected dart), `contact_sheet.png` and `crops/` (a small before/after crop of each wrong or corrected dart). **Send back the whole `report/` folder** (zip it). It holds no video and no full frames; the recording itself stays on the Mac. If you fixed a truth value or added tags (`wire`, `stacked`, `bounce`) in `labels.jsonl`, run it again: your edits are kept (`--relabel` rebuilds the labels from scratch).
+
+With the footage in hand, the thresholds (`vision_tuning.py`, all tuned on synthetic scenes so far) can be tuned in one command; it replays every session once per setting and prints which setting gives the most exact scores without more false proposals, checked on 30% of the throws held out (several minutes per session):
+
+```sh
+.venv/bin/python tools/tune_params.py ~/dart-trial/session1 ~/dart-trial/session2
+.venv/bin/python tools/tune_params.py ~/dart-trial/session1 --params change_threshold,stable_frames   # fewer, faster
+```
+
+The single steps are still there: `tools/make_labels.py`, `tools/replay_recording.py`, `tools/contact_sheet.py` (each takes the session folder).
 
 ## Test games without a board or camera
 

@@ -1,0 +1,11 @@
+setting                                     exact (tune)  proposed  false  silent wrong  flagged right  exact (hold-out)
+current values                                     91.1%   45/45        0             3              9             88.2%
+stable_frames=2                                    84.4%   45/45        0             5              6             88.2%
+stable_frames=4                                    86.7%   45/45        0             4              7             88.2%
+change_threshold=24                                82.2%   45/45        0             5              8             82.4%
+change_threshold=36                                86.7%   45/45        0             4              8             94.1%
+occlusion_reach_mm=0.5                             91.1%   45/45        0             4              7             88.2%
+occlusion_reach_mm=2.0                             91.1%   45/45        0             3              9             88.2%
+occlusion_reach_mm=3.0                             91.1%   45/45        0             3             10             88.2%
+
+Best: keep the current values (nothing beat them without more false proposals).

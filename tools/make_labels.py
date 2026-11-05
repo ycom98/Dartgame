@@ -113,16 +113,23 @@ def detection_frames(processed):
     """
     found = {}
     last_still, run, previous = None, (None, None), None  # run: (first unsteady seq, still seq before it)
+    last_detected, previous_seq = None, None
     for record in processed:
         stable = record.get('stable', 1)
         if stable == 0 and previous != 0:
             run = (record['seq'], last_still)
-        if stable:
-            last_still = record['seq']
-        previous = stable
         for dart in record.get('pending') or []:
             if dart.get('id') and dart['id'] not in found:
-                found[dart['id']] = (record['seq'], *run)
+                if run[0] is None or (last_detected is not None and run[0] <= last_detected):
+                    # No unsteady frame since the last dart: a small dart can land without the board looking
+                    # unsteady, so it appeared in this very frame.
+                    found[dart['id']] = (record['seq'], record['seq'], previous_seq)
+                else:
+                    found[dart['id']] = (record['seq'], *run)
+                last_detected = record['seq']
+        if stable:
+            last_still = record['seq']
+        previous, previous_seq = stable, record['seq']
     return found
 
 

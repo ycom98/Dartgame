@@ -157,6 +157,34 @@ class RecordedSession(unittest.TestCase):
         self.assertIsNotNone(image)
         self.assertGreater(image.shape[0], 3 * 240)
 
+    def test_trial_report_is_one_shareable_folder_without_full_frames(self):
+        # M4-03: report + contact sheet + crops of the wrong/corrected darts; nothing frame-sized.
+        if type(self) is not RecordedSession:
+            self.skipTest('checked on the full session')
+        import cv2
+        from tools.trial_report import build_report
+        out = self.directory / 'report'
+        result = build_report(self.directory, out)
+        self.assertEqual((result['darts'], result['problems']), (9, 1))
+        self.assertTrue(result['replay_identical'])
+        text = (out / 'trial_report.md').read_text()
+        for heading in ('## Accuracy', '## Latency', '## Calibration', '## Mount, lighting and phone notes',
+                        '## Wrong or corrected darts'):
+            self.assertIn(heading, text)
+        self.assertIn('crops/throw_005.png', text)
+        self.assertIn('sim left', text)
+        images = sorted(p for p in out.rglob('*') if p.suffix in ('.png', '.jpg'))
+        self.assertEqual([p.name for p in images], ['contact_sheet.png', 'throw_005.png'])
+        crop = cv2.imread(str(out / 'crops' / 'throw_005.png'))
+        self.assertLess(crop.shape[0] * crop.shape[1], 720 * 1280 / 4)  # a crop pair, not a frame
+
+    def test_tune_params_replays_the_current_values_like_live(self):
+        if type(self) is not RecordedSession:
+            self.skipTest('checked on the full session')
+        from tools.tune_params import evaluate, labels_of
+        totals, false = evaluate([(self.directory, labels_of(self.directory))], {}, holdout=0.0)
+        self.assertEqual((totals['tune']['darts'], totals['tune']['exact'], false), (9, 8, 0))
+
 
 class MidSessionRecording(RecordedSession):
     """Recording switched on from the setup page after calibration and after a first dart."""
