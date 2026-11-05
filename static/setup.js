@@ -665,6 +665,8 @@ async function refresh() {
     }
     fillSourceField(state.vision.source?.url_redacted);
     $('visionStatus').textContent = state.vision.message +
+      (state.vision.board_warning && state.vision.board_warning !== state.vision.message
+        ? ' · ' + state.vision.board_warning : '') +
       (state.vision.age_seconds != null ? ' · frame ' + state.vision.age_seconds + 's old' : '');
     renderGame(state.game);
     const p = state.camera?.pending;
@@ -785,7 +787,10 @@ act('verify', async () => {
   $('guide').textContent = 'Calibration verified. Start a game from the Controller (scan the code in step 3), or press ' +
     'Start game in the older controls. After phone or board movement, check alignment and verify again.';
 });
-act('baseline', () => api('baseline', {}));
+act('baseline', async () => {
+  const result = await api('baseline', {});
+  if (result.baseline && !result.baseline.board_empty) error(result.vision.board_warning);  // QA M4 M4
+});
 
 // ---- game (unchanged behaviour) ----
 function names() {

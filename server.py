@@ -410,6 +410,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError('Select Set four points to capture a calibration image first')
         result = worker.call(actions[path])
         if path in ('/api/calibrate', '/api/align', '/api/verify', '/api/baseline'): save_calibration()
+        if path == '/api/baseline': return {'baseline':result}  # did the board look empty? (QA M4 M4)
         return {'snapshot':result} if path == '/api/calibration/start' else None
 
 NOT_FOUND = object()

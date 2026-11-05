@@ -232,6 +232,25 @@ class CalibratedWithDartsInTheBoard(unittest.TestCase):
         self.show(vision, self.darts[:1])
         self.assertEqual([p['label'] for p in vision.pending], self.labels[:1])
 
+    def test_board_clear_with_darts_still_in_keeps_the_empty_board(self):
+        # QA M4 M4: pressing Board clear too early resets the turn only; pulling the darts proposes nothing.
+        vision, _ = self.calibrate_on([])
+        for k in (1, 2):
+            self.show(vision, self.darts[:k])
+            vision.commit_dart(vision.proposal['id'])
+        empty = vision.empty_board()
+        result = vision.board_is_empty()
+        self.assertFalse(result['board_empty'], result)
+        self.assertGreater(result['board_marks_mm2'], result['threshold_mm2'])
+        self.assertIs(vision.empty_board(), empty)
+        self.assertIn('Darts still in the board', vision.state()['board_warning'])
+        self.show(vision, self.darts[:1])
+        self.show(vision, [])
+        self.assertEqual(vision.pending, [], vision.message)
+        self.assertIsNone(vision.state()['board_warning'])  # cleared once the empty board is seen again
+        self.show(vision, self.darts[1:2])
+        self.assertEqual([p['label'] for p in vision.pending], self.labels[1:2])
+
 
 class OcclusionConfidence(unittest.TestCase):
     """M4-02: a dart whose visible part ends at an earlier dart (camera side) is flagged and not auto-committed."""

@@ -65,6 +65,10 @@ SEGMENTATION_MESSAGES = {
     'noisy': 'Too many small changes (noise, debris or a moving shadow); enter score manually',
 }
 PENDING_MESSAGE = 'Possible dart found — confirm or correct score'
+BOARD_NOT_EMPTY = ('The board does not look empty: pull every dart, then press Board clear · reset image '
+                   '(the camera uses this picture as the empty board).')
+BOARD_STILL_HAS_DARTS = ('Darts still in the board? The turn was reset, but the empty-board picture was kept. '
+                         'Pull them and press Board clear · reset image again.')
 # Darts kept for removal checks; older ones simply stay part of the reference image.
 MAX_TRACKED_DARTS = 12
 
@@ -180,6 +184,7 @@ class Vision:
         # The turn reference kept through an invalidation (stream drop, realign): restored by align() when the
         # board has not moved, so the darts already in the board stay known (QA M4 H1).
         self.suspended_turn = None
+        self.board_warning = None    # the board did not look empty at calibration / Board clear (QA M4 M3, M4)
         self.aligned = False; self.message = 'Connect the phone rear camera to begin'; self.version = 0
         self.segmentation = None
         self.verified_version = None
@@ -293,9 +298,9 @@ class Vision:
         marks = board_marks_mm2(self.empty_board())
         self.calibration_quality['board_marks_mm2'] = round(marks, 1)
         self.calibration_quality['board_empty'] = marks <= vision_tuning.EMPTY_BOARD_MARKS_MM2
-        if not self.calibration_quality['board_empty']:
-            self.message += (' The board does not look empty: pull every dart, then press Board clear · reset image'
-                             ' (the camera uses this picture as the empty board).')
+        self.board_warning = None if self.calibration_quality['board_empty'] else BOARD_NOT_EMPTY
+        if self.board_warning:
+            self.message += ' ' + self.board_warning
         return {'ok': True, 'message': self.message, 'calibration': dict(self.calibration_quality)}
 
     def refine_clicks(self, source):
@@ -405,10 +410,22 @@ class Vision:
         self.suspended_turn = None
 
     def board_is_empty(self):
-        """The host says the board is empty now (Board clear · reset image): a new turn reference, and this
-        picture becomes the empty board (QA M4 M3: recovers a calibration made with darts in the board)."""
+        """The host says the board is empty now (Board clear · reset image): a new turn reference, and, if the
+        picture does look empty, the camera's empty board (QA M4 M3: recovers a calibration made with darts in
+        the board). A board with marks keeps the old empty board (QA M4 M4). Returns the measurement."""
         self.reset_base()
-        self.empty = self.base
+        marks = board_marks_mm2(self.base)
+        empty = marks <= vision_tuning.EMPTY_BOARD_MARKS_MM2
+        if empty:
+            self.empty = self.base
+            self.board_warning = None
+            self.message = 'Board clear: this picture is now the empty board.'
+        else:
+            self.board_warning = BOARD_STILL_HAS_DARTS
+            self.message = self.board_warning
+        # Logged with the action (events.jsonl), so the threshold can be tuned on real boards.
+        return {'board_empty': empty, 'board_marks_mm2': round(marks, 1),
+                'threshold_mm2': vision_tuning.EMPTY_BOARD_MARKS_MM2}
 
     def empty_board(self):
         """The board with no darts (warp pixels), or None: the last cleared board seen, else the calibration
@@ -608,6 +625,7 @@ class Vision:
                 continue
             self.reset_base()
             if reference is empty:
+                self.board_warning = None
                 # The freshest picture of the empty board. Never from a turn reference: after a restart or a
                 # moved board it can hold darts the camera does not know about (QA M4 H1b).
                 self.empty = warped
@@ -787,7 +805,7 @@ class Vision:
                 'calibration_active':active,
                 'calibration_elapsed':int(time.time()-self.calibration_started) if active else None,
                 'proposal':self.proposal if fresh else None, 'pending':list(self.pending) if fresh else [],
-                'turn':dict(self.counters, tracked=len(self.tracked)), 'overlay':overlay.tolist() if overlay is not None else None,
+                'turn':dict(self.counters, tracked=len(self.tracked)), 'board_warning':self.board_warning, 'overlay':overlay.tolist() if overlay is not None else None,
                 'version':self.version, 'width':int(self.frame.shape[1]) if self.frame is not None else 0,
                 'height':int(self.frame.shape[0]) if self.frame is not None else 0,
                 'pose':dict(self.pose) if self.pose is not None else None,
