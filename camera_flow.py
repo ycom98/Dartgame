@@ -112,6 +112,18 @@ class CameraFlow:
             self.pending_darts = [dart for dart in self.pending_darts if dart['id'] != proposal_id]
             self.promote(head)
 
+    def drop_pending(self):
+        """Next player (QA M4 M1): the pending darts belong to the turn that ended; none may be committed to the
+        next player, even before vision has dropped them. Call with the game lock held."""
+        with self.lock:
+            self.closed.update(dart['id'] for dart in self.pending_darts)
+            self.pending_darts = []
+
+    def is_head(self, proposal_id):
+        """True while proposal_id is still the head (not committed, replaced or dropped at Next)."""
+        with self.lock:
+            return self.pending is not None and self.pending['id'] == proposal_id and proposal_id not in self.closed
+
     def auto_commit_enabled(self):
         return self.delay > 0 and not self.paused
 

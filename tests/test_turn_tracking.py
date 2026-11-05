@@ -236,6 +236,18 @@ class PendingOrder(unittest.TestCase):
         time.sleep(0.35)
         self.assertEqual(flow.due()['id'], 'a-2')
 
+    def test_next_player_drops_pending_darts_at_once(self):
+        # QA M4 M1: vision drops them later, on the worker; the flow must never commit them meanwhile.
+        flow, vision = CameraFlow(delay=0.01), self.FakeVision()
+        vision.pending = [self.dart('a-1', 'S20')]
+        flow.observe(vision)
+        time.sleep(0.02)
+        self.assertTrue(flow.is_head('a-1'))
+        flow.drop_pending()
+        self.assertFalse(flow.is_head('a-1'))
+        self.assertIsNone(flow.due())
+        self.assertIsNone(flow.observe(vision))  # still in vision.pending: not shown again
+
 
 if __name__ == '__main__':
     unittest.main()

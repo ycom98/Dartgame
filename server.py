@@ -498,6 +498,7 @@ def game_write(path, body):
             if app.camera_game and (vision is None or not vision.current_state()['verified']):
                 raise ValueError('Reconnect camera, align board and verify the overlay before next turn')
             g.next_turn()
+            app.flow.drop_pending()  # at once, under the game lock: the camera worker drops them later (QA M4 M1)
             event = ('next', turn_info(before))
         elif path == '/api/undo':
             g.undo()
@@ -545,7 +546,8 @@ def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=
         with app.game_lock:
             check_revision({'expected_revision':expected_revision})
             if app.game is None: raise ValueError('Start a game first')
-            if pending is None or pending['id'] != proposal_id:
+            # Checked again under the game lock: Next player may have dropped it since it was observed (QA M4 M1).
+            if pending is None or pending['id'] != proposal_id or not app.flow.is_head(proposal_id):
                 raise Conflict('Proposal changed. Check the board and the current camera dart.')
             if seen_label is not None and pending['label'] != seen_label:  # a near-wire label flipped (QA Q4)
                 raise Conflict(f"The camera now reads {pending['label']}, not {seen_label}. Check the dart.")
