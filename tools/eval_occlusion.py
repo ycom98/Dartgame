@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """Multi-dart turns, throw by throw (M1-05d): how often later darts are visible and detected.
 
-The detector proposes one new dart per stable frame against a base image. As M1-08
-will do in play, the base is reset after each dart, so each dart is detected on a
-board that already holds the earlier darts of the turn (and those darts are in the
-base image). A turn:
+Each dart is detected on a board that already holds the earlier darts of the turn. A turn:
   1. Re-establish the empty-board base.
   2. For dart k = 1, 2, 3: render the board with darts 1..k, ingest frames, score the
-     proposal against dart k, then make the current frame the base.
+     camera's new dart against dart k.
+  3. (--tracking rolling) Show the empty board again (darts pulled) and record whether
+     vision reported the board cleared.
+
+--tracking rolling (default, M4-01): vision tracks the turn itself; nothing is reset between
+darts, and each dart is committed once detected (as auto-commit would). The dart scored is the
+newest pending dart.
+--tracking reset (M1-05d): the harness resets the base after each dart, as if the host had
+committed each dart before the next one landed (the pre-M4 best case).
+--tracking none: no reset and no commit (what pre-M4 code did when darts 2 and 3 landed
+before the host confirmed: "More than one new dart").
 
 Scenarios (three darts per turn; dart orientation and colours as sim.random_dart):
   t20-group       all three aimed at the T20 centre, scatter sigma 8 mm
@@ -101,7 +108,8 @@ def visibility(camera, darts, k):
 
 def run_cell(cell):
     """One (mount, profile, seed): every scenario, `turns` turns each. Returns (key, summary, records)."""
-    mount, profile, seed, turns, refine, frames_per_trial = cell
+    mount, profile, seed, turns, refine, frames_per_trial, *rest = cell
+    tracking = rest[0] if rest else 'rolling'
     shadow = profile.endswith('+shadow')
     degradation = PROFILES[profile.replace('+shadow', '')]
     if shadow:
@@ -130,6 +138,7 @@ def run_cell(cell):
                 jitter = degradation.brightness_jitter
                 brightness *= float(exposure_rng.uniform(1 - jitter, 1 + jitter))
             session.rebase(brightness)
+            cleared_before = vision.counters['board_cleared'] if hasattr(vision, 'counters') else 0
             for k in range(len(darts)):
                 truth = darts[k].label()
                 record = {'scenario': scenario, 'turn': turn, 'dart': k + 1, 'truth': truth['label'],
@@ -140,17 +149,32 @@ def run_cell(cell):
                     records.append(record)
                     continue
                 scene = render_clean(camera, darts[:k + 1], degradation.shadow, degradation.shadow_strength)
+                seen = {p.get('id') for p in getattr(vision, 'pending', [])}
                 feeder.ingest(scene, brightness, frames_per_trial)
-                proposal = vision.proposal
+                if tracking == 'rolling':
+                    new = [p for p in vision.pending if p.get('id') not in seen]
+                    proposal = new[-1] if new else None
+                    record['extra_proposals'] = max(len(new) - 1, 0)  # one throw, several new darts: false ones
+                else:
+                    proposal = vision.proposal
                 record['outcome'] = eval_detection.classify(truth, proposal)
                 if proposal is None:
                     record['message'] = vision.message
                 else:
                     record.update({'proposal': proposal['label'], 'tip_error_mm': round(float(
-                        math.hypot(proposal['x'] - truth['x'], proposal['y'] - truth['y'])), 2)})
+                        math.hypot(proposal['x'] - truth['x'], proposal['y'] - truth['y'])), 2),
+                        'check': list(proposal.get('check') or []), 'confidence': proposal.get('confidence')})
                 records.append(record)
-                if vision.aligned:
+                if tracking == 'rolling':
+                    for dart in new:
+                        vision.commit_dart(dart['id'])  # as auto-commit would; the dart stays in the reference
+                elif tracking == 'reset' and vision.aligned:
                     vision.reset_base()  # throw by throw: this dart joins the base
+            if tracking == 'rolling' and vision.aligned:
+                feeder.ingest(empty, brightness, frames_per_trial, timed=False)  # darts pulled
+                cleared = vision.counters['board_cleared'] > cleared_before
+                for record in records[-len(darts):]:
+                    record['board_cleared'] = cleared
     summary = summarise(records)
     summary['calibration'] = eval_detection.calibration_summary(calibrations)
     return (mount, profile, seed), summary, records
@@ -184,8 +208,30 @@ def summarise(records):
             'wrong_when_hidden': rate(sum(r['outcome'] in ('wrong_sector', 'wrong_ring') for r in hidden),
                                       len(hidden)),
             'messages': dict(collections.Counter(r.get('message') for r in rows if r['outcome'] == 'no_proposal')),
+            **flag_summary(rows),
+            'extra_proposals': sum(r.get('extra_proposals', 0) for r in rows),
         }
+    turns = [r for r in records if r['dart'] == 1 and 'board_cleared' in r]
+    if turns:
+        summary['board_cleared_rate'] = rate(sum(r['board_cleared'] for r in turns), len(turns))
     return summary
+
+
+def flag_summary(rows):
+    """M4-02: how well the low-confidence flag ('check' reasons) separates wrong scores from right ones.
+
+    caught: wrong scores that carry a flag (they wait for the host instead of auto-committing).
+    false flags: exact scores that carry a flag (an extra tap for the host).
+    silent wrong: wrong scores without a flag (auto-committed wrong unless the host notices).
+    """
+    proposed = [r for r in rows if r['outcome'] != 'no_proposal']
+    wrong = [r for r in proposed if r['outcome'] in ('wrong_sector', 'wrong_ring')]
+    exact = [r for r in proposed if r['outcome'] == 'exact']
+    flagged = lambda r: bool(r.get('check'))  # noqa: E731
+    return {'flagged_rate': rate(sum(map(flagged, proposed)), len(rows)),
+            'wrong_caught_rate': rate(sum(map(flagged, wrong)), len(wrong)),
+            'false_flag_rate': rate(sum(map(flagged, exact)), len(exact)),
+            'silent_wrong_rate': rate(sum(not flagged(r) for r in wrong), len(rows))}
 
 
 def main(argv=None):
@@ -196,6 +242,8 @@ def main(argv=None):
     parser.add_argument('--turns', type=int, default=100, help='turns per scenario per cell')
     parser.add_argument('--frames', type=int, default=4)
     parser.add_argument('--no-refine', action='store_true', help='four-click calibration only (M1-05b)')
+    parser.add_argument('--tracking', choices=('rolling', 'reset', 'none'), default='rolling',
+                        help='how darts 2 and 3 are detected (see the module docstring)')
     parser.add_argument('--workers', type=int, default=os.cpu_count() or 1)
     parser.add_argument('--out')
     args = parser.parse_args(argv)
@@ -206,7 +254,7 @@ def main(argv=None):
     profiles = [p for p in args.profiles.split(',') if p]
     seeds = [int(s) for s in args.seeds.split(',') if s]
     refine = False if args.no_refine else None
-    cells = [(m, p, s, args.turns, refine, args.frames) for p in profiles for s in seeds for m in mounts]
+    cells = [(m, p, s, args.turns, refine, args.frames, args.tracking) for p in profiles for s in seeds for m in mounts]
 
     started = time.perf_counter()
     results = {}
@@ -226,7 +274,7 @@ def main(argv=None):
         'settings': {'mounts': mounts, 'profiles': profiles, 'seeds': seeds, 'turns_per_scenario': args.turns,
                      'scenarios': list(SCENARIOS), 'frames_per_dart': args.frames,
                      'calibration_refinement': refine is None,
-                     'base': 'reset after every dart (throw by throw); earlier darts are in the base image',
+                     'tracking': args.tracking,
                      'visibility': 'geometric: tip image point covered (>= 50%) by an earlier dart outline '
                                    '(hidden_by_earlier) or by the dart\'s own barrel/shaft/flight (hidden_by_self)'},
         'total_wall_seconds': round(time.perf_counter() - started, 1),

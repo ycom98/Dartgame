@@ -57,20 +57,23 @@ def crop(image, centre, mark):
     return cv2.resize(piece, (PANEL, PANEL), interpolation=cv2.INTER_AREA)
 
 
-def make_sheet(directory, columns=3):
-    directory = Path(directory)
-    labels_path = directory / 'labels.jsonl'
-    labels = read_jsonl(labels_path) if labels_path.exists() else make_labels(directory)
-    frames = {r['seq']: r['file'] for r in read_jsonl(directory / 'frames.jsonl')}
-    seqs = sorted(frames)
-    events = sorted(read_jsonl(directory / 'events.jsonl'), key=lambda e: e['order'])
-    panels = []
-    for label in labels:
-        before_file = nearest_frame(seqs, frames, label['frame_seq_before'])
-        after_file = nearest_frame(seqs, frames, label['frame_seq_after'])
-        before = cv2.imread(str(directory / before_file)) if before_file else None
-        after = cv2.imread(str(directory / after_file)) if after_file else None
-        overlay = overlay_before(events, label['event_order'])
+class Panels:
+    """Draws the before/after panel of any label of one recording."""
+
+    def __init__(self, directory):
+        self.directory = Path(directory)
+        self.frames = {r['seq']: r['file'] for r in read_jsonl(self.directory / 'frames.jsonl')}
+        self.seqs = sorted(self.frames)
+        self.events = sorted(read_jsonl(self.directory / 'events.jsonl'), key=lambda e: e['order'])
+
+    def image(self, seq):
+        file = nearest_frame(self.seqs, self.frames, seq)
+        return cv2.imread(str(self.directory / file)) if file else None
+
+    def panel(self, label):
+        before = self.image(label['frame_seq_before'])
+        after = self.image(label['frame_seq_after'])
+        overlay = overlay_before(self.events, label['event_order'])
         centre, mark = None, False
         if overlay is not None:
             to_image = cv2.getPerspectiveTransform(TARGET_MM, np.float32(overlay))
@@ -87,7 +90,15 @@ def make_sheet(directory, columns=3):
         colour = (120, 230, 140) if label['detection_label'] == label['truth_label'] else (90, 170, 255)
         cv2.putText(tile, first, (6, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (240, 240, 240), 1, cv2.LINE_AA)
         cv2.putText(tile, second.replace('·', '-'), (6, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 1, cv2.LINE_AA)
-        panels.append(tile)
+        return tile
+
+
+def make_sheet(directory, columns=3):
+    directory = Path(directory)
+    labels_path = directory / 'labels.jsonl'
+    labels = read_jsonl(labels_path) if labels_path.exists() else make_labels(directory)
+    drawer = Panels(directory)
+    panels = [drawer.panel(label) for label in labels]
     if not panels:
         raise ValueError('No labels to draw')
     rows = (len(panels) + columns - 1) // columns

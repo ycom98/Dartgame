@@ -24,6 +24,7 @@ import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
 from camera_source import fit_frame  # noqa: E402
+from recorder import processed_record  # noqa: E402
 from tools.make_labels import make_labels, read_jsonl  # noqa: E402
 from vision import Vision  # noqa: E402
 
@@ -58,10 +59,14 @@ def restore_start(vision, directory, folder='start'):
     if state['has_base']:
         vision.base = cv2.imread(str(start / 'base.png'), cv2.IMREAD_COLOR)
         vision.last_warp = vision.base.copy()
+        # Darts tracked when recording started are not restored: they are just part of the reference image.
+        turn_base = start / 'turn_base.png'
+        vision.turn_base = cv2.imread(str(turn_base), cv2.IMREAD_COLOR) if turn_base.exists() else vision.base
     if vision.aligned:
         vision.last_warp = vision.warp(vision.frame)
     vision.stable = state.get('stable', 0)        # frames already stable when recording started
     vision.version = state.get('version', 0)      # later verify() calls name this version
+    vision.dart_count = state.get('dart_count', 0)  # dart ids continue from here (commit_dart names them)
     vision.mount_side = state['mount_side']
     vision.update_pose()
     if state['verified']:
@@ -73,6 +78,9 @@ def apply_action(vision, event, snapshot_ids):
     name, args, kwargs = event['action'], list(event.get('args') or []), dict(event.get('kwargs') or {})
     if name == 'calibrate' and len(args) > 1 and args[1] is not None:
         args[1] = snapshot_ids.get(args[1], args[1])
+    if name == 'commit_dart' and args and isinstance(args[0], str) and '-' in args[0]:
+        # Dart ids are '<vision session>-<n>': the replay's n-th dart is the live n-th dart.
+        args[0] = vision.dart_session + '-' + args[0].rsplit('-', 1)[1]
     try:
         result = getattr(vision, name)(*args, **kwargs)
     except Exception as error:
@@ -82,13 +90,23 @@ def apply_action(vision, event, snapshot_ids):
     return (True, None)
 
 
-def outcome(vision):
-    proposal = vision.proposal
-    if proposal is None:
-        return None
-    if 'x' not in proposal:
-        return {'label': proposal.get('label')}
-    return {'label': proposal.get('label'), 'x': round(float(proposal['x']), 3), 'y': round(float(proposal['y']), 3)}
+def without_ids(pending):
+    return [{key: value for key, value in dart.items() if key != 'id'} for dart in pending]
+
+
+def outcome(vision, record=None):
+    """The replayed detection, in the recorded form (processed.jsonl), for comparison with record.
+    Dart ids differ between live and replay (each Vision has its own), so they are not compared."""
+    replayed = processed_record(vision, None)
+    if record is None or 'pending' not in record:  # recorded before M4-01: only the head proposal
+        return replayed['proposal']
+    return {'proposal': replayed['proposal'], 'pending': without_ids(replayed['pending'])}
+
+
+def recorded(record):
+    if 'pending' not in record:
+        return record['proposal']
+    return {'proposal': record['proposal'], 'pending': without_ids(record['pending'])}
 
 
 def replay(directory):
@@ -130,9 +148,9 @@ def replay(directory):
             missing.append(seq)
         else:
             vision.ingest(load_frame(directory, files[seq]))
-            replayed = outcome(vision)
-            if replayed != record['proposal']:
-                mismatches.append({'seq': seq, 'live': record['proposal'], 'replay': replayed})
+            replayed = outcome(vision, record)
+            if replayed != recorded(record):
+                mismatches.append({'seq': seq, 'live': recorded(record), 'replay': replayed})
         run_actions_up_to(seq)
     return {'frames_processed': len(processed), 'frames_missing': missing, 'detection_mismatches': mismatches,
             'identical': not mismatches and not missing and not action_mismatches,

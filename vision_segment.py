@@ -110,6 +110,8 @@ class Segmentation:
     points: (N, 2) float32 warp pixels (x, y) of the dart when kind == 'dart'.
     outline: (M, 2) float32 outline pixels of the dart's fragments when kind == 'dart'.
     groups: the grouped Blobs, largest first (for diagnostics).
+    candidates: the plausible dart groups, largest first, when kind is 'dart' or 'multiple' (M4-01 separates
+    two new darts that appear together).
     implausible: candidate-sized groups rejected as not dart-shaped (diagnostics).
     """
 
@@ -117,6 +119,7 @@ class Segmentation:
     points: Optional[np.ndarray] = None
     outline: Optional[np.ndarray] = None
     groups: list = field(default_factory=list)
+    candidates: list = field(default_factory=list)
     changed_fraction: float = 0.0
     shadow_pixels: int = 0
     gains: tuple = (1.0, 1.0, 1.0)
@@ -519,6 +522,7 @@ def segment(frame, base, scale, center, board_radius_mm=172.0, foot=None):
             # Dart-sized change that is not dart-shaped: say so rather than a silent "Ready" (QA D5).
             result.kind = 'noisy'
         return result
+    result.candidates = candidates
     if len(candidates) > 1:
         result.kind = 'multiple'
         return result

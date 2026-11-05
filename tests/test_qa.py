@@ -127,15 +127,23 @@ class VisionQA(unittest.TestCase):
         self.assertFalse(vision.aligned)
         self.assertIsNone(vision.proposal)
 
-    def test_large_scene_change_invalidates_geometry(self):
+    def test_large_still_change_waits_and_a_moved_board_needs_alignment(self):
+        # M4-01 (PLAN M1-08): something large in front of the board is an occlusion, not an invalidation.
         vision=self.fresh_vision()
-        changed=np.zeros((800,800,3),np.uint8)
-        ok,jpeg=cv2.imencode('.jpg',changed)
+        ok,jpeg=cv2.imencode('.jpg',np.zeros((800,800,3),np.uint8))
         self.assertTrue(ok)
+        for _ in range(6):vision.ingest(jpeg.tobytes())
+        self.assertTrue(vision.aligned)
+        self.assertIsNone(vision.proposal)
+        self.assertIn('in front of the board',vision.message)
+        # The board itself moved by 15 px: the ORB check after the large change asks for alignment.
+        vision=self.fresh_vision()
+        moved=cv2.warpAffine(vision.frame,np.float32([[1,0,15],[0,1,0]]),(800,800))
+        ok,jpeg=cv2.imencode('.jpg',moved)
         for _ in range(6):vision.ingest(jpeg.tobytes())
         self.assertFalse(vision.aligned)
         self.assertIsNone(vision.proposal)
-        self.assertIn('alignment',vision.message)
+        self.assertIn('realign',vision.message)
 
     def test_dimension_change_requires_recalibration(self):
         vision=self.fresh_vision()

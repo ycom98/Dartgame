@@ -160,6 +160,26 @@ class CameraFlow(unittest.TestCase):
         self.assertEqual([d['score'] for d in state['game']['darts']], [54, 7, 0])
         self.assertEqual(self.request('/api/next', {})[0], 200)
 
+    def test_darts_two_and_three_before_any_commit_are_pending_in_order(self):
+        # M4-01: the host has not confirmed anything yet when darts 2 and 3 land.
+        self.server.app.flow.paused = True
+        self.throw_dart(1)
+        self.fake.set_frames([self.scenes[3]])  # darts 2 and 3 land
+        darts = wait_for(lambda: len(self.state()['camera']['pending_darts']) == 3 and
+                         self.state()['camera']['pending_darts'], 5, step=0.05)
+        self.assertEqual(darts[0]['label'], 'S18')
+        # Darts 2 and 3 appeared in the same still frame: both found, throw order unknown (flagged 'together').
+        self.assertEqual(sorted(d['label'] for d in darts[1:]), ['S7', 'T10'])
+        self.assertEqual([d.get('together') for d in darts], [None, 2, 2])
+        self.assertEqual([d['queued'] for d in darts], [False, True, True])
+        # A commit for a later dart is refused: darts are committed in throw order.
+        self.assertEqual(self.request('/api/throw', {'proposal_id': darts[1]['id']})[0], 409)
+        for dart in darts:
+            self.assertEqual(self.request('/api/throw', {'proposal_id': dart['id']})[0], 200)
+        state = self.state()
+        self.assertEqual(sorted(d['score'] for d in state['game']['darts']), [7, 18, 30])
+        self.assertIsNone(state['camera']['pending'])
+
 
 if __name__ == '__main__':
     unittest.main()

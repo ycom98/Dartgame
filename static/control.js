@@ -415,6 +415,8 @@
      Camera darts auto-accept on the server after a few seconds unless corrected or paused (owner decision #1). */
   let correcting = null, polledAt = performance.now();
   const pending = () => state?.camera_game ? state.camera?.pending || null : null;
+  // Every pending camera dart, oldest (the one Accept and taps apply to) first (M4-01).
+  const pendingDarts = () => state?.camera_game ? state.camera?.pending_darts || (pending() ? [pending()] : []) : [];
 
   function tapAllowed() {
     const g = state?.game;
@@ -508,12 +510,16 @@
       return phases[v.phase] || ['Camera: not ready', v.message || 'Check the setup page on the Mac.'];
     }
     const notes = [];
+    (p.check || []).forEach(reason => notes.push(reason));  // low confidence (M4-02): waits for Accept
     if (p.near_wire) notes.push('near a wire, check it');
+    if (p.together) notes.push(p.together + ' darts seen at once, check the order');
     if (p.label_changes) notes.push('value changed, check it');
     if (p.turn_over) notes.push('turn is over: Undo, End turn or Next player');
     else if (p.commit_in == null) notes.push('waiting for Accept');
     else notes.push('auto-accept in ' + Math.max(0, p.commit_in - (performance.now() - polledAt) / 1000).toFixed(1) + ' s');
-    return ['Camera: ' + p.label + ' (' + p.score + ')', notes.join(' · ')];
+    const later = pendingDarts().slice(1).map(d => d.label);
+    const queue = later.length ? ' · then ' + later.join(', ') : '';
+    return ['Camera: ' + p.label + ' (' + p.score + ')' + queue, notes.join(' · ')];
   }
 
   // The camera status chip in the header (fixed size, so nothing below it moves).
@@ -587,6 +593,7 @@
       $('#pending').textContent = headline;
       $('#pending-detail').textContent = detail;
       $('#pending').classList.toggle('active', !!p);
+      $('#camera-panel').classList.toggle('check', !!(p && p.check && p.check.length));
       $('#accept').style.visibility = !p || p.turn_over ? 'hidden' : 'visible';  // keeps its space: no layout shift
       $('#accept').disabled = busy || !p || p.turn_over;
       $('#auto-status').textContent = !auto.enabled ? 'Auto-accept is off (--auto-commit 0).'
@@ -600,8 +607,12 @@
     // Pending dart marker on the tap board (board mm -> tap board picture units).
     const markers = $('#tap-board .markers');
     if (markers) {
-      const at = p && p.x != null ? DartBoard.tapPoint(p.x, p.y) : null;
-      markers.innerHTML = at ? `<circle class="pending-marker" cx="${at[0]}" cy="${at[1]}" r="9"/>` : '';
+      // Every pending dart is marked; the later ones dashed (they wait for the first).
+      markers.innerHTML = pendingDarts().filter(d => d.x != null).map((d, i) => {
+        const at = DartBoard.tapPoint(d.x, d.y);
+        const kind = (i ? ' queued' : '') + (d.check && d.check.length ? ' check' : '');
+        return `<circle class="pending-marker${kind}" cx="${at[0]}" cy="${at[1]}" r="9"/>`;
+      }).join('');
     }
     cameraChip();
   }

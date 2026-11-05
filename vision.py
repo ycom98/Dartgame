@@ -1,13 +1,33 @@
-"""Camera prototype. Every proposed dart requires confirmation by the player."""
+"""Camera prototype. Every proposed dart requires confirmation by the player.
+
+Turns (M4-01). The reference image (base) holds the board as it was after the latest dart the camera saw, so
+each new dart is detected as the new change even while earlier darts are still waiting for the host:
+  * turn_base is the board at the start of the turn; base is turn_base plus every dart seen since.
+  * A stable new dart becomes a pending dart (self.pending, oldest first, at most MAX_PENDING_DARTS) and the
+    base rolls forward to the current frame. Two new darts in one stable frame are separated when they are
+    two clear blobs. self.proposal is the oldest pending dart (the one a commit applies to).
+  * commit_dart(id) marks a pending dart committed (it stays in the reference); end_turn() drops what is still
+    pending at Next player; absorb() makes the current frame the reference after a manual score.
+  * A tracked dart whose pixels go back to the board behind it was removed: a pending one is retracted
+    (bounce-out); a committed one was pulled. When the board matches turn_base again, every dart was pulled:
+    the turn reference restarts (board cleared).
+  * A large stable change (a person in front, lights) is not an invalidation: the board is checked against
+    the calibration reference once, and only a moved board needs alignment.
+Thresholds that need real footage are in vision_tuning.py.
+"""
+import functools
+import itertools
 import secrets
 import threading
 import time
+from dataclasses import dataclass
 import cv2
 import numpy as np
 from core import score_point, near_wire
 import vision_calibrate
 import vision_pose
 import vision_segment
+import vision_tuning
 
 SIZE = 700
 SCALE = 1.7
@@ -44,6 +64,20 @@ SEGMENTATION_MESSAGES = {
     'too_large': 'Change is too large for one dart; enter score manually',
     'noisy': 'Too many small changes (noise, debris or a moving shadow); enter score manually',
 }
+PENDING_MESSAGE = 'Possible dart found — confirm or correct score'
+# Darts kept for removal checks; older ones simply stay part of the reference image.
+MAX_TRACKED_DARTS = 12
+
+
+@dataclass(eq=False)
+class TrackedDart:
+    """A dart the camera saw this turn. region: its warp pixels (bool mask, grown a little); before: the
+    reference image just before it landed (what its pixels go back to if it falls out or is pulled)."""
+    id: str
+    proposal: dict
+    status: str  # 'pending', 'committed' or 'dismissed' (still pending at Next player)
+    region: np.ndarray
+    before: np.ndarray
 
 
 def refine_tip(points, tip, direction, difference=None):
@@ -101,7 +135,15 @@ def half_contrast_end(difference, tip, axis):
 class Vision:
     def __init__(self):
         self.frame = None; self.timestamp = 0; self.reference = None; self.H = None
-        self.base = None; self.last_warp = None; self.stable = 0; self.proposal = None
+        self.base = None; self.last_warp = None; self.stable = 0
+        # Multi-dart turns (M4-01): see the module docstring.
+        self.turn_base = None
+        self.pending = []            # public proposal dicts of the pending darts, oldest first
+        self.tracked = []            # TrackedDart, oldest first
+        self.dart_session = secrets.token_hex(4)  # dart ids are '<session>-<n>' (replay maps them by n)
+        self.dart_count = 0
+        self.board_checked = False   # the board-moved check already ran in this large-change episode
+        self.counters = {'board_cleared': 0, 'retracted': 0, 'pulled': 0, 'separated': 0}
         self.aligned = False; self.message = 'Connect the phone rear camera to begin'; self.version = 0
         self.segmentation = None
         self.verified_version = None
@@ -129,11 +171,21 @@ class Vision:
         if frame is None or frame.shape[0] < 200 or frame.shape[1] < 200 or max(frame.shape[:2]) > 1920:
             raise ValueError('Use a valid JPEG/PNG between 200px and 1920px per side')
         return frame
+    @property
+    def proposal(self):
+        """The oldest pending dart (the one a commit applies to), or None. Kept for older callers."""
+        return self.pending[0] if self.pending else None
+
+    @proposal.setter
+    def proposal(self, value):
+        # Tests and older callers set one untracked proposal (or None for none).
+        self.pending = [] if value is None else [value]
+
     def fresh(self): return self.frame is not None and time.time() - self.timestamp < 5
     def verified(self): return self.aligned and self.fresh() and self.verified_version == self.version
     def warp(self, frame): return cv2.warpPerspective(frame, self.H, (SIZE, SIZE))
     def invalidate(self, message):
-        self.aligned = False; self.verified_version = None; self.proposal = None
+        self.aligned = False; self.verified_version = None; self.pending = []; self.tracked = []
         self.version += 1; self.message = message
         # The pose belongs to the geometry just invalidated; a successful calibrate()/align() re-solves it.
         # mount_side is kept on purpose: it describes where the phone is mounted, not this calibration.
@@ -221,20 +273,7 @@ class Vision:
         kp,desc = self.orb.detectAndCompute(self.frame, None)
         self.invalidate('Checking board alignment…')
         try:
-            if desc is None or self.ref_desc is None:
-                raise ValueError('Not enough board detail; improve light or recalibrate')
-            matches = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(desc, self.ref_desc, k=2)
-            good = [m for pair in matches if len(pair)==2 for m,n in [pair] if m.distance < .7*n.distance]
-            if len(good) < 25: raise ValueError('Cannot confidently locate board; recalibrate manually')
-            src = np.float32([kp[m.queryIdx].pt for m in good]); dst = np.float32([self.ref_kp[m.trainIdx].pt for m in good])
-            transform,mask = cv2.findHomography(src, dst, cv2.RANSAC, 2.5)
-            inliers = mask.ravel().astype(bool) if mask is not None else np.zeros(len(good),bool)
-            if transform is None or inliers.sum() < 20 or inliers.mean() < .6:
-                raise ValueError('Board alignment is uncertain; use four-point calibration')
-            hull = cv2.convexHull(dst[inliers])
-            if cv2.contourArea(hull) < cv2.countNonZero(self.reference_mask)*.25:
-                raise ValueError('Matching features cover too little of board; recalibrate')
-            H = self.reference_H @ transform
+            H, inliers = self.match_reference(kp, desc)
             current_targets = cv2.perspectiveTransform(TARGETS.reshape(1,-1,2), np.linalg.inv(H))[0]
             height,width = self.frame.shape[:2]
             if not np.isfinite(current_targets).all() or (current_targets < 0).any() or (current_targets[:,0]>=width).any() or (current_targets[:,1]>=height).any():
@@ -249,6 +288,26 @@ class Vision:
         except (ValueError, np.linalg.LinAlgError, cv2.error) as error:
             self.message = str(error)
             raise ValueError('Alignment failed: '+str(error)) from error
+    def match_reference(self, kp=None, desc=None):
+        """(H, inlier mask): the board map of the current frame from ORB matches with the calibration
+        reference. Raises ValueError when the fit is not confident."""
+        if kp is None:
+            kp, desc = self.orb.detectAndCompute(self.frame, None)
+        if desc is None or self.ref_desc is None:
+            raise ValueError('Not enough board detail; improve light or recalibrate')
+        matches = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(desc, self.ref_desc, k=2)
+        good = [m for pair in matches if len(pair)==2 for m,n in [pair] if m.distance < .7*n.distance]
+        if len(good) < 25: raise ValueError('Cannot confidently locate board; recalibrate manually')
+        src = np.float32([kp[m.queryIdx].pt for m in good]); dst = np.float32([self.ref_kp[m.trainIdx].pt for m in good])
+        transform,mask = cv2.findHomography(src, dst, cv2.RANSAC, 2.5)
+        inliers = mask.ravel().astype(bool) if mask is not None else np.zeros(len(good),bool)
+        if transform is None or inliers.sum() < 20 or inliers.mean() < .6:
+            raise ValueError('Board alignment is uncertain; use four-point calibration')
+        hull = cv2.convexHull(dst[inliers])
+        if cv2.contourArea(hull) < cv2.countNonZero(self.reference_mask)*.25:
+            raise ValueError('Matching features cover too little of board; recalibrate')
+        return self.reference_H @ transform, inliers
+
     def update_pose(self):
         """Recompute the camera pose and foot point from the current H. Never raises."""
         if self.H is None or self.frame is None:
@@ -284,9 +343,35 @@ class Vision:
             raise ValueError('The overlay changed. Check the latest live markers before verifying again.')
         self.verified_version = version; self.message = 'Ready to play'
     def reset_base(self):
+        """Start a new turn reference from the current frame (new game, baseline button, board cleared)."""
         if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
-        self.base = self.warp(self.frame); self.last_warp = self.base.copy()
-        self.stable = 0; self.proposal = None; self.segmentation = None
+        self.base = self.warp(self.frame); self.last_warp = self.base.copy(); self.turn_base = self.base
+        self.stable = 0; self.pending = []; self.tracked = []; self.segmentation = None
+
+    def absorb(self):
+        """A dart was scored by hand: the current frame becomes the reference, and the turn goes on."""
+        if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
+        self.base = self.warp(self.frame)
+        if self.turn_base is None: self.turn_base = self.base
+        self.pending = [p for p in self.pending if p.get('id')]  # an untracked proposal is now part of the board
+
+    def commit_dart(self, dart_id):
+        """The host committed (accepted or corrected) pending dart dart_id: it stays in the reference.
+        An id vision does not track (a proposal set directly) is handled like a manual score (absorb)."""
+        dart = next((d for d in self.tracked if d.id == dart_id), None)
+        if dart is None:
+            self.absorb()
+            return
+        dart.status = 'committed'
+        self.pending = [p for p in self.pending if p.get('id') != dart_id]
+
+    def end_turn(self):
+        """Next player: darts still pending were not scored for this turn and are dropped (they stay in the
+        reference image, so they are not proposed again)."""
+        for dart in self.tracked:
+            if dart.status == 'pending':
+                dart.status = 'dismissed'
+        self.pending = []
     def ingest(self, data):
         # data: encoded image bytes (/api/frame) or a decoded BGR frame from a camera source (M1-07).
         frame = data if isinstance(data, np.ndarray) else self.decode(data)
@@ -299,35 +384,165 @@ class Vision:
         warped = self.warp(frame)
         gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         oldgray = cv2.cvtColor(self.last_warp, cv2.COLOR_BGR2GRAY)
-        motion = np.mean(cv2.absdiff(gray, oldgray) > 22)
+        motion = np.mean(cv2.absdiff(gray, oldgray) > vision_tuning.MOTION_PIXEL_DELTA)
         self.last_warp = warped
-        if motion > .10:
-            self.stable = 0; self.proposal = None
+        if motion > vision_tuning.MOTION_LARGE_FRACTION:
+            # A hand or a person: pending darts stay (they were seen on a still board), nothing new is read.
+            self.stable = 0; self.board_checked = False
             self.message = 'Motion detected; wait. If board moved, check / realign board.'
             return
-        self.stable = self.stable + 1 if motion < .004 else 0
-        if self.stable < 3: return
+        self.stable = self.stable + 1 if motion < vision_tuning.MOTION_STILL_FRACTION else 0
+        if self.stable < vision_tuning.STABLE_FRAMES: return
         foot_mm = self.foot_point()
         foot = None if foot_mm is None else np.asarray(foot_mm, np.float32) * SCALE + CENTER
-        segmentation = vision_segment.segment(warped, self.base, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot)
-        self.segmentation = segmentation
+        segmentation = self.segment(warped, self.base, foot)
+        if segmentation.kind not in ('none', 'large_change') and self.tracked:
+            removed = self.remove_missing_darts(warped)
+            pulled = any(dart.status != 'pending' for dart in removed)
+            if (self.tracked or pulled) and self.board_cleared(warped, foot):
+                return
+            if removed:
+                segmentation = self.segment(warped, self.base, foot)
+                if segmentation.kind == 'none':
+                    return  # keep the message saying which dart went
         if segmentation.kind == 'large_change':
-            self.invalidate('Large scene change: check board alignment before continuing')
+            self.large_change()
             return
-        if segmentation.kind != 'dart':
-            self.proposal = None
-            if segmentation.kind != 'none' or self.verified():  # never "Ready" before the overlay is verified
-                self.message = SEGMENTATION_MESSAGES[segmentation.kind]
+        self.board_checked = False
+        if segmentation.kind == 'none':
+            if self.pending: self.message = PENDING_MESSAGE
+            elif self.verified(): self.message = SEGMENTATION_MESSAGES['none']  # never "Ready" before verify
             return
-        tip, confidence, rule = self.locate_tip(segmentation.outline, segmentation.points, segmentation.difference)
-        if tip is None:
-            self.proposal = None; self.message = 'Change is not dart-shaped; use manual scoring'; return
-        x,y = (tip-CENTER)/SCALE
-        self.proposal = {**score_point(float(x),float(y)), 'x':float(x), 'y':float(y),
-                         'review_required':True, 'near_wire':near_wire(float(x),float(y)),
-                         'confidence':confidence, 'rule':rule,
-                         'note':'Prototype endpoint guess. Verify actual tip; hidden tips can be wrong.'}
-        self.message = 'Possible dart found — confirm or correct score'
+        if segmentation.kind not in ('dart', 'multiple'):
+            self.message = SEGMENTATION_MESSAGES[segmentation.kind]
+            return
+        groups, pieces = segmentation.candidates, False
+        if len(groups) > 1 and not self.apart(groups):
+            groups, pieces = [functools.reduce(vision_segment.Blob.merged, groups)], True  # one dart in pieces?
+        free = vision_tuning.MAX_PENDING_DARTS - len(self.pending)
+        if len(groups) > free:
+            self.message = ('Three camera darts are waiting: accept or correct them first' if free <= 0
+                            else SEGMENTATION_MESSAGES['multiple'])
+            return
+        self.add_darts(warped, segmentation, groups, pieces)
+
+    @staticmethod
+    def apart(groups):
+        """True when every two dart-like blobs are at least SEPARATE_GAP_MM apart (separate darts)."""
+        limit = (vision_tuning.SEPARATE_GAP_MM * SCALE) ** 2
+        return all(float(vision_segment.squared_distances(a.outline, b.outline).min()) >= limit
+                   for a, b in itertools.combinations(groups, 2))
+
+    def segment(self, warped, base, foot):
+        segmentation = vision_segment.segment(warped, base, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot)
+        self.segmentation = segmentation
+        return segmentation
+
+    def add_darts(self, warped, segmentation, groups, pieces=False):
+        """New darts (segmentation candidates) become pending darts and part of the reference image.
+        pieces: the one group is several blobs merged (flagged for a check)."""
+        found = []
+        for group in groups:
+            tip, confidence, rule = self.locate_tip(group.outline, group.points, segmentation.difference)
+            if tip is None:
+                continue
+            x, y = (tip - CENTER) / SCALE
+            self.dart_count += 1
+            proposal = {**score_point(float(x), float(y)), 'x': float(x), 'y': float(y),
+                        'id': f'{self.dart_session}-{self.dart_count}',
+                        'review_required': True, 'near_wire': near_wire(float(x), float(y)),
+                        'confidence': confidence, 'rule': rule, 'check': [],
+                        'note': 'Prototype endpoint guess. Verify actual tip; hidden tips can be wrong.'}
+            if confidence == 'low':
+                proposal['check'].append(vision_tuning.CHECK_TIP_UNCLEAR)
+            if pieces:
+                proposal['check'].append(vision_tuning.CHECK_PIECES)
+            if len(groups) > 1:
+                proposal['together'] = len(groups)  # landed in the same still frame: throw order unknown
+            found.append(TrackedDart(proposal['id'], proposal, 'pending', self.dart_region(group.points),
+                                     self.base))
+        if not found:
+            self.message = 'Change is not dart-shaped; use manual scoring'
+            return
+        if len(found) > 1:
+            self.counters['separated'] += 1
+        self.tracked = (self.tracked + found)[-MAX_TRACKED_DARTS:]
+        self.pending = self.pending + [dart.proposal for dart in found]
+        self.base = warped
+        self.message = PENDING_MESSAGE
+
+    def dart_region(self, points):
+        region = np.zeros((SIZE, SIZE), np.uint8)
+        region[points[:, 1].astype(int), points[:, 0].astype(int)] = 1
+        grow = max(1, int(round(vision_tuning.DART_MASK_GROW_MM * SCALE)))
+        region = cv2.dilate(region, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * grow + 1, 2 * grow + 1)))
+        return region.astype(bool)
+
+    def board_cleared(self, warped, foot):
+        """Every dart was pulled: the board matches the start of the turn again. Starts a new turn reference."""
+        if vision_segment.segment(warped, self.turn_base, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot).kind != 'none':
+            return False
+        self.reset_base()
+        self.counters['board_cleared'] += 1
+        self.message = 'Board cleared: ready for the next turn'
+        return True
+
+    def remove_missing_darts(self, warped):
+        """Tracked darts whose pixels went back to the board behind them: retract pending ones (bounce-out),
+        forget committed ones (pulled). Their region of the reference is replaced by the current frame.
+        Returns the removed darts."""
+        gains = vision_segment.illumination_gains(
+            warped, self.base, vision_segment.gain_samples(SIZE, CENTER, BOARD_CHANGE_RADIUS_MM * SCALE))
+        corrected = warped.astype(np.float32) / np.asarray(gains, np.float32)
+        removed = []
+        for dart in self.tracked:
+            rows, cols = np.nonzero(dart.region)
+            now = corrected[rows, cols]
+            back = np.abs(now - dart.before[rows, cols]).max(axis=1) < vision_tuning.REVERT_PIXEL_DELTA
+            moved = np.abs(now - self.base[rows, cols]).max(axis=1) >= vision_tuning.REVERT_PIXEL_DELTA
+            # Only pixels where the dart made a difference can show that it left.
+            telling = np.abs(dart.before[rows, cols].astype(np.float32) - self.base[rows, cols]).max(axis=1) \
+                >= vision_tuning.REVERT_PIXEL_DELTA
+            if telling.sum() and (back & moved & telling).sum() >= vision_tuning.REMOVED_FRACTION * telling.sum():
+                removed.append(dart)
+        if not removed:
+            return removed
+        base = self.base.copy()
+        for dart in removed:
+            base[dart.region] = warped[dart.region]
+            self.tracked.remove(dart)
+            if dart.status == 'pending':
+                self.pending = [p for p in self.pending if p['id'] != dart.id]
+                self.counters['retracted'] += 1
+                self.message = 'A dart fell out: its camera score was withdrawn'
+            else:
+                self.counters['pulled'] += 1
+                self.message = 'A dart was pulled out'
+        self.base = base
+        return removed
+
+    def large_change(self):
+        """A large still change. Once per episode, check whether the board itself moved (ORB fit against the
+        calibration reference): only then does the geometry need alignment. Otherwise wait it out."""
+        if not self.board_checked:
+            self.board_checked = True
+            shift = self.board_shift()
+            if shift is not None and shift > vision_tuning.BOARD_MOVED_PX:
+                self.invalidate('Board or camera moved: check / realign board before continuing')
+                return
+        self.message = ('Something is in front of the board; waiting. '
+                        'If this stays, check / realign board.')
+
+    def board_shift(self):
+        """How far (image px) the calibration markers moved, from an ORB fit of the current frame; None
+        when the fit is not confident (the board is covered, dark or too changed to tell)."""
+        try:
+            H, _ = self.match_reference()
+            now = cv2.perspectiveTransform(TARGETS.reshape(1, -1, 2), np.linalg.inv(H))[0]
+        except (ValueError, np.linalg.LinAlgError, cv2.error):
+            return None
+        before = self.overlay()
+        return None if before is None else float(np.max(np.linalg.norm(now - before, axis=1)))
 
     def locate_tip(self, contour, pixels=None, difference=None):
         """Return (tip warp px, confidence, rule) for one dart, or (None, None, rule).
@@ -389,7 +604,7 @@ class Vision:
         age = time.time() - timestamp
         state['age_seconds'] = round(age, 1)
         if state['fresh'] and age >= 5:
-            state.update(fresh=False, aligned=False, verified=False, proposal=None, phase='camera_disconnected')
+            state.update(fresh=False, aligned=False, verified=False, proposal=None, pending=[], phase='camera_disconnected')
         if state.get('phase') == 'camera_disconnected':  # never an old "Ready" while the stream is lost
             state['message'] = 'Camera stream lost: waiting for the phone. It reconnects by itself.'
         return state
@@ -413,7 +628,8 @@ class Vision:
                 'aligned':self.aligned and fresh, 'verified':self.verified(), 'phase':phase, 'message':self.message,
                 'calibration_active':active,
                 'calibration_elapsed':int(time.time()-self.calibration_started) if active else None,
-                'proposal':self.proposal if fresh else None, 'overlay':overlay.tolist() if overlay is not None else None,
+                'proposal':self.proposal if fresh else None, 'pending':list(self.pending) if fresh else [],
+                'turn':dict(self.counters, tracked=len(self.tracked)), 'overlay':overlay.tolist() if overlay is not None else None,
                 'version':self.version, 'width':int(self.frame.shape[1]) if self.frame is not None else 0,
                 'height':int(self.frame.shape[0]) if self.frame is not None else 0,
                 'pose':dict(self.pose) if self.pose is not None else None,

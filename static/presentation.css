@@ -34,6 +34,9 @@
 .host .dart-chip.selected{outline:3px solid var(--gold)}
 .host .dart-chip.filled{font-style:italic}
 .host .tap-board .pending-marker{fill:none;stroke:#ffe27a;stroke-width:4;pointer-events:none}
+.host .tap-board .pending-marker.queued{stroke-dasharray:5 4;stroke-width:3}
+.host .tap-board .pending-marker.check{stroke:#ff8a70}
+.host .camera-panel.check .pending,.host .camera-panel.check .pending-detail{color:#ff8a70}
 
 /* QA M1-11: nothing above the tap board changes height during a turn, so the board never moves under a finger. */
 .host .turn-darts{min-height:44px;flex-wrap:nowrap;overflow-x:auto}

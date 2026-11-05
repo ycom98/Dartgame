@@ -98,6 +98,8 @@ class OcclusionHarness(unittest.TestCase):
         self.assertEqual(summary['calibration']['refined'], summary['calibration']['n'])
         for record in records:
             self.assertIn(record['outcome'], ('exact', 'wrong_sector', 'wrong_ring', 'no_proposal'))
+        # M4-01 (default --tracking rolling): pulling the darts clears the board for the next turn.
+        self.assertTrue(all(record['board_cleared'] for record in records))
 
 
 if __name__ == '__main__':

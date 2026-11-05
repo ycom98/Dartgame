@@ -258,13 +258,15 @@ class EndToEnd(unittest.TestCase):
                 self.assertIsNotNone(proposal)
                 self.assertLess(math.hypot(proposal['x'] - dart.x, proposal['y'] - dart.y), 2.0)
 
-    def test_two_new_darts_give_no_single_proposal(self):
+    def test_two_new_darts_in_one_frame_are_separated(self):
+        # M4-01: two clear new blobs in the same still frame become two pending darts.
         from sim.scene import Dart
-        darts = [Dart(x=-60.0, y=-60.0, tilt=10.0), Dart(x=70.0, y=50.0, tilt=10.0)]
+        darts = [Dart(x=-50.0, y=-70.0, tilt=10.0), Dart(x=70.0, y=50.0, tilt=10.0)]
         vision = self.detect('top', darts)
-        self.assertIsNone(vision.proposal)
-        self.assertIn('More than one new dart', vision.message)
         self.assertEqual(vision.segmentation.kind, 'multiple')
+        self.assertEqual(sorted(p['label'] for p in vision.pending),
+                         sorted(score_point(d.x, d.y)['label'] for d in darts))
+        self.assertTrue(all(p['together'] == 2 for p in vision.pending))
 
 
 if __name__ == '__main__':

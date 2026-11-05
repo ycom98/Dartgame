@@ -513,11 +513,13 @@ def game_write(path, body):
             event = ('fill_misses', dict(count=count, **turn_info(before)))
         app.bump()  # new revision and the match saved to disk (M1-16), before the event is logged
         app.events.add(event[0], **event[1])
-    # The new empty-board image is taken on the worker; the reply does not wait for it. Not after an undo
-    # while a camera dart is pending: that dart would become part of the empty board (QA Q5).
-    pending_kept = path == '/api/undo' and app.flow.pending is not None
-    if vision is not None and path in ('/api/throw', '/api/next', '/api/undo') and not pending_kept:
-        worker.submit(reset_base_if_ready)
+    # The camera's turn reference (M4-01) is updated on the worker; the reply does not wait for it. A hand-scored
+    # dart joins the reference image; Next player drops darts still pending. An undo leaves the camera alone:
+    # the undone dart is still in the board.
+    if vision is not None and path == '/api/throw':
+        worker.submit(lambda v: v.absorb() if v.aligned and v.fresh() else None)
+    if vision is not None and path == '/api/next':
+        worker.submit(lambda v: v.end_turn())
     return None
 
 def check_revision(body):
@@ -558,7 +560,7 @@ def commit_camera_dart(proposal_id, source, replacement=None, expected_revision=
             proposal = {key:val for key,val in pending.items() if key != 'seen_at'}
             app.events.add('commit', source=source, dart=last_dart(g), proposal=proposal,
                            frame_seq=worker.last_source_seq, **turn_info(before))
-        reset_base_if_ready(vision)
+        if vision.aligned and vision.fresh(): vision.commit_dart(proposal_id)  # stays in the camera's reference
     finally:
         vision.publish(); app.flow.observe(vision)
         vision.lock.release()

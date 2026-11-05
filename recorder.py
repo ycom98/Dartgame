@@ -37,7 +37,7 @@ MIN_FREE_BYTES = 5 * 1024 ** 3
 # Calls made inside these are part of them (ingest invalidates on a stale or resized frame) and are not logged.
 SILENT_CALLS = ('ingest',)
 VISION_ACTIONS = ('begin_calibration', 'cancel_calibration', 'calibrate', 'align', 'verify', 'reset_base',
-                  'reset_camera', 'set_mount_side', 'invalidate')
+                  'reset_camera', 'set_mount_side', 'invalidate', 'commit_dart', 'absorb', 'end_turn')
 
 
 def json_safe(value):
@@ -52,6 +52,28 @@ def json_safe(value):
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
     return repr(value)
+
+
+def detection_summary(proposal, with_id=False):
+    """What processed.jsonl keeps of one proposal. The head proposal has no id (as before M4); pending darts
+    keep theirs, so tools can follow a dart from its first frame to its commit."""
+    if 'x' not in proposal:
+        return {'label': proposal.get('label')}
+    summary = {'label': proposal.get('label'), 'x': round(float(proposal['x']), 3), 'y': round(float(proposal['y']), 3)}
+    if with_id and proposal.get('id'):
+        summary['id'] = proposal['id']
+    if proposal.get('check'):
+        summary['check'] = list(proposal['check'])
+    return summary
+
+
+def processed_record(vision, seq):
+    """One processed.jsonl line: the head proposal (as before M4), every pending dart, and the stability count
+    (tools/trial_report.py measures landing-to-proposal latency from it)."""
+    proposal = vision.proposal
+    pending = [detection_summary(p, with_id=True) for p in vision.pending]
+    return {'seq': seq, 'proposal': None if proposal is None else detection_summary(proposal),
+            'pending': pending, 'stable': int(vision.stable)}
 
 
 class Recorder:
@@ -334,10 +356,13 @@ class Recorder:
         cv2.imwrite(str(start / 'reference.png'), vision.reference)
         if vision.base is not None:
             cv2.imwrite(str(start / 'base.png'), vision.base)
+        if vision.turn_base is not None:
+            cv2.imwrite(str(start / 'turn_base.png'), vision.turn_base)
         reference_points = cv2.perspectiveTransform(TARGETS.reshape(1, -1, 2), np.linalg.inv(vision.reference_H))[0]
         state = {'H': vision.H, 'reference_H': vision.reference_H, 'reference_points': reference_points,
                  'aligned': vision.aligned, 'verified': vision.verified(), 'mount_side': vision.mount_side,
                  'camera_hfov': vision.camera_hfov, 'stable': vision.stable, 'version': vision.version,
+                 'dart_count': vision.dart_count,
                  'frame_size': list(vision.frame.shape[:2])
                  if vision.frame is not None else None, 'has_base': vision.base is not None}
         (start / 'vision.json').write_text(json.dumps(json_safe(state), indent=2) + '\n')
@@ -385,10 +410,7 @@ class Recorder:
         if source is not None:
             seq += self.source_offset(source)
         self.last_processed_seq = seq
-        proposal = vision.proposal
-        self.append('processed.jsonl', {'seq': seq, 'proposal': None if proposal is None else {
-            'label': proposal.get('label'), 'x': round(float(proposal['x']), 3), 'y': round(float(proposal['y']), 3)}
-            if 'x' in proposal else {'label': proposal.get('label')}})
+        self.append('processed.jsonl', processed_record(vision, seq))
 
     # ---- frame writer ------------------------------------------------------------------
     def run(self):

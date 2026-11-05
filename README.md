@@ -34,6 +34,7 @@ In a camera game, `/control` shows each detected dart as **Camera: T20 (60)** wi
 - **Dart the camera missed:** tap where it landed.
 - **Fix a dart already recorded:** tap its chip (Dart 1: …), then tap the board (two taps).
 - **Darts off the board:** press **End turn · misses**; the missing darts are recorded as clearly marked misses, which you can still correct.
+- **Several darts at once:** the camera keeps watching while darts wait. Up to three camera darts can be pending (**Camera: T20 (60) · then S5, S1**, later ones marked dashed on the board); Accept and taps always apply to the first, and each next dart gets its own full countdown. A dart that falls out is withdrawn by itself; pulling the darts out starts the next turn's camera reference (no button needed).
 
 Every write carries the revision it was based on, so a second controller with an old view gets "Match changed" instead of overwriting.
 
