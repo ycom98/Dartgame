@@ -1,0 +1,65 @@
+PASS verify after calibration
+PASS camera game started
+PASS three pending darts oldest first  (['T1', 'S16', 'S2'], ['T1', 'S16', 'S2'])
+PASS /api/state camera.pending_darts present & head==pending
+PASS later darts queued, no countdown
+PASS accept dart 2 before dart 1 -> 409  (409, 'Proposal changed. Check the board and the current camera dart.')
+PASS correct dart 3 before dart 1 -> 409  (409, 'Proposal changed. Check the board and the current camera dart.')
+PASS nothing recorded by the 409s
+PASS stale revision accept -> 409  (409, 'Match changed on another controller. Review the current turn.')
+PASS accept head
+PASS accept head twice -> 409  409
+PASS auto-commit dart2 then dart3, each with own countdown  (['T1', 'S16', 'S2'], 1.64, 3.17)
+PASS board cleared after pulling  ('Ready', {'board_cleared': 1, 'retracted': 0, 'pulled': 3, 'separated': 0, 'tracked': 0})
+PASS no phantom pending after normal pull
+PASS next player
+PASS stale revision /api/throw -> 409  409
+PASS stale revision /api/undo -> 409  409
+PASS stale revision /api/next -> 409  409
+PASS stale revision /api/turn/fill_misses -> 409  409
+PASS upper dart auto-committed  ['S20']
+PASS flagged dart still pending after 2x delay  {'label': 'S3', 'check': ['tip direction unclear — check', 'possibly hidden tip — check'], 'confidence': 'low', 'needs_check': True, 'commit_in': None}
+PASS flagged dart not in game  ['S20']
+PASS undo with pending
+PASS pending kept after undo  ['S3']
+PASS accept flagged after undo
+game darts after undo+accept (dart 2 recorded as dart 1): ['S3']
+manual miss 200 None
+next 400 Record all three darts, including misses, first
+vision message before Ana turn: Ready pending []
+PASS ana d1 accepted  (None, [])
+PASS ana d2 pending before restart  ['S16']
+PASS restart: match restored  ([{'value': 3, 'multiplier': 1, 'score': 3}, {'value': 0, 'multiplier': 1, 'score': 0}, {'value': 1, 'multiplier': 3, 'score': 3}], [{'value': 3, 'multiplier': 1, 'score': 3}, {'value': 0, 'multiplier': 1, 'score': 0}, {'value': 1, 'multiplier': 3, 'score': 3}])
+restart vision: review_overlay Board position matches the saved calibration. Check the live overlay, then verify. pending []
+PASS verify after restart
+PASS restart: the pending dart 2 is gone (must be tapped)
+PASS restart: dart 3 detected  ['S2']
+manual tap of lost dart 2 while dart3 pending: 400 Turn is finished; advance or undo pending ['S2']
+ana darts ['S3', 'Miss', 'T1']
+next 200 None
+after pull: msg Ready pending [] turn {'board_cleared': 0, 'retracted': 0, 'pulled': 1, 'separated': 0, 'tracked': 2}
+FAIL restart: pulling the earlier darts adds no darts to the next player  (['T1', 'S16'], [])
+baseline 200
+6b start: turn darts ['T1', 'S16'] pending []
+6b two darts auto-committed ['T1', 'S16']
+6b after drop: verified True Camera back and the board has not moved: ready to play.
+6b dart 3 ['T1', 'S16', 'S2']
+6b next 200 None
+FAIL stream drop: pulling the darts adds no darts to the next player  (['T1', 'S16'], [], 'Ready')
+before recal pending []
+PASS recalibrate with pending  200
+PASS recalibration drops pending darts
+after recal next dart ['S16']
+PASS manual game
+PASS manual game /api/throw
+PASS manual game /api/undo
+PASS manual game /api/throw
+PASS manual game /api/turn/fill_misses
+PASS manual game /api/next
+PASS camera off
+PASS camera off /api/throw  (200, None)
+PASS camera off /api/undo  (200, None)
+PASS camera off /api/next  (400, 'Record all three darts, including misses, first')
+PASS state with camera off  {'pending': None, 'pending_darts': [], 'auto_commit': {'seconds': 1.5, 'paused': True, 'enabled': True}}
+
+SUMMARY: 44 pass, 2 fail

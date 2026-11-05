@@ -1,0 +1,31 @@
+setting                                     exact (tune)  proposed  false  silent wrong  flagged right  exact (hold-out)
+current values                                     84.2%   19/19        0             3              4             87.5%
+change_threshold=24                                89.5%   19/19        0             2              4             87.5%
+change_threshold=36                                78.9%   19/19        0             4              4             87.5%
+noise_factor=4.0                                   84.2%   19/19        0             3              4             87.5%
+noise_factor=6.0                                   84.2%   19/19        0             3              4             87.5%
+min_dart_mm2=30.0                                  84.2%   19/19        0             3              4             87.5%
+min_dart_mm2=55.0                                  84.2%   19/19        0             3              4             87.5%
+min_dart_length_mm=12.0                            84.2%   19/19        0             3              4             87.5%
+min_dart_length_mm=18.0                            84.2%   19/19        0             3              4             87.5%
+stable_frames=2                                    84.2%   19/19        0             3              3             87.5%
+stable_frames=4                                    84.2%   19/19        0             3              3             87.5%
+motion_still_fraction=0.002                        84.2%   19/19        0             3              4             87.5%
+motion_still_fraction=0.008                        84.2%   19/19        0             3              4             87.5%
+tip_bias_mm=-0.5                                   84.2%   19/19        0             3              4             87.5%
+tip_bias_mm=0.5                                    78.9%   19/19        0             4              3             87.5%
+tip_bias_mm=1.0                                    84.2%   19/19        0             3              3            100.0%
+occlusion_reach_mm=0.5                             84.2%   19/19        0             3              2             87.5%
+occlusion_reach_mm=2.0                             84.2%   19/19        0             3              4             87.5%
+occlusion_reach_mm=3.0                             84.2%   19/19        0             3              4             87.5%
+occlusion_touch_mm=0.5                             84.2%   19/19        0             3              4             87.5%
+occlusion_touch_mm=1.0                             84.2%   19/19        0             3              4             87.5%
+removed_fraction=0.4                               84.2%   19/19        0             3              4             87.5%
+removed_fraction=0.8                               84.2%   19/19        0             3              4             87.5%
+
+Best: change_threshold=24: exact 84.2% -> 89.5% on the tuning darts, 87.5% -> 87.5% on the hold-out darts; false proposals 0 -> 0.
+Adopt it only if the hold-out darts improve too. Set it in vision_tuning.py (or the module named in vision_tuning.TUNABLE).
+
+real	8m39.359s
+user	8m27.431s
+sys	0m59.868s

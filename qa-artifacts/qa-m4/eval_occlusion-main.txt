@@ -1,0 +1,6 @@
+ceiling-1.5ft  realistic         seed 2  t20-group d2 vis 0.82 exact 0.88 | d3 vis 0.82 exact 0.9  t20-neighbours d2 vis 1.0 exact 0.94 | d3 vis 1.0 exact 0.9  stacked-below d2 vis 0.68 exact 0.86 | d3 vis 0.62 exact 0.6
+ceiling-1.5ft  realistic         seed 3  t20-group d2 vis 0.92 exact 0.86 | d3 vis 0.88 exact 0.86  t20-neighbours d2 vis 1.0 exact 0.9 | d3 vis 1.0 exact 0.9  stacked-below d2 vis 0.64 exact 0.68 | d3 vis 0.5 exact 0.62
+
+real	3m17.371s
+user	3m52.477s
+sys	0m22.723s
