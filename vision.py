@@ -557,13 +557,17 @@ class Vision:
         """Every dart was pulled: the board matches the start of the turn (against_turn) or the known empty
         board again. Starts a new turn reference. The empty board works even when the camera does not know
         which darts are in the board (after a restart or a realign, or for darts scored by hand)."""
-        references = ([self.turn_base] if against_turn else []) + [self.empty_board()]
+        empty = self.empty_board()
+        references = ([self.turn_base] if against_turn else []) + [empty]
         for reference in references:
             if reference is None or vision_segment.segment(
                     warped, reference, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot).kind != 'none':
                 continue
             self.reset_base()
-            self.empty = warped  # the freshest picture of the empty board
+            if reference is empty:
+                # The freshest picture of the empty board. Never from a turn reference: after a restart or a
+                # moved board it can hold darts the camera does not know about (QA M4 H1b).
+                self.empty = warped
             self.counters['board_cleared'] += 1
             self.message = 'Board cleared: ready for the next turn'
             return True

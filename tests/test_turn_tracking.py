@@ -158,6 +158,33 @@ class RecoveryWithDartsInTheBoard(unittest.TestCase):
         self.assertEqual(vision.pending, [])
         self.pull_and_clear(vision)
 
+    def test_restart_mid_turn_then_pull_in_any_order(self):
+        # QA M4 H1b: two darts in the board at the restart (untracked), dart 3 tracked; whatever the pull order,
+        # nothing is proposed and the empty board is never replaced by a board with darts in it.
+        import itertools
+        import tempfile
+        import persistence
+        before = self.two_committed()
+        with tempfile.TemporaryDirectory() as folder:
+            persistence.save_calibration(before, folder)
+            for order in itertools.permutations(range(3)):
+                with self.subTest(order=order):
+                    vision = Vision()
+                    vision.ingest(self.frame(self.darts[:2]))
+                    persistence.load_calibration(vision, folder)
+                    vision.align()
+                    self.show(vision, self.darts)
+                    vision.commit_dart(vision.proposal['id'])
+                    vision.end_turn()
+                    left = list(range(3))
+                    for dart in order:
+                        left.remove(dart)
+                        self.show(vision, [self.darts[k] for k in left])
+                        self.assertEqual(vision.pending, [], (order, left, vision.message))
+                    self.assertGreaterEqual(vision.counters['board_cleared'], 1)
+                    self.show(vision, self.darts[1:2])  # the next player's dart, where an old one was
+                    self.assertEqual([p['label'] for p in vision.pending], self.labels[1:2])
+
     def test_a_hand_scored_dart_pulled_on_its_own(self):
         vision = self.calibrated()
         self.show(vision, self.darts[:1])
