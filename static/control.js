@@ -496,7 +496,7 @@
   function pendingText(p) {
     if (!p) {
       const v = state.vision || {};
-      if (v.verified) return ['Camera: watching for the next dart', ''];
+      if (v.verified) return ['Camera: watching for the next dart', v.board_warning || ''];
       // Say what is wrong and what to do (QA M1-17 #3); tapping the board always works meanwhile.
       const phases = {
         camera_disconnected: ['Camera reconnecting…', 'Phone stream lost. It reconnects by itself; tap darts on the board meanwhile.'],
