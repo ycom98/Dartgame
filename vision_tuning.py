@@ -40,9 +40,13 @@ BOARD_MOVED_PX = 2.0             # REAL DATA
 # A new dart may be hiding its tip behind an earlier dart when an earlier dart lies right past its visible tip
 # on the camera side (toward the foot point): the visible part of the dart then ends at the earlier dart's
 # outline, and the tip found is where the dart comes out from behind it, not where it entered the board.
-OCCLUSION_TOUCH_MM = 2.5         # REAL DATA: an earlier dart within this of the visible tip counts as touching it
-OCCLUSION_CONE_DEG = 60.0        # REAL DATA: ... and lies within this angle of the tip-to-foot-point direction
-OCCLUSION_REACH_MM = 6.0         # REAL DATA: how far past the visible tip (toward the foot point) to look
+# Chosen on seed 1 (ceiling-1.5ft, realistic, darts 2-3 of 150 turns): an earlier dart within 1 mm past the
+# visible tip on the camera side flags 20 of 30 wrong scores and 15% of right ones. Flagging any earlier dart
+# within 0.5-1 mm in any direction catches no more and flags more right ones, so it is off (0).
+OCCLUSION_TOUCH_MM = 0.0         # REAL DATA: an earlier dart this close to the visible tip in any direction
+OCCLUSION_CONE_DEG = 60.0        # REAL DATA: "camera side": within this angle of the tip-to-foot-point direction
+OCCLUSION_REACH_MM = 1.0         # REAL DATA: an earlier dart this close past the visible tip on the camera side
+OCCLUSION_SEARCH_MM = 15.0       # distances are measured (and logged with each proposal) up to this far
 CHECK_HIDDEN_TIP = 'possibly hidden tip — check'
 CHECK_PIECES = 'seen in pieces (one dart or two?) — check'
 CHECK_TIP_UNCLEAR = 'tip direction unclear — check'
@@ -58,7 +62,8 @@ TUNABLE = {
     'stable_frames': ('vision_tuning', 'STABLE_FRAMES', (2, 3, 4)),
     'motion_still_fraction': ('vision_tuning', 'MOTION_STILL_FRACTION', (0.002, 0.004, 0.008)),
     'tip_bias_mm': ('vision', 'TIP_BIAS_MM', (-0.5, 0.0, 0.5, 1.0)),
-    'occlusion_touch_mm': ('vision_tuning', 'OCCLUSION_TOUCH_MM', (1.5, 2.5, 4.0)),
+    'occlusion_reach_mm': ('vision_tuning', 'OCCLUSION_REACH_MM', (0.5, 1.0, 2.0, 3.0)),
+    'occlusion_touch_mm': ('vision_tuning', 'OCCLUSION_TOUCH_MM', (0.0, 0.5, 1.0)),
     'removed_fraction': ('vision_tuning', 'REMOVED_FRACTION', (0.4, 0.6, 0.8)),
 }
 

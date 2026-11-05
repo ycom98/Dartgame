@@ -115,11 +115,16 @@ class CameraFlow:
     def auto_commit_enabled(self):
         return self.delay > 0 and not self.paused
 
+    @staticmethod
+    def needs_check(dart):
+        """Low confidence (M4-02: e.g. a possibly hidden tip): never auto-committed; waits for Accept or a tap."""
+        return dart.get('confidence') == 'low' or bool(dart.get('check'))
+
     def due(self):
         """The head if its auto-commit time has come, else None."""
         with self.lock:
             pending = self.pending
-            if pending is None or not self.auto_commit_enabled():
+            if pending is None or not self.auto_commit_enabled() or self.needs_check(pending):
                 return None
             return dict(pending) if time.monotonic() - pending['seen_at'] >= self.delay else None
 
@@ -133,7 +138,8 @@ class CameraFlow:
                 shown = {key: value for key, value in dart.items() if key != 'seen_at'}
                 shown['turn_over'] = turn_over
                 shown['queued'] = position > 0  # waits for the darts before it
-                if turn_over or position > 0 or not self.auto_commit_enabled():
+                shown['needs_check'] = self.needs_check(dart)
+                if turn_over or position > 0 or not self.auto_commit_enabled() or shown['needs_check']:
                     shown['commit_in'] = None
                 else:
                     shown['commit_in'] = round(max(0.0, self.delay - (time.monotonic() - dart['seen_at'])), 2)

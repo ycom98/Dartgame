@@ -442,7 +442,8 @@ class Vision:
         """New darts (segmentation candidates) become pending darts and part of the reference image.
         pieces: the one group is several blobs merged (flagged for a check)."""
         found = []
-        for group in groups:
+        regions = [self.dart_region(group.points) for group in groups]
+        for index, group in enumerate(groups):
             tip, confidence, rule = self.locate_tip(group.outline, group.points, segmentation.difference)
             if tip is None:
                 continue
@@ -457,10 +458,19 @@ class Vision:
                 proposal['check'].append(vision_tuning.CHECK_TIP_UNCLEAR)
             if pieces:
                 proposal['check'].append(vision_tuning.CHECK_PIECES)
+            # Occlusion-aware confidence (M4-02): the darts already in the board, and the others found now.
+            occluders = [d.region for d in self.tracked] + regions[:index] + regions[index + 1:]
+            touch, cone = self.occlusion_distances(tip, functools.reduce(np.logical_or, occluders)) \
+                if occluders else (None, None)
+            proposal['occlusion'] = {'any_mm': None if touch is None else round(touch, 2),
+                                     'cone_mm': None if cone is None else round(cone, 2)}
+            if self.hidden_tip_risk(touch, cone):
+                proposal['check'].append(vision_tuning.CHECK_HIDDEN_TIP)
+            if proposal['check']:
+                proposal['confidence'] = 'low'  # waits for Accept or a tap (no auto-commit)
             if len(groups) > 1:
                 proposal['together'] = len(groups)  # landed in the same still frame: throw order unknown
-            found.append(TrackedDart(proposal['id'], proposal, 'pending', self.dart_region(group.points),
-                                     self.base))
+            found.append(TrackedDart(proposal['id'], proposal, 'pending', regions[index], self.base))
         if not found:
             self.message = 'Change is not dart-shaped; use manual scoring'
             return
@@ -470,6 +480,37 @@ class Vision:
         self.pending = self.pending + [dart.proposal for dart in found]
         self.base = warped
         self.message = PENDING_MESSAGE
+
+    def occlusion_distances(self, tip, occluders):
+        """(nearest earlier-dart pixel in any direction, nearest within OCCLUSION_CONE_DEG of the direction from
+        the visible tip toward the foot point), in mm, within vision_tuning.OCCLUSION_SEARCH_MM; None where there is none.
+
+        occluders: bool warp mask of the darts already in the board (and other darts found in the same frame).
+        """
+        search = vision_tuning.OCCLUSION_SEARCH_MM * SCALE
+        x0, y0 = np.maximum(np.floor(tip - search).astype(int), 0)
+        x1, y1 = np.minimum(np.ceil(tip + search).astype(int) + 1, SIZE)
+        ys, xs = np.nonzero(occluders[y0:y1, x0:x1])
+        if len(xs) == 0:
+            return None, None
+        offsets = np.column_stack([xs + x0, ys + y0]).astype(np.float32) - tip
+        distances = np.linalg.norm(offsets, axis=1)
+        nearest = float(distances.min()) / SCALE
+        foot_mm = self.foot_point()
+        if foot_mm is None:
+            return nearest, None
+        toward = np.asarray(foot_mm, np.float32) * SCALE + CENTER - tip
+        toward /= max(float(np.linalg.norm(toward)), 1e-6)
+        cosines = (offsets @ toward) / np.maximum(distances, 1e-6)
+        inside = cosines >= np.cos(np.radians(vision_tuning.OCCLUSION_CONE_DEG))
+        return nearest, (float(distances[inside].min()) / SCALE if inside.any() else None)
+
+    @staticmethod
+    def hidden_tip_risk(touch, cone):
+        """M4-02: an earlier dart touches the visible tip, or lies just past it on the camera side (toward the
+        foot point), so the real tip may be hidden behind it. Thresholds: vision_tuning.OCCLUSION_*."""
+        return ((touch is not None and touch <= vision_tuning.OCCLUSION_TOUCH_MM)
+                or (cone is not None and cone <= vision_tuning.OCCLUSION_REACH_MM))
 
     def dart_region(self, points):
         region = np.zeros((SIZE, SIZE), np.uint8)

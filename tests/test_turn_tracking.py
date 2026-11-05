@@ -101,6 +101,40 @@ class TurnTracking(unittest.TestCase):
         self.assertEqual(vision.pending, [])
 
 
+class OcclusionConfidence(unittest.TestCase):
+    """M4-02: a dart whose visible part ends at an earlier dart (camera side) is flagged and not auto-committed."""
+    setUpClass = classmethod(TurnTracking.setUpClass.__func__)
+    frame, show, calibrated = TurnTracking.frame, TurnTracking.show, TurnTracking.calibrated
+
+    def test_dart_below_an_earlier_dart_is_flagged_and_one_beside_it_is_not(self):
+        from sim.scene import Dart
+        from tools.eval_occlusion import visibility
+        upper = Dart(10.0, -60.0, length=125.0, tilt=10.0, azimuth=0.0)
+        below = Dart(10.0, -25.0, length=125.0, tilt=10.0, azimuth=0.0)  # its tip is behind the upper dart
+        self.assertTrue(visibility(self.camera, [upper, below], 1)['hidden_by_earlier'])
+        for second, flagged in ((below, True), (self.darts[1], False)):
+            with self.subTest(flagged=flagged):
+                vision = self.calibrated()
+                self.show(vision, [upper])
+                vision.commit_dart(vision.proposal['id'])
+                self.show(vision, [upper, second])
+                proposal = vision.proposal
+                self.assertIsNotNone(proposal, vision.message)
+                self.assertEqual('possibly hidden tip — check' in proposal['check'], flagged, proposal)
+                self.assertEqual(proposal['confidence'] == 'low', flagged)
+
+    def test_low_confidence_head_waits_for_accept(self):
+        flow, vision = CameraFlow(delay=0.05), PendingOrder.FakeVision()
+        dart = PendingOrder.dart('a-1', 'S20')
+        vision.pending = [{**dart, 'confidence': 'low', 'check': ['possibly hidden tip — check']}]
+        flow.observe(vision)
+        time.sleep(0.1)
+        self.assertIsNone(flow.due())
+        view = flow.view()['pending']
+        self.assertTrue(view['needs_check'])
+        self.assertIsNone(view['commit_in'])
+
+
 class PendingOrder(unittest.TestCase):
     """CameraFlow with several pending darts: the head commits first; each later dart gets a full countdown."""
 

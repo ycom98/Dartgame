@@ -163,7 +163,8 @@ def run_cell(cell):
                 else:
                     record.update({'proposal': proposal['label'], 'tip_error_mm': round(float(
                         math.hypot(proposal['x'] - truth['x'], proposal['y'] - truth['y'])), 2),
-                        'check': list(proposal.get('check') or []), 'confidence': proposal.get('confidence')})
+                        'check': list(proposal.get('check') or []), 'confidence': proposal.get('confidence'),
+                        'occlusion': proposal.get('occlusion')})
                 records.append(record)
                 if tracking == 'rolling':
                     for dart in new:
