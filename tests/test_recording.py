@@ -175,6 +175,9 @@ class RecordedSession(unittest.TestCase):
         self.assertIn('sim left', text)
         images = sorted(p for p in out.rglob('*') if p.suffix in ('.png', '.jpg'))
         self.assertEqual([p.name for p in images], ['contact_sheet.png', 'throw_005.png'])
+        sheet = cv2.imread(str(out / 'contact_sheet.png'))  # QA M4 M2: capped, never frame-sized
+        self.assertLessEqual(sheet.shape[0] * sheet.shape[1], 1280 * 720)
+        self.assertNotIn(str(self.directory.parent), text)  # QA M4 L1: no local paths in the report
         crop = cv2.imread(str(out / 'crops' / 'throw_005.png'))
         self.assertLess(crop.shape[0] * crop.shape[1], 720 * 1280 / 4)  # a crop pair, not a frame
 

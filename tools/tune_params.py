@@ -9,9 +9,13 @@ finds different darts is still scored dart by dart.
 Settings: the current values, then each parameter moved to each of its grid values with the others at their
 current values (one at a time; --full tries every combination of the chosen --params).
 
-Darts are split by throw into a tuning part and a hold-out part (--holdout, default 30%). The best setting is
-the one with the highest exact-score share on the tuning darts whose false proposals (camera darts never
-committed) are no higher than the current values'; it is then checked on the hold-out darts. The flag
+Scored darts: every camera-scored dart except misses and darts tagged 'stacked' in labels.jsonl (a stacked dart
+can hide its tip from any single camera; the trial report shows them separately).
+
+Darts are split by throw into a tuning part and a hold-out part (--holdout, default 30%). The candidate is the
+setting with the highest exact-score share on the tuning darts whose false proposals (camera darts never
+committed) are no higher than the current values'. It is recommended only if it is also better on the hold-out
+darts; otherwise the advice is to keep the current values. The flag
 thresholds (occlusion_*) do not change scores: compare their "silent wrong" (wrong and not flagged, so it
 auto-commits) against "flagged right" (an extra tap) instead.
 
@@ -139,6 +143,9 @@ def main(argv=None):
     if unknown:
         parser.error('unknown parameter(s): ' + ', '.join(unknown) + '. Known: ' + ', '.join(vision_tuning.TUNABLE))
     sessions = [(directory, labels_of(directory)) for directory in args.sessions]
+    stacked = sum('stacked' in label['tags'] for _, labels in sessions for label in labels)
+    if stacked:
+        print(f'{stacked} darts tagged "stacked" are left out of the scores.')
     rows = []
     print(f"{'setting':42} {'exact (tune)':>13} {'proposed':>9} {'false':>6} {'silent wrong':>13} "
           f"{'flagged right':>14} {'exact (hold-out)':>17}")
@@ -154,13 +161,18 @@ def main(argv=None):
     best = max(allowed, key=lambda row: (share(row[1]['tune']), -row[2]))
     print()
     if best is baseline or share(best[1]['tune']) <= share(baseline[1]['tune']):
-        print('Best: keep the current values (nothing beat them without more false proposals).')
+        print('Keep the current values: nothing beat them without more false proposals.')
+    elif share(best[1]['holdout']) <= share(baseline[1]['holdout']):
+        change = ', '.join(f'{k}={v}' for k, v in best[0].items())
+        print(f"Keep the current values: {change} scored better on the tuning darts "
+              f"({share(baseline[1]['tune']):.1%} -> {share(best[1]['tune']):.1%}) but not on the hold-out darts "
+              f"({share(baseline[1]['holdout']):.1%} -> {share(best[1]['holdout']):.1%}).")
     else:
         change = ', '.join(f'{k}={v}' for k, v in best[0].items())
         print(f"Best: {change}: exact {share(baseline[1]['tune']):.1%} -> {share(best[1]['tune']):.1%} on the tuning "
               f"darts, {share(baseline[1]['holdout']):.1%} -> {share(best[1]['holdout']):.1%} on the hold-out darts; "
               f"false proposals {baseline[2]} -> {best[2]}.")
-        print('Adopt it only if the hold-out darts improve too. Set it in vision_tuning.py (or the module named '
+        print('Check it on the next session before relying on it. Set it in vision_tuning.py (or the module named '
               'in vision_tuning.TUNABLE).')
     return rows, best
 

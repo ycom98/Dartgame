@@ -5,7 +5,8 @@ Runs make_labels (unless labels.jsonl already exists: hand-fixed truth and tags 
 through Vision, draws the contact sheet, and writes into REPORT_DIR (default SESSION_DIR/report):
   trial_report.md     accuracy overall / near-wire / stacked, no-proposal and false-proposal rates, latency,
                       calibration quality, mount and lighting notes, and every wrong or corrected dart
-  contact_sheet.png   before/after crops of every dart
+  contact_sheet.png   before/after crops of the darts worth a look (wrong, corrected, not proposed, flagged), at half
+                      size, at most SHEET_PANELS of them: never larger than one 1280x720 frame
   crops/throw_NNN.png the crop pair of each wrong or corrected dart (named in the report)
 
 Privacy: only small crops around each dart leave the recording; no video and no full frames are written.
@@ -24,11 +25,34 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import cv2  # noqa: E402
+import numpy as np  # noqa: E402
 
 import vision_tuning  # noqa: E402
-from tools.contact_sheet import Panels, make_sheet  # noqa: E402
+from tools.contact_sheet import Panels  # noqa: E402
 from tools.make_labels import make_labels, read_jsonl  # noqa: E402
 from tools.replay_recording import replay  # noqa: E402
+
+
+# The report's contact sheet: half-size panels, SHEET_COLUMNS wide, at most SHEET_PANELS (1258 x 612 px), so it is
+# never frame-sized and does not grow with the session (QA M4 M2). Every listed dart also has its own crop file.
+SHEET_COLUMNS = 5
+SHEET_PANELS = 20
+
+
+def contact_sheet(drawer, labels):
+    """(sheet image or None, labels drawn) for the first SHEET_PANELS labels, at half size."""
+    shown = labels[:SHEET_PANELS]
+    if not shown:
+        return None, []
+    tiles = [cv2.resize(drawer.panel(label), None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for label in shown]
+    height, width = tiles[0].shape[:2]
+    rows = (len(tiles) + SHEET_COLUMNS - 1) // SHEET_COLUMNS
+    sheet = np.full((rows * (height + 8) + 8, SHEET_COLUMNS * (width + 8) + 8, 3), 24, np.uint8)
+    for index, tile in enumerate(tiles):
+        row, column = divmod(index, SHEET_COLUMNS)
+        y, x = 8 + row * (height + 8), 8 + column * (width + 8)
+        sheet[y:y + height, x:x + width] = tile
+    return sheet, shown
 
 
 def rate(count, total):
@@ -120,9 +144,6 @@ def build_report(directory, out, relabel=False):
                 handle.write(json.dumps(label) + '\n')
     labels = read_jsonl(labels_path)
     replayed = replay(directory)
-    sheet, panels = make_sheet(directory) if labels else (None, 0)
-    if sheet is not None:
-        cv2.imwrite(str(out / 'contact_sheet.png'), sheet)
 
     darts = scored(labels)
     flagged = [label for label in darts if label.get('detection_check')]
@@ -183,7 +204,13 @@ def build_report(directory, out, relabel=False):
     problems = [l for l in labels if l['source'] == 'corrected' or
                 l['detection_label'] not in (None, l['truth_label']) or
                 (l in darts and l['detection_label'] is None)]
-    drawer = Panels(directory) if problems else None
+    drawer = Panels(directory) if labels else None
+    worth_a_look = problems + [l for l in flagged if l not in problems]
+    sheet, shown = contact_sheet(drawer, worth_a_look) if drawer else (None, [])
+    (out / 'contact_sheet.png').unlink(missing_ok=True)
+    if sheet is not None:
+        cv2.imwrite(str(out / 'contact_sheet.png'), sheet)
+    panels = len(shown)
     crops = out / 'crops'
     entries = []
     for label in problems:
@@ -196,9 +223,12 @@ def build_report(directory, out, relabel=False):
                         ', '.join(label['tags']), f'crops/{name}'))
     lines.append(table(['throw', 'dart', 'truth', 'camera', 'recorded as', 'camera flags', 'tags', 'crop'], entries)
                  if entries else 'None.')
+    lines += ['', f'`contact_sheet.png` shows {len(shown)} of the {len(worth_a_look)} wrong, corrected, unproposed or '
+              'flagged darts' + (f' (the first {SHEET_PANELS}; every one listed above has its own crop)'
+                                 if len(worth_a_look) > len(shown) else '') + '.']
     lines += ['', '## Thresholds in use', '',
               'Synthetic-tuned values (`vision_tuning.py`); tune them on this recording with '
-              f'`tools/tune_params.py {directory}`.', '',
+              f'`tools/tune_params.py {directory.name}` (run it on the session folder on the Mac).', '',
               table(['name', 'value'], [(name, vision_tuning.current(name)) for name in vision_tuning.TUNABLE]), '']
     (out / 'trial_report.md').write_text('\n'.join(lines))
     return {'report': str(out / 'trial_report.md'), 'darts': len(darts), 'panels': panels, 'problems': len(entries),
