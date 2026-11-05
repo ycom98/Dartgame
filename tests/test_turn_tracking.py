@@ -101,6 +101,77 @@ class TurnTracking(unittest.TestCase):
         self.assertEqual(vision.pending, [])
 
 
+class RecoveryWithDartsInTheBoard(unittest.TestCase):
+    """QA M4 H1: after a realign, a stream drop or a restart mid-turn, and for a dart scored by hand, pulling
+    darts the camera is not tracking must never propose them, and the cleared board must still be seen."""
+    setUpClass = classmethod(TurnTracking.setUpClass.__func__)
+    frame, show, calibrated = TurnTracking.frame, TurnTracking.show, TurnTracking.calibrated
+
+    def two_committed(self):
+        vision = self.calibrated()
+        for k in (1, 2):
+            self.show(vision, self.darts[:k])
+            vision.commit_dart(vision.proposal['id'])
+        return vision
+
+    def pull_and_clear(self, vision):
+        """Pull dart 1, then dart 2: nothing is proposed, and the board counts as cleared."""
+        cleared = vision.counters['board_cleared']
+        self.show(vision, self.darts[1:2])
+        self.assertEqual(vision.pending, [], vision.message)
+        self.show(vision, [])
+        self.assertEqual(vision.pending, [], vision.message)
+        self.assertEqual(vision.counters['board_cleared'], cleared + 1)
+        self.show(vision, self.darts[2:3])  # the next player's first dart is proposed as usual
+        self.assertEqual([p['label'] for p in vision.pending], self.labels[2:3])
+
+    def test_check_realign_mid_turn(self):
+        vision = self.two_committed()
+        vision.align()
+        self.pull_and_clear(vision)
+
+    def test_stream_drop_mid_turn_keeps_the_pending_dart(self):
+        vision = self.calibrated()
+        self.show(vision, self.darts[:1])
+        vision.commit_dart(vision.proposal['id'])
+        self.show(vision, self.darts[:2])
+        pending = vision.proposal['id']
+        vision.timestamp = time.time() - 6  # the stream was lost for 6 s
+        self.show(vision, self.darts[:2], 1)
+        self.assertFalse(vision.aligned)
+        vision.align(preserve_verification=True)  # what the server's board re-check does
+        self.assertEqual(vision.proposal['id'], pending)
+        vision.commit_dart(pending)
+        self.pull_and_clear(vision)
+
+    def test_restart_mid_turn(self):
+        import tempfile
+        import persistence
+        before = self.two_committed()
+        with tempfile.TemporaryDirectory() as folder:
+            persistence.save_calibration(before, folder)
+            vision = Vision()
+            vision.ingest(self.frame(self.darts[:2]))
+            persistence.load_calibration(vision, folder)
+        vision.align()  # the restart re-check: the darts already in the board become the reference
+        self.show(vision, self.darts[:2])
+        self.assertEqual(vision.pending, [])
+        self.pull_and_clear(vision)
+
+    def test_a_hand_scored_dart_pulled_on_its_own(self):
+        vision = self.calibrated()
+        self.show(vision, self.darts[:1])
+        vision.commit_dart(vision.proposal['id'])
+        self.show(vision, self.darts[:2], 1)  # the camera has not settled when the host taps dart 2 by hand
+        vision.absorb()
+        self.show(vision, self.darts[:2])
+        self.assertEqual(vision.pending, [])
+        self.show(vision, self.darts[:1])  # dart 2 pulled on its own
+        self.assertEqual(vision.pending, [], vision.message)
+        self.show(vision, self.darts[:1])
+        self.assertEqual(vision.pending, [])
+
+
 class OcclusionConfidence(unittest.TestCase):
     """M4-02: a dart whose visible part ends at an earlier dart (camera side) is flagged and not auto-committed."""
     setUpClass = classmethod(TurnTracking.setUpClass.__func__)

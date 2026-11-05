@@ -358,6 +358,8 @@ class Recorder:
             cv2.imwrite(str(start / 'base.png'), vision.base)
         if vision.turn_base is not None:
             cv2.imwrite(str(start / 'turn_base.png'), vision.turn_base)
+        if vision.empty is not None:
+            cv2.imwrite(str(start / 'empty.png'), vision.empty)
         reference_points = cv2.perspectiveTransform(TARGETS.reshape(1, -1, 2), np.linalg.inv(vision.reference_H))[0]
         state = {'H': vision.H, 'reference_H': vision.reference_H, 'reference_points': reference_points,
                  'aligned': vision.aligned, 'verified': vision.verified(), 'mount_side': vision.mount_side,

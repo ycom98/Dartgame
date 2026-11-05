@@ -67,6 +67,8 @@ def restore_start(vision, directory, folder='start'):
     vision.stable = state.get('stable', 0)        # frames already stable when recording started
     vision.version = state.get('version', 0)      # later verify() calls name this version
     vision.dart_count = state.get('dart_count', 0)  # dart ids continue from here (commit_dart names them)
+    if (start / 'empty.png').exists():  # the empty board vision knew (else it comes from the reference image)
+        vision.empty = cv2.imread(str(start / 'empty.png'), cv2.IMREAD_COLOR)
     vision.mount_side = state['mount_side']
     vision.update_pose()
     if state['verified']:

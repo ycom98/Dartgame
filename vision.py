@@ -144,6 +144,12 @@ class Vision:
         self.dart_count = 0
         self.board_checked = False   # the board-moved check already ran in this large-change episode
         self.counters = {'board_cleared': 0, 'retracted': 0, 'pulled': 0, 'separated': 0}
+        # The board known to hold no darts (QA M4 H1), in warp pixels: from the calibration image until a cleared
+        # board is seen. A change where the frame goes back to it is a pulled dart, never a new one.
+        self.empty = None
+        # The turn reference kept through an invalidation (stream drop, realign): restored by align() when the
+        # board has not moved, so the darts already in the board stay known (QA M4 H1).
+        self.suspended_turn = None
         self.aligned = False; self.message = 'Connect the phone rear camera to begin'; self.version = 0
         self.segmentation = None
         self.verified_version = None
@@ -185,6 +191,8 @@ class Vision:
     def verified(self): return self.aligned and self.fresh() and self.verified_version == self.version
     def warp(self, frame): return cv2.warpPerspective(frame, self.H, (SIZE, SIZE))
     def invalidate(self, message):
+        if self.turn_base is not None and self.suspended_turn is None:
+            self.suspended_turn = (self.turn_base, self.base, self.tracked, self.pending)
         self.aligned = False; self.verified_version = None; self.pending = []; self.tracked = []
         self.version += 1; self.message = message
         # The pose belongs to the geometry just invalidated; a successful calibrate()/align() re-solves it.
@@ -195,9 +203,11 @@ class Vision:
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.timestamp = 0
         self.invalidate('Camera session changed. Connect the camera, check alignment, then verify.')
+        self.suspended_turn = None
     def begin_calibration(self):
         if not self.fresh(): raise ValueError('Connect the live phone camera before calibration')
         self.invalidate('Image frozen: select 20, 6, 3, then 11. Keep the phone streaming.')
+        self.suspended_turn = None  # a new calibration starts a new turn reference
         self.calibration_frame = self.frame.copy()
         self.calibration_id = secrets.token_urlsafe(18)
         self.calibration_started = time.time()
@@ -230,6 +240,7 @@ class Vision:
         self.calibration_quality = self.refine_clicks(source)
         self.update_pose()
         self.reference = source.copy(); self.reference_H = self.H.copy()
+        self.empty = None; self.suspended_turn = None  # the board is checked against this image from now on
         self.reference_mask = np.zeros((h,w), np.uint8)
         cv2.fillConvexPoly(self.reference_mask, p.astype(np.int32), 255)
         self.ref_kp,self.ref_desc = self.orb.detectAndCompute(self.reference, self.reference_mask)
@@ -278,9 +289,16 @@ class Vision:
             height,width = self.frame.shape[:2]
             if not np.isfinite(current_targets).all() or (current_targets < 0).any() or (current_targets[:,0]>=width).any() or (current_targets[:,1]>=height).any():
                 raise ValueError('Board is outside camera frame')
-            self.H = H; self.aligned = True; self.reset_base()
-            self.update_pose()
             unchanged = old_overlay is not None and np.max(np.linalg.norm(current_targets-old_overlay,axis=1)) <= 2
+            self.H = H; self.aligned = True
+            suspended, self.suspended_turn = self.suspended_turn, None
+            if unchanged and suspended is not None:
+                # The board has not moved: keep the turn (darts in the board, pending darts) as it was.
+                self.turn_base, self.base, self.tracked, self.pending = suspended
+                self.last_warp = self.warp(self.frame); self.stable = 0; self.segmentation = None
+            else:
+                self.reset_base()
+            self.update_pose()
             if preserve_verification and old_verified and unchanged:
                 self.verified_version = self.version
             self.message = 'Ready to play' if self.verified() else 'Board realigned. Check the live overlay, then verify.'
@@ -347,6 +365,14 @@ class Vision:
         if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
         self.base = self.warp(self.frame); self.last_warp = self.base.copy(); self.turn_base = self.base
         self.stable = 0; self.pending = []; self.tracked = []; self.segmentation = None
+        self.suspended_turn = None
+
+    def empty_board(self):
+        """The board with no darts (warp pixels), or None: the last cleared board seen, else the calibration
+        image (calibrate on an empty board)."""
+        if self.empty is None and self.reference is not None and self.reference_H is not None:
+            self.empty = cv2.warpPerspective(self.reference, self.reference_H, (SIZE, SIZE))
+        return self.empty
 
     def absorb(self):
         """A dart was scored by hand: the current frame becomes the reference, and the turn goes on."""
@@ -372,6 +398,12 @@ class Vision:
             if dart.status == 'pending':
                 dart.status = 'dismissed'
         self.pending = []
+        if self.suspended_turn is not None:  # also in a turn kept through a realign
+            turn_base, base, tracked, _ = self.suspended_turn
+            for dart in tracked:
+                if dart.status == 'pending':
+                    dart.status = 'dismissed'
+            self.suspended_turn = (turn_base, base, tracked, [])
     def ingest(self, data):
         # data: encoded image bytes (/api/frame) or a decoded BGR frame from a camera source (M1-07).
         frame = data if isinstance(data, np.ndarray) else self.decode(data)
@@ -396,10 +428,10 @@ class Vision:
         foot_mm = self.foot_point()
         foot = None if foot_mm is None else np.asarray(foot_mm, np.float32) * SCALE + CENTER
         segmentation = self.segment(warped, self.base, foot)
-        if segmentation.kind not in ('none', 'large_change') and self.tracked:
-            removed = self.remove_missing_darts(warped)
+        if segmentation.kind not in ('none', 'large_change'):
+            removed = self.remove_missing_darts(warped) if self.tracked else []
             pulled = any(dart.status != 'pending' for dart in removed)
-            if (self.tracked or pulled) and self.board_cleared(warped, foot):
+            if self.board_cleared(warped, foot, against_turn=bool(self.tracked) or pulled):
                 return
             if removed:
                 segmentation = self.segment(warped, self.base, foot)
@@ -416,7 +448,9 @@ class Vision:
         if segmentation.kind not in ('dart', 'multiple'):
             self.message = SEGMENTATION_MESSAGES[segmentation.kind]
             return
-        groups, pieces = segmentation.candidates, False
+        groups, pieces = self.without_holes(warped, segmentation.candidates), False
+        if not groups:
+            return  # only darts the camera was not tracking were pulled (QA M4 H1)
         if len(groups) > 1 and not self.apart(groups):
             groups, pieces = [functools.reduce(vision_segment.Blob.merged, groups)], True  # one dart in pieces?
         free = vision_tuning.MAX_PENDING_DARTS - len(self.pending)
@@ -519,14 +553,50 @@ class Vision:
         region = cv2.dilate(region, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * grow + 1, 2 * grow + 1)))
         return region.astype(bool)
 
-    def board_cleared(self, warped, foot):
-        """Every dart was pulled: the board matches the start of the turn again. Starts a new turn reference."""
-        if vision_segment.segment(warped, self.turn_base, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot).kind != 'none':
-            return False
-        self.reset_base()
-        self.counters['board_cleared'] += 1
-        self.message = 'Board cleared: ready for the next turn'
-        return True
+    def board_cleared(self, warped, foot, against_turn=True):
+        """Every dart was pulled: the board matches the start of the turn (against_turn) or the known empty
+        board again. Starts a new turn reference. The empty board works even when the camera does not know
+        which darts are in the board (after a restart or a realign, or for darts scored by hand)."""
+        references = ([self.turn_base] if against_turn else []) + [self.empty_board()]
+        for reference in references:
+            if reference is None or vision_segment.segment(
+                    warped, reference, SCALE, CENTER, BOARD_CHANGE_RADIUS_MM, foot).kind != 'none':
+                continue
+            self.reset_base()
+            self.empty = warped  # the freshest picture of the empty board
+            self.counters['board_cleared'] += 1
+            self.message = 'Board cleared: ready for the next turn'
+            return True
+        return False
+
+    def without_holes(self, warped, groups):
+        """Drop changes that are holes: a dart the camera did not track was pulled, and the board there looks
+        empty again. Their part of the reference image is updated; they are never proposed (QA M4 H1)."""
+        empty = self.empty_board()
+        if empty is None:
+            return groups
+        samples = vision_segment.gain_samples(SIZE, CENTER, BOARD_CHANGE_RADIUS_MM * SCALE)
+        now = warped.astype(np.float32) / np.asarray(vision_segment.illumination_gains(warped, empty, samples), np.float32)
+        base = self.base.astype(np.float32) / np.asarray(
+            vision_segment.illumination_gains(self.base, empty, samples), np.float32)
+        kept, holes = [], []
+        for group in groups:
+            cols, rows = group.points[:, 0].astype(int), group.points[:, 1].astype(int)
+            behind = empty[rows, cols].astype(np.float32)
+            back = np.abs(now[rows, cols] - behind).max(axis=1) < vision_tuning.REVERT_PIXEL_DELTA
+            telling = np.abs(base[rows, cols] - behind).max(axis=1) >= vision_tuning.REVERT_PIXEL_DELTA
+            hole = telling.sum() >= 0.5 * len(rows) and \
+                (back & telling).sum() >= vision_tuning.REMOVED_FRACTION * telling.sum()
+            (holes if hole else kept).append(group)
+        if holes:
+            patched = self.base.copy()
+            for group in holes:
+                region = self.dart_region(group.points)
+                patched[region] = warped[region]
+            self.base = patched
+            self.counters['pulled'] += len(holes)
+            self.message = 'A dart was pulled out'
+        return kept
 
     def remove_missing_darts(self, warped):
         """Tracked darts whose pixels went back to the board behind them: retract pending ones (bounce-out),
