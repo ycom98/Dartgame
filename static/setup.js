@@ -673,7 +673,8 @@ function diagnosticsText(v) {
   const looked = d.looked_at ? Math.max(0, Math.round(Date.now() / 1000 - d.looked_at)) + ' s ago' : 'not yet';
   return 'Camera check: picture changing ' + d.motion_pct + '% (needs under ' + d.still_pct + '%) · still frames ' +
     d.stable + '/' + d.stable_needed + ' · last look ' + looked + (d.last_look ? ' → ' + d.last_look +
-    ' (' + d.changed_blobs + ' change' + (d.changed_blobs === 1 ? '' : 's') + ')' : '') +
+    ' (' + d.changed_blobs + ' change' + (d.changed_blobs === 1 ? '' : 's') + ', ' + d.changed_pct + '% of board' +
+    (d.gains?.length ? ', light ×' + d.gains.join('/') : '') + ')' : '') +
     (v.source?.processed_fps != null ? ' · ' + v.source.processed_fps + ' fps processed' : '');
 }
 

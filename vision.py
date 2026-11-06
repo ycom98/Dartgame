@@ -15,6 +15,7 @@ each new dart is detected as the new change even while earlier darts are still w
     the calibration reference once, and only a moved board needs alignment.
 Thresholds that need real footage are in vision_tuning.py.
 """
+import collections
 import functools
 import itertools
 import secrets
@@ -190,7 +191,8 @@ class Vision:
         self.verified_version = None
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.orb = cv2.ORB_create(nfeatures=2500)
-        self.diagnostics = {}; self.unsettled_since = None  # live numbers for the Setup page
+        self.diagnostics = {}; self.unsettled_since = None; self.large_since = None
+        self.motion_history = collections.deque(maxlen=60)  # live numbers for the Setup page
         # Camera pose from calibration (M1-04). pose is the effective pose (manual override applied).
         self.camera_hfov = vision_pose.DEFAULT_CAMERA_HFOV
         self.mount_side = None
@@ -530,7 +532,13 @@ class Vision:
             self.stable = 0; self.board_checked = False
             self.message = 'Motion detected; wait. If board moved, check / realign board.'
             return
-        self.stable = self.stable + 1 if motion < vision_tuning.MOTION_STILL_FRACTION else 0
+        # The still limit follows the camera's own noise floor (a real phone picture is never perfectly still):
+        # twice the quiet level of the last few seconds, between the simulated default and MOTION_STILL_MAX.
+        self.motion_history.append(motion)
+        floor = float(np.percentile(self.motion_history, 20)) if len(self.motion_history) >= 10 else 0.0
+        still_limit = min(max(vision_tuning.MOTION_STILL_FRACTION, 2 * floor + 0.001), vision_tuning.MOTION_STILL_MAX)
+        self.diagnostics['still_pct'] = round(still_limit * 100, 2)
+        self.stable = self.stable + 1 if motion < still_limit else 0
         now = time.monotonic()
         if self.stable:
             self.unsettled_since = None
@@ -546,7 +554,9 @@ class Vision:
         foot = None if foot_mm is None else np.asarray(foot_mm, np.float32) * SCALE + CENTER
         segmentation = self.segment(warped, self.base, foot)
         self.diagnostics = {**self.diagnostics, 'last_look':segmentation.kind, 'looked_at':round(time.time(), 1),
-                            'changed_blobs':len(segmentation.groups)}
+                            'changed_blobs':len(segmentation.groups),
+                            'changed_pct':round(100 * float(segmentation.changed_fraction or 0), 1),
+                            'gains':[round(float(g), 2) for g in (segmentation.gains or [])]}
         if segmentation.kind not in ('none', 'large_change'):
             removed = self.remove_missing_darts(warped) if self.tracked else []
             pulled = any(dart.status != 'pending' for dart in removed)
@@ -558,7 +568,16 @@ class Vision:
                     return  # keep the message saying which dart went
         if segmentation.kind == 'large_change':
             self.large_change()
+            # Still, the board did not move, but the picture differs everywhere (light or exposure changed): after a
+            # few seconds take a new turn reference instead of waiting for ever. Waiting darts are never absorbed.
+            now = time.monotonic()
+            if self.large_since is None: self.large_since = now
+            elif (self.aligned and not self.pending
+                    and now - self.large_since > vision_tuning.LARGE_CHANGE_REBASE_SECONDS):
+                self.reset_base(); self.large_since = None
+                self.message = 'The light or exposure changed: the camera refreshed its picture of the board.'
             return
+        self.large_since = None
         self.board_checked = False
         if segmentation.kind == 'none':
             if self.pending: self.message = PENDING_MESSAGE

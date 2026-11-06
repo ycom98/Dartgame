@@ -106,3 +106,7 @@ ECC_MAX_SHIFT_PX = 25.0
 
 # A picture that never settles for this long (seconds) gets a message saying so instead of silent waiting.
 UNSETTLED_SECONDS = 4.0
+# The still limit adapts to the camera's noise floor but never goes above this moving share.
+MOTION_STILL_MAX = 0.03
+# A still picture that differs from the turn reference everywhere for this long (s) gets a new reference. REAL DATA.
+LARGE_CHANGE_REBASE_SECONDS = 3.0
