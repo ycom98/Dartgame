@@ -566,16 +566,22 @@ class Vision:
                 segmentation = self.segment(warped, self.base, foot)
                 if segmentation.kind == 'none':
                     return  # keep the message saying which dart went
-        if segmentation.kind == 'large_change':
-            self.large_change()
-            # Still, the board did not move, but the picture differs everywhere (light or exposure changed): after a
-            # few seconds take a new turn reference instead of waiting for ever. Waiting darts are never absorbed.
+        if segmentation.kind in ('large_change', 'noisy'):
+            if segmentation.kind == 'large_change':
+                self.large_change()
+            else:
+                self.message = SEGMENTATION_MESSAGES['noisy']
+            # Still, the board did not move, but the picture differs from the reference everywhere or in many small
+            # places (light, exposure or camera settings changed): after a few seconds take a new turn reference
+            # instead of reporting it for ever. Waiting darts are never absorbed.
             now = time.monotonic()
             if self.large_since is None: self.large_since = now
             elif (self.aligned and not self.pending
                     and now - self.large_since > vision_tuning.LARGE_CHANGE_REBASE_SECONDS):
                 self.reset_base(); self.large_since = None
-                self.message = 'The light or exposure changed: the camera refreshed its picture of the board.'
+                self.diagnostics['refreshed'] = self.diagnostics.get('refreshed', 0) + 1
+                self.message = ('The picture of the board changed (light or camera settings): the camera refreshed '
+                                'its reference. Throw when ready.')
             return
         self.large_since = None
         self.board_checked = False

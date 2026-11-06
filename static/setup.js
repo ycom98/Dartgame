@@ -675,6 +675,7 @@ function diagnosticsText(v) {
     d.stable + '/' + d.stable_needed + ' · last look ' + looked + (d.last_look ? ' → ' + d.last_look +
     ' (' + d.changed_blobs + ' change' + (d.changed_blobs === 1 ? '' : 's') + ', ' + d.changed_pct + '% of board' +
     (d.gains?.length ? ', light ×' + d.gains.join('/') : '') + ')' : '') +
+    (d.refreshed ? ' · reference refreshed ' + d.refreshed + '×' : '') +
     (v.source?.processed_fps != null ? ' · ' + v.source.processed_fps + ' fps processed' : '');
 }
 
