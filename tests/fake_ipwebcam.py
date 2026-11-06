@@ -95,7 +95,7 @@ class FakeIPWebcam:
                         self.send_response(200)
                         self.send_header('Content-Length', '0')
                         self.end_headers()
-                    elif self.path.startswith('/settings/ptz'):
+                    elif self.path.startswith('/ptz'):
                         owner.zoom = int(self.path.partition('zoom=')[2] or 0)
                         body = b'<result>Ok</result>'
                         self.send_response(200)
