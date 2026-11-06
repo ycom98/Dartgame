@@ -361,7 +361,7 @@ class Vision:
             raise ValueError('Not enough board detail; improve light or recalibrate')
         matches = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(desc, self.ref_desc, k=2)
         good = [m for pair in matches if len(pair)==2 for m,n in [pair] if m.distance < .7*n.distance]
-        if len(good) < 25: raise ValueError('Cannot confidently locate board; recalibrate manually')
+        if len(good) < 25: raise ValueError('Could not find the board from the saved calibration (zoom or phone moved?). Take the darts out, then Freeze and set four points again.')
         src = np.float32([kp[m.queryIdx].pt for m in good]); dst = np.float32([self.ref_kp[m.trainIdx].pt for m in good])
         transform,mask = cv2.findHomography(src, dst, cv2.RANSAC, 2.5)
         inliers = mask.ravel().astype(bool) if mask is not None else np.zeros(len(good),bool)

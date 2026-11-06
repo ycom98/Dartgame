@@ -126,7 +126,7 @@ def set_phone_zoom(level):
     if changed and vision is not None:
         def zoom_changed(v):
             if v.H is not None:
-                v.invalidate('Zoom changed. Press Check / realign board, or set four points again.')
+                v.invalidate('Zoom changed. Take the darts out, then Freeze and set four points again.')
         worker.call(zoom_changed)
 
 CALIBRATION_DIR = None
