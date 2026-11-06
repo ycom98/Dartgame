@@ -13,11 +13,12 @@ You need the Mac, an Android phone with the free **IP Webcam** app (by Pavel Khl
 3. **On the Mac**, double-click **start-mac.command** in this folder (if macOS refuses, right-click it and choose **Open**). Keep the window that opens. If it says Python is missing or too old, install Python 3.10 or newer from python.org and double-click again. Allow incoming connections if macOS asks.
 4. The **Setup** page opens in your browser by itself.
 5. **1 Connect phone:** type the numbers from the phone (for example `192.168.1.23`) into **Phone IP address**, press **Test connection**, then **Connect**. The phone's picture appears under **Live view**. Stuck? Open **Can't connect? Things to check**.
-6. **2 Calibrate:** take all darts out, press **Freeze and set four points**, then click the outer edge of the double ring at the middle of 20 (top), 6 (right), 3 (bottom) and 11 (left).
-7. Check the drawn rings sit on the board's wires, then press **Markers correct · Ready to play**.
-8. **3 Ready:** scan the **Controller** code with the phone or tablet you score on, and open the **TV** link on the TV (scan its code, or type the link shown under it).
-9. Start a game on the Controller and play. Camera darts are accepted after 3 seconds; tap the board on the Controller to fix one.
-10. To stop, close the Dart Room window (or press Ctrl-C in it). The match and calibration are saved: next time, start the same way, check the rings and press **Markers correct · Ready to play**.
+6. **Phone far from the board?** Drag **Zoom (IP Webcam)** in step 1 until the board and its number ring fill most of the picture (the phone's own camera zooms, so it stays sharp). Zoom before calibrating.
+7. **2 Calibrate:** take all darts out, press **Freeze and set four points**, then click the outer edge of the double ring at the middle of 20 (top), 6 (right), 3 (bottom) and 11 (left).
+8. Check the drawn rings sit on the board's wires, then press **Markers correct · Ready to play**.
+9. **3 Ready:** scan the **Controller** code with the phone or tablet you score on, and open the **TV** link on the TV (scan its code, or type the link shown under it).
+10. Start a game on the Controller and play. Camera darts are accepted after 3 seconds; tap the board on the Controller to fix one.
+11. To stop, close the Dart Room window (or press Ctrl-C in it). The match and calibration are saved: next time, start the same way, check the rings and press **Markers correct · Ready to play**.
 
 More options: `bash start-mac.command --camera 192.168.1.23` connects to the phone straight away, `--record ~/dart-trial/session1` records the session, and `--no-browser` skips opening the Setup page. The phone's video settings are under **Phone settings checklist (IP Webcam)** in step 1 (1920×1080, quality about 80, FPS limit 15, stabilisation off; lock focus and exposure once framed). If the Controller and TV links show `127.0.0.1`, the Mac is not on Wi-Fi: connect it and start again, or add `--lan-ip YOUR_MAC_WIFI_IPV4`. If the window says the port is in use, Dart Room is already running in another window.
 

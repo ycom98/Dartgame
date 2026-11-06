@@ -219,6 +219,45 @@ class ServerWithStream(unittest.TestCase):
         self.assertEqual(status, 200, verified)
         self.assertEqual(verified['vision']['phase'], 'ready')
 
+    def test_zoom_slider_zooms_the_phone_and_asks_for_a_realign(self):
+        server.camera_zoom = 0
+        try:
+            self.assertEqual(self.request('/api/camera/zoom', {'zoom': 30})[0], 400)  # no camera yet
+            self.connect()
+            self.calibrate()
+            for bad in (-1, 101, 2.5, '40', None):
+                self.assertEqual(self.request('/api/camera/zoom', {'zoom': bad})[0], 400, bad)
+            status, body = self.request('/api/camera/zoom', {'zoom': 40})
+            self.assertEqual(status, 200, body)
+            self.assertEqual(self.fake.zoom, 40)
+            self.assertEqual(body['camera_zoom'], 40)
+            self.assertEqual(self.state()['camera_zoom'], 40)
+            self.assertNotEqual(body['vision']['phase'], 'ready')  # the board moved in the picture
+            self.assertIn('Zoom changed', body['vision']['message'])
+            # Reconnecting (the phone app forgets its zoom when restarted) puts the zoom back.
+            self.fake.zoom = None
+            status, body = self.request('/api/camera/source', {'uri': self.fake.url + '/video',
+                                                               'expected_revision': self.state()['revision']})
+            self.assertEqual(status, 200, body)
+            self.assertTrue(wait_for(lambda: self.fake.zoom == 40, 5))
+        finally:
+            server.camera_zoom = 0
+
+    def test_calibration_errors_say_what_to_do(self):
+        self.connect()
+        self.assertTrue(wait_for(lambda: self.state()['vision']['fresh'], 5))
+        from sim.scene import calibration_points
+        points = calibration_points(self.camera)
+        status, started = self.request('/api/calibration/start', {})
+        status, body = self.request('/api/calibrate', {'snapshot_id': started['snapshot']['snapshot_id'],
+                                                       'points': points[::-1].tolist()})  # anticlockwise
+        self.assertEqual(status, 400); self.assertIn('in order', body['error'])
+        centre = points.mean(axis=0)
+        tiny = centre + (points - centre) * 0.15
+        status, body = self.request('/api/calibrate', {'snapshot_id': started['snapshot']['snapshot_id'],
+                                                       'points': tiny.tolist()})
+        self.assertEqual(status, 400); self.assertIn('Zoom', body['error'])
+
     def test_connected_rate_and_frame_age(self):
         self.connect()
         time.sleep(2.5)

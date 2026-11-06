@@ -75,6 +75,10 @@
         </div>
         <p id="sourceStatus" class="muted" role="status" aria-live="polite">No camera connected.</p>
         <p id="sourceHint" class="hint" hidden></p>
+        <label class="wide small-label" for="zoom">Zoom (IP Webcam) · <output id="zoomValue">off</output></label>
+        <input id="zoom" type="range" min="0" max="100" step="1" value="0" aria-describedby="zoomHelp">
+        <p id="zoomHelp" class="muted small">Phone far from the board? Zoom until the board and its number ring fill most
+          of the picture, with a small margin. Then set the four points (again). Keep the zoom the same after that.</p>
       </div>
 
       <details id="troubleshoot" class="advanced" data-remember>

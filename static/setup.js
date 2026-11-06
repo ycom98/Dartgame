@@ -251,6 +251,26 @@ act('connectSource', async () => {
   delete $('sourceStatus').dataset.tested;
 });
 
+// Zoom the phone's camera (IP Webcam). Sent when the slider is released, not on every step.
+let zoomDragging = false;
+function zoomLabel(level) { return level > 0 ? level + ' %' : 'off'; }
+$('zoom').addEventListener('input', () => { zoomDragging = true; $('zoomValue').textContent = zoomLabel(+$('zoom').value); });
+$('zoom').addEventListener('change', async () => {
+  const level = +$('zoom').value;
+  try {
+    error('');
+    await api('camera/zoom', {zoom: level});
+    $('sourceStatus').textContent = 'Zoom set to ' + zoomLabel(level) + '. Set the four points again when the board fills the picture.';
+    $('sourceStatus').className = 'ok';
+  } catch (e) { error(e.message); }
+  finally { zoomDragging = false; await refresh(); }
+});
+function renderZoom(s) {
+  if (zoomDragging || typeof s?.camera_zoom !== 'number') return;
+  $('zoom').value = s.camera_zoom;
+  $('zoomValue').textContent = zoomLabel(s.camera_zoom);
+}
+
 act('disconnectSource', async () => {
   await api('camera/source', {uri: null, expected_revision: state?.revision ?? 0});
 });
@@ -664,6 +684,7 @@ async function refresh() {
       error('Calibration image expired or was replaced. Select Freeze and set four points again.');
     }
     fillSourceField(state.vision.source?.url_redacted);
+    renderZoom(state);
     $('visionStatus').textContent = state.vision.message +
       (state.vision.board_warning && state.vision.board_warning !== state.vision.message
         ? ' · ' + state.vision.board_warning : '') +

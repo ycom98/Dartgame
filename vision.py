@@ -266,8 +266,12 @@ class Vision:
         h,w = source.shape[:2]
         if p.shape != (4,2) or not np.isfinite(p).all() or (p < 0).any() or (p[:,0] >= w).any() or (p[:,1] >= h).any():
             raise ValueError('Select four valid points inside the camera image')
-        if not cv2.isContourConvex(p.reshape(-1,1,2)) or abs(cv2.contourArea(p)) < w*h*.03:
-            raise ValueError('Points must trace top, right, bottom, left around the board')
+        if not cv2.isContourConvex(p.reshape(-1,1,2)) or cv2.contourArea(p, oriented=True) <= 0:
+            raise ValueError('Click the points in order: 20 (top), 6 (right), 3 (bottom), 11 (left) of the picture. '
+                             'If 20 is not at the top of the picture, turn the phone or the number ring.')
+        if abs(cv2.contourArea(p)) < w*h*.01:
+            raise ValueError('The board is too small in the picture. Use the Zoom slider in step 1 so the board fills '
+                             'most of the picture, then set the four points again.')
         lengths = np.linalg.norm(p - np.roll(p,1,axis=0), axis=1)
         if min(lengths) < 40 or max(lengths) / min(lengths) > 4:
             raise ValueError('Board is too small or camera angle too steep')

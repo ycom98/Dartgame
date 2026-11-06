@@ -85,7 +85,49 @@ def switch_camera_source(uri):
             v.message = 'Connecting to ' + source.description
     worker.call(source_changed)
     worker.set_source(source)
+    if camera_zoom and hasattr(source, 'set_phone_zoom'):
+        # The phone app forgets its zoom when it restarts: put the saved zoom back (best effort).
+        threading.Thread(target=reapply_zoom, args=(source, camera_zoom), daemon=True).start()
     return source
+
+camera_zoom = 0  # the phone camera's zoom (IP Webcam 0-100), saved next to the calibration
+
+def zoom_file():
+    return os.path.join(CALIBRATION_DIR, 'camera_zoom.json') if CALIBRATION_DIR else None
+
+def load_zoom():
+    global camera_zoom
+    path = zoom_file()
+    try:
+        with open(path) as handle: level = json.load(handle).get('zoom', 0)
+        if type(level) is int and 0 <= level <= 100: camera_zoom = level
+    except (TypeError, OSError, ValueError, AttributeError): pass
+
+def reapply_zoom(source, level):
+    for _ in range(3):
+        try: source.set_phone_zoom(level); return
+        except ValueError: time.sleep(2)
+
+def set_phone_zoom(level):
+    """Zoom the phone camera through the connected IP Webcam source; the board then moves in the picture."""
+    global camera_zoom
+    source = worker.source
+    if source is None or not hasattr(source, 'set_phone_zoom'):
+        raise ValueError('Connect the phone (IP Webcam) first, then zoom.')
+    source.set_phone_zoom(level)
+    changed, camera_zoom = level != camera_zoom, level
+    path = zoom_file()
+    if path:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w') as handle: json.dump({'zoom':level}, handle)
+        except OSError as error: print('Could not save the zoom: '+str(error), flush=True)
+    app.events.add('camera_zoom', zoom=level)
+    if changed and vision is not None:
+        def zoom_changed(v):
+            if v.H is not None:
+                v.invalidate('Zoom changed. Press Check / realign board, or set four points again.')
+        worker.call(zoom_changed)
 
 CALIBRATION_DIR = None
 # After a restart, a re-alignment whose markers moved further than this from the saved ones is not trusted.
@@ -264,7 +306,7 @@ class App:
                 'display':game['display'],  # the game mode's layout hints for /play and /control (M1-15)
                 'checkout':game['checkout'], 'stats':game['stats'], 'lobby':self.lobby_state(),
                 'vision':vision_state(), 'camera_game':game['camera_game'], 'camera':self.flow.view(game['turn_over']),
-                'recording':recording_state()}
+                'recording':recording_state(), 'camera_zoom':camera_zoom}
 
 def new_lobby():
     return {'open':False, 'players':[], 'start':301, 'double_out':False}
@@ -389,6 +431,11 @@ class Handler(BaseHTTPRequestHandler):
                 app.bump()
             app.events.add('auto_commit', paused=paused, seconds=float(seconds))
             return None
+        if path == '/api/camera/zoom':
+            level = body.get('zoom')
+            if type(level) is not int or not 0 <= level <= 100: raise ValueError('zoom must be a whole number 0-100')
+            set_phone_zoom(level)
+            return {'camera_zoom':level}
         if path == '/api/camera/mount_side':
             if vision is None: raise ValueError(vision_error)
             side = body.get('mount_side')
@@ -639,6 +686,7 @@ def setup_persistence(state_file, fresh=False, new_links=False):
     app.recent_dir = state_file.parent
     app.recent_players = persistence.load_recent_players(state_file.parent)
     CALIBRATION_DIR = state_file.parent
+    load_zoom()
     if vision is not None: restore_calibration()
     return message
 

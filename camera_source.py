@@ -311,6 +311,24 @@ class NetworkSource(FrameSource):
     def read_session(self):
         raise NotImplementedError
 
+    def set_phone_zoom(self, level):
+        """Zoom the phone's own camera (IP Webcam /settings/ptz?zoom=N, 0-100): sharper than cropping here,
+        because the phone crops its full-resolution sensor. Raises ValueError with a plain message."""
+        parts = urlsplit(self.url)
+        url = urlunsplit((parts.scheme, parts.netloc, '/settings/ptz', f'zoom={int(level)}', ''))
+        try:
+            with self.opener.open(urllib.request.Request(url, headers=self.headers), timeout=5) as response:
+                text = response.read(200).decode('utf-8', 'replace')
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                raise ValueError('This camera app does not accept zoom from Dart Room. Zoom on the phone instead '
+                                 '(pinch the IP Webcam picture, or use its web page at port 8080).') from None
+            raise ValueError(describe_network_error(error)) from None
+        except (urllib.error.URLError, OSError) as error:
+            raise ValueError('Could not reach the phone to zoom: ' + describe_network_error(error)) from None
+        if 'ok' not in text.lower():
+            raise ValueError('The phone did not accept the zoom (' + text.strip()[:60] + ').')
+
 
 def describe_network_error(error):
     if isinstance(error, urllib.error.HTTPError):

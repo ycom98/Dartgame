@@ -69,6 +69,7 @@ class FakeIPWebcam:
         self.connections = set()
         self.scenes = []
         self.scene_changed_at = None
+        self.zoom = None              # last zoom set through /settings/ptz
 
     @property
     def url(self):
@@ -94,6 +95,13 @@ class FakeIPWebcam:
                         self.send_response(200)
                         self.send_header('Content-Length', '0')
                         self.end_headers()
+                    elif self.path.startswith('/settings/ptz'):
+                        owner.zoom = int(self.path.partition('zoom=')[2] or 0)
+                        body = b'<result>Ok</result>'
+                        self.send_response(200)
+                        self.send_header('Content-Length', str(len(body)))
+                        self.end_headers()
+                        self.wfile.write(body)
                     elif self.path.startswith('/shot.jpg'):
                         with owner.lock:
                             data = owner.jpeg
