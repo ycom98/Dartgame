@@ -97,3 +97,9 @@ def overridden(settings):
     finally:
         for owner, attribute, value in reversed(saved):
             setattr(owner, attribute, value)
+
+# Alignment fallback (zoomed-in real board, where ORB features all look alike): a direct image fit of the live
+# picture to the calibration image is trusted only above this correlation (1.0 = identical). REAL DATA.
+ECC_MIN_CORRELATION = 0.85
+# ... and only when the board markers moved at most this far (image px) since calibration. REAL DATA.
+ECC_MAX_SHIFT_PX = 25.0

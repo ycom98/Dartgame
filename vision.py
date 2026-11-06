@@ -353,6 +353,45 @@ class Vision:
             self.message = str(error)
             raise ValueError('Alignment failed: '+str(error)) from error
     def match_reference(self, kp=None, desc=None):
+        """(H, inlier mask): the board map of the current frame. ORB features first; when they are not
+        confident (a zoomed-in, noisy picture where every sector looks alike), a direct image fit (ECC) against
+        the calibration image. Raises ValueError when neither is confident."""
+        try:
+            return self.orb_match_reference(kp, desc)
+        except (ValueError, cv2.error) as error:
+            try:
+                return self.ecc_match_reference(), np.ones(1, bool)
+            except (ValueError, cv2.error, np.linalg.LinAlgError):
+                raise ValueError(str(error)) from None
+
+    def ecc_match_reference(self):
+        """Board map from an intensity fit (cv2.findTransformECC, homography) of the current frame to the
+        calibration image inside the board. Confident only when the pictures correlate strongly."""
+        if self.reference is None or self.frame is None or self.reference.shape != self.frame.shape:
+            raise ValueError('No calibration image of this size')
+        s = 0.5 if max(self.frame.shape[:2]) > 1000 else 1.0
+        def prepare(image):
+            gray = cv2.cvtColor(cv2.resize(image, None, fx=s, fy=s, interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY)
+            return cv2.GaussianBlur(gray, (5, 5), 0)
+        reference, current = prepare(self.reference), prepare(self.frame)
+        mask = cv2.resize(self.reference_mask, (reference.shape[1], reference.shape[0]), interpolation=cv2.INTER_NEAREST)
+        criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 80, 1e-5)
+        rho, warp = cv2.findTransformECC(reference, current, np.eye(3, dtype=np.float32), cv2.MOTION_HOMOGRAPHY,
+                                         criteria, mask, 5)
+        if rho < vision_tuning.ECC_MIN_CORRELATION:
+            raise ValueError(f'Board picture does not match the calibration image (correlation {rho:.2f})')
+        scale = np.diag([s, s, 1.0])
+        reference_to_current = np.linalg.inv(scale) @ warp.astype(np.float64) @ scale
+        if np.linalg.det(reference_to_current[:2, :2]) <= 0:
+            raise ValueError('Board picture is mirrored relative to the calibration image')
+        # Only small movements are trusted: the board is nearly symmetric, so a large fit could land on the wrong sector.
+        markers = cv2.perspectiveTransform(TARGETS.reshape(1, -1, 2), np.linalg.inv(self.reference_H))[0]
+        moved = cv2.perspectiveTransform(markers.reshape(1, -1, 2).astype(np.float64), reference_to_current)[0]
+        if np.max(np.linalg.norm(moved - markers, axis=1)) > vision_tuning.ECC_MAX_SHIFT_PX:
+            raise ValueError('Board moved too far to realign automatically; set four points again')
+        return self.reference_H @ np.linalg.inv(reference_to_current)
+
+    def orb_match_reference(self, kp=None, desc=None):
         """(H, inlier mask): the board map of the current frame from ORB matches with the calibration
         reference. Raises ValueError when the fit is not confident."""
         if kp is None:
