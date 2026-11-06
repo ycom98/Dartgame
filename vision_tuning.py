@@ -103,3 +103,6 @@ def overridden(settings):
 ECC_MIN_CORRELATION = 0.85
 # ... and only when the board markers moved at most this far (image px) since calibration. REAL DATA.
 ECC_MAX_SHIFT_PX = 25.0
+
+# A picture that never settles for this long (seconds) gets a message saying so instead of silent waiting.
+UNSETTLED_SECONDS = 4.0

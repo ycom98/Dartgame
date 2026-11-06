@@ -666,6 +666,17 @@ $('board').addEventListener('mousemove', event => {
 $('board').addEventListener('mouseleave', () => { $('loupe').hidden = true; });
 
 // ---- polling ----
+// What the camera is doing right now, in numbers (for "it is not detecting" on the real board).
+function diagnosticsText(v) {
+  const d = v.diagnostics;
+  if (!d || d.motion_pct === undefined) return '';
+  const looked = d.looked_at ? Math.max(0, Math.round(Date.now() / 1000 - d.looked_at)) + ' s ago' : 'not yet';
+  return 'Camera check: picture changing ' + d.motion_pct + '% (needs under ' + d.still_pct + '%) · still frames ' +
+    d.stable + '/' + d.stable_needed + ' · last look ' + looked + (d.last_look ? ' → ' + d.last_look +
+    ' (' + d.changed_blobs + ' change' + (d.changed_blobs === 1 ? '' : 's') + ')' : '') +
+    (v.source?.processed_fps != null ? ' · ' + v.source.processed_fps + ' fps processed' : '');
+}
+
 async function refresh() {
   if (pollBusy || actionBusy || calibrationBusy) return;
   pollBusy = true;
@@ -689,6 +700,7 @@ async function refresh() {
       (state.vision.board_warning && state.vision.board_warning !== state.vision.message
         ? ' · ' + state.vision.board_warning : '') +
       (state.vision.age_seconds != null ? ' · frame ' + state.vision.age_seconds + 's old' : '');
+    $('visionDiagnostics').textContent = diagnosticsText(state.vision);
     renderGame(state.game);
     const p = state.camera?.pending;
     $('candidate').textContent = p ? 'Suggested ' + p.label + ' = ' + p.score +

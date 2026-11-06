@@ -190,6 +190,7 @@ class Vision:
         self.verified_version = None
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.orb = cv2.ORB_create(nfeatures=2500)
+        self.diagnostics = {}; self.unsettled_since = None  # live numbers for the Setup page
         # Camera pose from calibration (M1-04). pose is the effective pose (manual override applied).
         self.camera_hfov = vision_pose.DEFAULT_CAMERA_HFOV
         self.mount_side = None
@@ -517,20 +518,35 @@ class Vision:
         self.frame = frame; self.timestamp = time.time()
         if not self.aligned: return
         warped = self.warp(frame)
-        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-        oldgray = cv2.cvtColor(self.last_warp, cv2.COLOR_BGR2GRAY)
-        motion = np.mean(cv2.absdiff(gray, oldgray) > vision_tuning.MOTION_PIXEL_DELTA)
+        # Blurred first: camera grain (a zoomed-in phone picture) must not count as motion, a dart still does.
+        gray = cv2.GaussianBlur(cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+        oldgray = cv2.GaussianBlur(cv2.cvtColor(self.last_warp, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+        motion = float(np.mean(cv2.absdiff(gray, oldgray) > vision_tuning.MOTION_PIXEL_DELTA))
         self.last_warp = warped
+        self.diagnostics = {**self.diagnostics, 'motion_pct':round(motion*100, 2),
+                            'still_pct':round(vision_tuning.MOTION_STILL_FRACTION*100, 2)}
         if motion > vision_tuning.MOTION_LARGE_FRACTION:
             # A hand or a person: pending darts stay (they were seen on a still board), nothing new is read.
             self.stable = 0; self.board_checked = False
             self.message = 'Motion detected; wait. If board moved, check / realign board.'
             return
         self.stable = self.stable + 1 if motion < vision_tuning.MOTION_STILL_FRACTION else 0
+        now = time.monotonic()
+        if self.stable:
+            self.unsettled_since = None
+            if self.message.startswith('The picture never settles'):
+                self.message = 'Ready to play' if self.verified() else 'Check the live overlay, then verify.'
+        elif self.unsettled_since is None: self.unsettled_since = now
+        elif now - self.unsettled_since > vision_tuning.UNSETTLED_SECONDS and not self.pending:
+            # Silent waiting looked like "not detecting" on the real board: say why.
+            self.message = (f'The picture never settles ({motion*100:.1f}% of the board keeps changing), so no dart '
+                            'is read. Lock focus, exposure and white balance in IP Webcam, and keep lights steady.')
         if self.stable < vision_tuning.STABLE_FRAMES: return
         foot_mm = self.foot_point()
         foot = None if foot_mm is None else np.asarray(foot_mm, np.float32) * SCALE + CENTER
         segmentation = self.segment(warped, self.base, foot)
+        self.diagnostics = {**self.diagnostics, 'last_look':segmentation.kind, 'looked_at':round(time.time(), 1),
+                            'changed_blobs':len(segmentation.groups)}
         if segmentation.kind not in ('none', 'large_change'):
             removed = self.remove_missing_darts(warped) if self.tracked else []
             pulled = any(dart.status != 'pending' for dart in removed)
@@ -853,4 +869,5 @@ class Vision:
                 'height':int(self.frame.shape[0]) if self.frame is not None else 0,
                 'pose':dict(self.pose) if self.pose is not None else None,
                 'foot':self.foot_point(), 'mount_side':self.mount_side,
-                'calibration':dict(self.calibration_quality) if self.calibration_quality is not None else None}
+                'calibration':dict(self.calibration_quality) if self.calibration_quality is not None else None,
+                'diagnostics':dict(self.diagnostics, stable=self.stable, stable_needed=vision_tuning.STABLE_FRAMES)}
