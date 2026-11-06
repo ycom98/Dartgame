@@ -110,3 +110,7 @@ UNSETTLED_SECONDS = 4.0
 MOTION_STILL_MAX = 0.03
 # A still picture that differs from the turn reference everywhere for this long (s) gets a new reference. REAL DATA.
 LARGE_CHANGE_REBASE_SECONDS = 3.0
+# Still frames averaged before comparing with the reference (camera grain cancels out, a still dart stays).
+STILL_AVERAGE_FRAMES = 4
+# An older still frame joins the average only if at most this share of the board differs from the newest.
+AVERAGE_SAME_FRACTION = 0.0005

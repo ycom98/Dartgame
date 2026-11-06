@@ -94,7 +94,7 @@ def board_cells():
 def board_marks_mm2(warped):
     """Area (mm2) of marks on the board: pixels far from their cell's own colour (darts, debris)."""
     cell, usable = board_cells()
-    pixels = warped.astype(np.int16)
+    pixels = cv2.medianBlur(warped, 5).astype(np.int16)  # camera grain is not a mark; a dart is wider than 5 px
     marks = np.zeros((SIZE, SIZE), np.uint8)
     for index in np.unique(cell[usable]):
         inside = usable & (cell == index)
@@ -192,7 +192,10 @@ class Vision:
         self.calibration_frame = None; self.calibration_id = None; self.calibration_started = 0
         self.orb = cv2.ORB_create(nfeatures=2500)
         self.diagnostics = {}; self.unsettled_since = None; self.large_since = None
-        self.motion_history = collections.deque(maxlen=60)  # live numbers for the Setup page
+        self.motion_history = collections.deque(maxlen=60)
+        # The last few still warped frames, (version, warp): averaged before comparing, so camera grain (a zoomed-in
+        # phone picture) cancels out while a dart, which does not move, stays.
+        self.still_warps = collections.deque(maxlen=vision_tuning.STILL_AVERAGE_FRAMES)  # live numbers for the Setup page
         # Camera pose from calibration (M1-04). pose is the effective pose (manual override applied).
         self.camera_hfov = vision_pose.DEFAULT_CAMERA_HFOV
         self.mount_side = None
@@ -451,7 +454,7 @@ class Vision:
     def reset_base(self):
         """Start a new turn reference from the current frame (new game, baseline button, board cleared)."""
         if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
-        self.base = self.warp(self.frame); self.last_warp = self.base.copy(); self.turn_base = self.base
+        self.base = self.current_warp(); self.last_warp = self.warp(self.frame); self.turn_base = self.base
         self.stable = 0; self.pending = []; self.tracked = []; self.segmentation = None
         self.suspended_turn = None
 
@@ -473,6 +476,25 @@ class Vision:
         return {'board_empty': empty, 'board_marks_mm2': round(marks, 1),
                 'threshold_mm2': vision_tuning.EMPTY_BOARD_MARKS_MM2}
 
+    def current_warp(self):
+        """The current board picture (warp pixels): the average of the still frames seen with the current geometry
+        (camera grain averages out), else the newest frame."""
+        warps = [w for version, w in self.still_warps if version == self.version]
+        if len(warps) < 2:
+            return self.warp(self.frame)
+        # Only frames that show the same board as the newest: a dart that landed with little motion must not be
+        # averaged with the frames from before it landed.
+        newest = cv2.GaussianBlur(cv2.cvtColor(warps[-1], cv2.COLOR_BGR2GRAY), (5, 5), 0)
+        same = [warps[-1]]
+        for older in reversed(warps[:-1]):
+            gray = cv2.GaussianBlur(cv2.cvtColor(older, cv2.COLOR_BGR2GRAY), (5, 5), 0)
+            if np.mean(cv2.absdiff(gray, newest) > vision_tuning.MOTION_PIXEL_DELTA) > vision_tuning.AVERAGE_SAME_FRACTION:
+                break
+            same.append(older)
+        if len(same) < 2:
+            return warps[-1]
+        return np.mean(np.stack(same), axis=0).round().astype(np.uint8)
+
     def empty_board(self):
         """The board with no darts (warp pixels), or None: the last cleared board seen, else the calibration
         image (calibrate on an empty board)."""
@@ -483,7 +505,7 @@ class Vision:
     def absorb(self):
         """A dart was scored by hand: the current frame becomes the reference, and the turn goes on."""
         if not self.aligned or not self.fresh(): raise ValueError('Calibrate with a fresh camera frame first')
-        self.base = self.warp(self.frame)
+        self.base = self.current_warp()
         if self.turn_base is None: self.turn_base = self.base
         self.pending = [p for p in self.pending if p.get('id')]  # an untracked proposal is now part of the board
 
@@ -539,6 +561,8 @@ class Vision:
         still_limit = min(max(vision_tuning.MOTION_STILL_FRACTION, 2 * floor + 0.001), vision_tuning.MOTION_STILL_MAX)
         self.diagnostics['still_pct'] = round(still_limit * 100, 2)
         self.stable = self.stable + 1 if motion < still_limit else 0
+        if self.stable: self.still_warps.append((self.version, warped))
+        else: self.still_warps.clear()
         now = time.monotonic()
         if self.stable:
             self.unsettled_since = None
@@ -550,6 +574,7 @@ class Vision:
             self.message = (f'The picture never settles ({motion*100:.1f}% of the board keeps changing), so no dart '
                             'is read. Lock focus, exposure and white balance in IP Webcam, and keep lights steady.')
         if self.stable < vision_tuning.STABLE_FRAMES: return
+        warped = self.current_warp()
         foot_mm = self.foot_point()
         foot = None if foot_mm is None else np.asarray(foot_mm, np.float32) * SCALE + CENTER
         segmentation = self.segment(warped, self.base, foot)
