@@ -545,9 +545,29 @@ def open_usb_camera(index, width=1920, height=1080):
     return capture
 
 
+MAX_DIGITAL_ZOOM = 4.0  # zoom level 100 = 4x
+
+
+def digital_zoom(frame, level):
+    """The middle of frame enlarged (level 0-100 = 1x-4x), back at the same size, so the picture's dimensions
+    never change. For cameras that cannot zoom themselves (USB webcams)."""
+    if not level:
+        return frame
+    factor = 1.0 + (MAX_DIGITAL_ZOOM - 1.0) * min(max(level, 0), 100) / 100.0
+    height, width = frame.shape[:2]
+    crop_w, crop_h = max(16, round(width / factor)), max(16, round(height / factor))
+    x, y = (width - crop_w) // 2, (height - crop_h) // 2
+    return cv2.resize(frame[y:y + crop_h, x:x + crop_w], (width, height), interpolation=cv2.INTER_CUBIC)
+
+
 class UsbSource(FrameSource):
     """A USB camera plugged into this computer (usb:0 = the first camera; usb:1 the next, ...)."""
     kind = 'usb'
+    zoom_level = 0  # digital zoom (0-100): the webcam cannot zoom itself, so Dart Room crops the middle
+
+    def set_phone_zoom(self, level):
+        """Same call as IP Webcam's zoom, done here: the Setup page's Zoom slider works for a USB webcam too."""
+        self.zoom_level = int(level)
 
     def __init__(self, index=0, width=1920, height=1080):
         if not 0 <= index <= 9:
@@ -570,7 +590,7 @@ class UsbSource(FrameSource):
                         ok, frame = capture.read()
                         if ok and frame is not None:
                             failures = 0; attempt = 0
-                            self.put_frame(frame)
+                            self.put_frame(digital_zoom(frame, self.zoom_level))
                         else:
                             failures += 1
                             self.sleep(0.05)

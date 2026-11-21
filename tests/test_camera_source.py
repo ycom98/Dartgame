@@ -522,3 +522,22 @@ class UsbCameraAddresses(unittest.TestCase):
             self.assertFalse(source.status()['connected'])
         finally:
             source.stop()
+
+
+class DigitalZoom(unittest.TestCase):
+    def test_zoom_enlarges_the_middle_and_keeps_the_size(self):
+        import camera_source as module
+        frame = np.zeros((720, 1280, 3), np.uint8)
+        frame[350:370, 630:650] = 255  # a 20 px square in the middle
+        self.assertIs(module.digital_zoom(frame, 0), frame)
+        zoomed = module.digital_zoom(frame, 100)  # 4x
+        self.assertEqual(zoomed.shape, frame.shape)
+        bright = np.argwhere(zoomed[:, :, 0] > 127)
+        self.assertAlmostEqual(bright[:, 1].max() - bright[:, 1].min() + 1, 80, delta=4)
+        self.assertAlmostEqual(bright[:, 1].mean(), 640, delta=3)
+
+    def test_usb_source_takes_the_zoom_slider(self):
+        import camera_source as module
+        source = module.UsbSource(0)
+        source.set_phone_zoom(50)
+        self.assertEqual(source.zoom_level, 50)

@@ -113,7 +113,7 @@ def set_phone_zoom(level):
     global camera_zoom
     source = worker.source
     if source is None or not hasattr(source, 'set_phone_zoom'):
-        raise ValueError('Connect the phone (IP Webcam) first, then zoom.')
+        raise ValueError('Connect the camera (IP Webcam or USB webcam) first, then zoom.')
     source.set_phone_zoom(level)
     changed, camera_zoom = level != camera_zoom, level
     path = zoom_file()
