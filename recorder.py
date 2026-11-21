@@ -76,6 +76,9 @@ def processed_record(vision, seq):
             'pending': pending, 'stable': int(vision.stable)}
 
 
+RECORD_JPEG_QUALITY = 92  # decoded frames (USB webcam) are saved as JPEG at this quality
+
+
 class Recorder:
     def __init__(self, directory, get_source, min_free_bytes=MIN_FREE_BYTES):
         self.directory = Path(directory)
@@ -455,12 +458,12 @@ class Recorder:
             self.frames_skipped += frames[0][0] - self.last_written_seq - 1
         for source_seq, timestamp, data, frame in frames:
             seq = source_seq + offset
-            if data is not None:
-                name = f'{seq:06d}.jpg'
-            else:
-                name = f'{seq:06d}.png'
-                ok, encoded = cv2.imencode('.png', frame)
+            if data is None:
+                # Decoded frames (USB webcam, replays) as high-quality JPEG like a phone sends: PNG was about 2.6 MB
+                # per 1080p frame (81 GB for one 25-minute session on the owner's Mac).
+                ok, encoded = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, RECORD_JPEG_QUALITY])
                 data = encoded.tobytes() if ok else b''
+            name = f'{seq:06d}.jpg'
             (self.directory / 'frames' / name).write_bytes(data)
             self.frames_written += 1
             self.bytes_written += len(data)
