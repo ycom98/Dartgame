@@ -500,3 +500,25 @@ class CommandLine(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class UsbCameraAddresses(unittest.TestCase):
+    def test_usb_addresses_build_a_usb_source(self):
+        import camera_source as module
+        for uri, index in (('usb', 0), ('usb:0', 0), ('usb:1', 1), (' usb:2 ', 2)):
+            source = module.make_source(uri)
+            self.assertIsInstance(source, module.UsbSource)
+            self.assertEqual(source.index, index)
+        for bad in ('usb:x', 'usb:12'):
+            with self.assertRaises(ValueError):
+                module.make_source(bad)
+
+    def test_missing_usb_camera_reports_a_plain_error(self):
+        import camera_source as module
+        source = module.UsbSource(9).start()  # no camera 9 in the test machine
+        try:
+            self.assertTrue(wait_for(lambda: source.error, 5))
+            self.assertIn('did not open', source.error)
+            self.assertFalse(source.status()['connected'])
+        finally:
+            source.stop()

@@ -21,6 +21,7 @@ import base64
 import collections
 import os
 import re
+import sys
 import threading
 import time
 import urllib.error
@@ -531,6 +532,58 @@ class VideoFileSource(ReplaySource):
             capture.release()
 
 
+def open_usb_camera(index, width=1920, height=1080):
+    """cv2.VideoCapture for a USB camera (index 0 = first), asking for width x height. None if it does not open.
+    On a Mac, Terminal needs camera access (System Settings > Privacy & Security > Camera)."""
+    backend = cv2.CAP_AVFOUNDATION if sys.platform == 'darwin' else cv2.CAP_ANY
+    capture = cv2.VideoCapture(index, backend)
+    if not capture.isOpened():
+        capture.release()
+        return None
+    capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    return capture
+
+
+class UsbSource(FrameSource):
+    """A USB camera plugged into this computer (usb:0 = the first camera; usb:1 the next, ...)."""
+    kind = 'usb'
+
+    def __init__(self, index=0, width=1920, height=1080):
+        if not 0 <= index <= 9:
+            raise ValueError('USB camera number must be 0-9 (usb:0 is the first camera)')
+        super().__init__(f'usb:{index}')
+        self.index, self.width, self.height = index, width, height
+
+    def run(self):
+        attempt = 0
+        while not self.stopping.is_set():
+            capture = open_usb_camera(self.index, self.width, self.height)
+            if capture is None:
+                self.connected = False
+                self.error = (f'USB camera {self.index} did not open. Is it plugged in? On a Mac, allow Terminal to use '
+                              'the camera (System Settings > Privacy & Security > Camera), then restart Dart Room.')
+            else:
+                try:
+                    failures = 0
+                    while not self.stopping.is_set() and failures < 30:
+                        ok, frame = capture.read()
+                        if ok and frame is not None:
+                            failures = 0; attempt = 0
+                            self.put_frame(frame)
+                        else:
+                            failures += 1
+                            self.sleep(0.05)
+                    if not self.stopping.is_set():
+                        self.connected = False
+                        self.error = f'USB camera {self.index} stopped sending pictures (unplugged?). Retrying.'
+                finally:
+                    capture.release()
+            if self.sleep(BACKOFF_SECONDS[min(attempt, len(BACKOFF_SECONDS) - 1)]):
+                break
+            attempt += 1; self.reconnects += 1
+
+
 class ImageFolderSource(ReplaySource):
     kind = 'dir'
 
@@ -585,11 +638,13 @@ def normalise_uri(uri):
     uri = uri.strip()
     if len(uri) > 2048:
         raise ValueError('Camera address is too long')
-    if '://' in uri or uri.startswith(('file:', 'dir:', 'snapshot:')):
+    if '://' in uri or uri.startswith(('file:', 'dir:', 'snapshot:', 'usb:')):
         return uri
+    if uri.lower() == 'usb':
+        return 'usb:0'
     host = uri.rstrip('/')
     if not re.fullmatch(r'[A-Za-z0-9.-]+(:[0-9]{1,5})?', host):
-        raise ValueError('Camera address must be http://…, snapshot:http://…, file:…, dir:… or the phone IP')
+        raise ValueError('Camera address must be http://…, snapshot:http://…, usb:0, file:…, dir:… or the phone IP')
     if ':' not in host:
         host += f':{IP_WEBCAM_PORT}'
     return f'http://{host}/video'
@@ -607,6 +662,11 @@ def make_source(uri):
         return SnapshotSource(urlunsplit(parts._replace(query=camera_query)), fps)
     if uri.startswith(('http://', 'https://')):
         return MjpegSource(uri)
+    if uri.startswith('usb:'):
+        number_text = uri[len('usb:'):] or '0'
+        if not number_text.isdigit():
+            raise ValueError('USB camera must be usb:0 (first camera), usb:1, ...')
+        return UsbSource(int(number_text))
     if uri.startswith('file:'):
         path, options = parse_options(uri[len('file:'):])
         fps = number(options, 'fps', 0.0) or None
@@ -615,4 +675,4 @@ def make_source(uri):
         path, options = parse_options(uri[len('dir:'):])
         return ImageFolderSource(os.path.expanduser(path), number(options, 'fps', 15.0),
                                  flag(options, 'realtime', True), flag(options, 'loop', False))
-    raise ValueError('Camera address must be http://…, snapshot:http://…, file:…, dir:… or the phone IP')
+    raise ValueError('Camera address must be http://…, snapshot:http://…, usb:0, file:…, dir:… or the phone IP')
