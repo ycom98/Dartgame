@@ -176,9 +176,10 @@ def build_report(directory, out, relabel=False, check_replay=False):
              '- False proposals (camera darts never committed: false detections, bounce-outs, darts left at Next): '
              + ('not recorded (recording made before M4-01)' if false_count is None else
                 f'{false_count} ({percent(rate(false_count, len(darts)))} of darts)'),
-             f'- Replay: {"identical to live" if replayed["identical"] else "DIFFERS from live"} '
-             f'({replayed["frames_processed"]} frames, {len(replayed["detection_mismatches"])} detection mismatches, '
-             f'{len(replayed["frames_missing"])} missing frames).', '',
+             ('- Replay: not checked (run with --check-replay to replay every frame).' if replayed is None else
+              f'- Replay: {"identical to live" if replayed["identical"] else "DIFFERS from live"} '
+              f'({replayed["frames_processed"]} frames, {len(replayed["detection_mismatches"])} detection mismatches, '
+              f'{len(replayed["frames_missing"])} missing frames).'), '',
              '## Latency', '',
              f'- Dart landing to camera proposal: {spread(detect)} (landing = first frame that changed; '
              'a dart that changed too little to unsettle the image counts from the frame it was seen in)',

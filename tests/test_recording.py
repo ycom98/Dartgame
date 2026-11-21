@@ -164,6 +164,9 @@ class RecordedSession(unittest.TestCase):
         import cv2
         from tools.trial_report import build_report
         out = self.directory / 'report'
+        quick = build_report(self.directory, self.directory / 'quick-report')  # the default: no replay
+        self.assertIsNone(quick['replay_identical'])
+        self.assertIn('Replay: not checked', (self.directory / 'quick-report' / 'trial_report.md').read_text())
         result = build_report(self.directory, out, check_replay=True)
         self.assertEqual((result['darts'], result['problems']), (9, 1))
         self.assertTrue(result['replay_identical'])
