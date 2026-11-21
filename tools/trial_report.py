@@ -133,7 +133,7 @@ def table(header, rows):
     return '\n'.join(lines)
 
 
-def build_report(directory, out, relabel=False):
+def build_report(directory, out, relabel=False, check_replay=False):
     directory, out = Path(directory), Path(out)
     out.mkdir(parents=True, exist_ok=True)
     labels_path = directory / 'labels.jsonl'
@@ -143,7 +143,8 @@ def build_report(directory, out, relabel=False):
             for label in labels:
                 handle.write(json.dumps(label) + '\n')
     labels = read_jsonl(labels_path)
-    replayed = replay(directory)
+    # The replay only double-checks the recording (minutes for a long session): opt-in with --check-replay.
+    replayed = replay(directory, progress=True) if check_replay else None
 
     darts = scored(labels)
     flagged = [label for label in darts if label.get('detection_check')]
@@ -232,7 +233,7 @@ def build_report(directory, out, relabel=False):
               table(['name', 'value'], [(name, vision_tuning.current(name)) for name in vision_tuning.TUNABLE]), '']
     (out / 'trial_report.md').write_text('\n'.join(lines))
     return {'report': str(out / 'trial_report.md'), 'darts': len(darts), 'panels': panels, 'problems': len(entries),
-            'replay_identical': replayed['identical']}
+            'replay_identical': replayed['identical'] if replayed else None}
 
 
 def main(argv=None):
@@ -240,10 +241,14 @@ def main(argv=None):
     parser.add_argument('directory')
     parser.add_argument('--out', help='report folder (default: SESSION_DIR/report)')
     parser.add_argument('--relabel', action='store_true', help='rebuild labels.jsonl (discards hand fixes)')
+    parser.add_argument('--check-replay', action='store_true',
+                        help='also replay every frame through the detector to check the recording (slow)')
     args = parser.parse_args(argv)
-    result = build_report(args.directory, args.out or Path(args.directory) / 'report', args.relabel)
-    print(f"{result['report']}: {result['darts']} darts, {result['problems']} wrong or corrected, "
-          f"replay {'identical' if result['replay_identical'] else 'DIFFERS'}")
+    print(f'Making the report for {Path(args.directory).name} …', flush=True)
+    result = build_report(args.directory, args.out or Path(args.directory) / 'report', args.relabel, args.check_replay)
+    replay_note = ('' if result['replay_identical'] is None else
+                   ', replay ' + ('identical' if result['replay_identical'] else 'DIFFERS'))
+    print(f"Done. {result['report']}: {result['darts']} darts, {result['problems']} wrong or corrected{replay_note}")
     return result
 
 

@@ -164,7 +164,7 @@ class RecordedSession(unittest.TestCase):
         import cv2
         from tools.trial_report import build_report
         out = self.directory / 'report'
-        result = build_report(self.directory, out)
+        result = build_report(self.directory, out, check_replay=True)
         self.assertEqual((result['darts'], result['problems']), (9, 1))
         self.assertTrue(result['replay_identical'])
         text = (out / 'trial_report.md').read_text()

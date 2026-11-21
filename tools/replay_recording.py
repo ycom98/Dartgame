@@ -111,7 +111,7 @@ def recorded(record):
     return {'proposal': record['proposal'], 'pending': without_ids(record['pending'])}
 
 
-def replay(directory):
+def replay(directory, progress=False):
     directory = Path(directory)
     files = {record['seq']: record['file'] for record in read_jsonl(directory / 'frames.jsonl')}
     processed = read_jsonl(directory / 'processed.jsonl')
@@ -144,7 +144,9 @@ def replay(directory):
 
     run_actions_up_to(None)
     mismatches, missing = [], []
-    for record in processed:
+    for count, record in enumerate(processed, 1):
+        if progress and (count % 300 == 0 or count == len(processed)):
+            print(f'  replayed {count} of {len(processed)} frames', flush=True)
         seq = record['seq']
         if seq not in files:
             missing.append(seq)
